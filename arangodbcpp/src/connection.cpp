@@ -27,11 +27,15 @@ namespace arangodb
 namespace dbinterface
 {
 
-void Connection::setReady(bool bAsync)
+void Connection::setBuffer()
 {
 	curlpp::types::WriteFunctionFunctor functor(this
 		,&Connection::WriteMemoryCallback);
 	setOpt(curlpp::options::WriteFunction(functor));
+}
+
+void Connection::setReady(bool bAsync)
+{
 	m_buf.clear();
 	m_flgs = 0;
 	if (bAsync)
@@ -74,6 +78,12 @@ void Connection::syncDo()
 		errFound(e.what(),false);
 		return;
   }
+
+  catch ( curlpp::LibcurlRuntimeError &e)
+	{
+		errFound(e.what());
+		return;
+	}
   
   catch ( curlpp::RuntimeError & e ) 
 	{
@@ -136,6 +146,12 @@ void Connection::asyncDo()
 		return;
   }
   
+  catch ( curlpp::LibcurlRuntimeError &e)
+	{
+		errFound(e.what());
+		return;
+	}
+  
   catch ( curlpp::RuntimeError & e ) 
 	{
 		errFound(e.what());
@@ -148,6 +164,7 @@ void Connection::setPostField(const std::string &inp)
 	setOpt(curlpp::options::PostFields(inp));
 	setOpt(curlpp::options::PostFieldSize(inp.length()));
 }
+
 
 size_t Connection::WriteMemoryCallback( char *ptr, size_t size, size_t nmemb )
 {

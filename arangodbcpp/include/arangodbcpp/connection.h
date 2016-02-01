@@ -45,14 +45,18 @@ class Connection
 		typedef std::shared_ptr<Connection> SPtr;
 		typedef arangodb::velocypack::Buffer<uint8_t> VBuffer;
 		typedef std::shared_ptr<VBuffer> VPack;
+		typedef std::list<std::string> HeaderList;
 		typedef char ErrBuf[CURL_ERROR_SIZE];
 		Connection();
 		~Connection();
 		void setUrl(const std::string &inp);
 		void setErrBuf(char *inp);
 		void setPostField(const std::string &inp);
-		void setHeaderOpts(std::list<std::string> &inp);
+		void setHeaderOpts(HeaderList &inp);
+		void setCustomReq(const std::string inp);
+		void setVerbose(bool inp);
 		void reset();
+		void setBuffer();
 
 		const std::string getBufString() const;
 		VPack fromJSon(bool bSorted = true) const;
@@ -104,6 +108,16 @@ inline void Connection::setErrBuf(char *inp)
 	setOpt(cURLpp::options::ErrorBuffer(inp));
 }
 
+inline void Connection::setCustomReq(const std::string inp)
+{
+	setOpt(cURLpp::options::CustomRequest(inp));
+}
+
+inline void Connection::setVerbose(bool inp)
+{
+	setOpt(cURLpp::options::Verbose(inp));
+}
+
 inline bool Connection::isError() const
 {
 	if (m_flgs & (F_LogicError | F_RunError))
@@ -123,7 +137,7 @@ inline bool Connection::isRunning() const
 }
 
 
-inline void Connection::setHeaderOpts(std::list<std::string> &inp)
+inline void Connection::setHeaderOpts(HeaderList &inp)
 {
 	setOpt(curlpp::options::HttpHeader(inp));
 }
