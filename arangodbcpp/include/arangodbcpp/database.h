@@ -29,6 +29,7 @@ namespace dbinterface
 {
 
 class Server;
+class Collection;
 
 
 class Database
@@ -36,12 +37,13 @@ class Database
 	public:
 		typedef std::shared_ptr<Database> SPtr;
 		Database() = delete;
-		Database(std::shared_ptr<Server> srv, std::string name = "_system");
+		explicit Database(std::shared_ptr<Server> srv, std::string name = "_system");
 		~Database();
 		void httpCreate(Connection::SPtr conn, bool bAsync = false);
 		Connection::VPack httpCreate(bool bSort, Connection::SPtr conn);
 		void httpDrop(Connection::SPtr conn, bool bAsync = false);
 		Connection::VPack httpDrop(bool bSort, Connection::SPtr conn);
+		std::string getHttpDatabase() const;
 	private:
 		std::shared_ptr<Server> m_server;
 		std::string m_name;

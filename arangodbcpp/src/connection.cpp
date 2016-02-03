@@ -29,10 +29,16 @@ namespace dbinterface
 
 void Connection::setBuffer()
 {
-	curlpp::types::WriteFunctionFunctor functor(this
-		,&Connection::WriteMemoryCallback);
-	setOpt(curlpp::options::WriteFunction(functor));
+	setBuffer(this,&Connection::WriteMemoryCallback);
 }
+
+void Connection::setJsonContent()
+{
+	HeaderList headers;
+	headers.push_back("Content-Type: application/json");
+	setHeaderOpts(headers);
+}
+
 
 void Connection::setReady(bool bAsync)
 {
@@ -165,6 +171,11 @@ void Connection::setPostField(const std::string &inp)
 	setOpt(curlpp::options::PostFieldSize(inp.length()));
 }
 
+void Connection::setBuffer(size_t (*f)(char *p,size_t sz,size_t m) )
+{
+	curlpp::types::WriteFunctionFunctor fnc(f);
+	setOpt(curlpp::options::WriteFunction(fnc));
+}
 
 size_t Connection::WriteMemoryCallback( char *ptr, size_t size, size_t nmemb )
 {

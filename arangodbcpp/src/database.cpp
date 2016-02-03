@@ -18,6 +18,7 @@
 
 #include "arangodbcpp/server.h"
 #include "arangodbcpp/database.h"
+#include "arangodbcpp/collection.h"
 #include "arangodbcpp/connection.h"
 
 namespace arangodb
@@ -26,19 +27,28 @@ namespace arangodb
 namespace dbinterface
 {
 
-Database::Database(Server::SPtr srv, std::string name) : m_server(srv),m_name(name)
+Database::Database(Server::SPtr srv, std::string name) : m_server{srv},m_name(name)
 {
+}
+
+std::string Database::getHttpDatabase() const
+{
+	std::ostringstream os;
+	os << m_server->getHttpHost();
+	if (!m_name.empty())
+	{
+		os << "/_db/" << m_name;
+	}
+	return os.str();
 }
 
 void Database::httpCreate(Connection::SPtr p, bool bAsync)
 {
-	Connection::HeaderList headers;
 	std::ostringstream os;
 	Connection &conn = *p;
-	headers.push_back("Content-Type: application/json");
 	conn.reset();
-	conn.setHeaderOpts(headers);
-	os << m_server->getHost() << "/_api/database";
+	conn.setJsonContent();
+	os << m_server->getHttpHost() << "/_api/database";
 	conn.setUrl(os.str());
 	os.str("");
 	os << "{ \"name\":\"" << m_name << "\" }";
@@ -53,7 +63,7 @@ void Database::httpDrop(Connection::SPtr p, bool bAsync)
 	std::ostringstream os;
 	Connection &conn = *p;
 	conn.reset();
-	os << m_server->getHost() << "/_api/database/" << m_name;
+	os << m_server->getHttpHost() << "/_api/database/" << m_name;
 	conn.setUrl(os.str());
 	conn.setCustomReq("DELETE");
 	conn.setBuffer();

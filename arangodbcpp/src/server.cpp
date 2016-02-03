@@ -37,11 +37,6 @@ namespace dbinterface
 		}
 	}
 
-	Database::SPtr Server::createDatabase(std::string name)
-	{
-		return Database::SPtr(new Database(SPtr(this),name));
-	}
-
 	void Server::setHost(std::string url,uint16_t port)
 	{
 		std::ostringstream os;

@@ -30,10 +30,9 @@ namespace dbinterface
 			void httpExistingDbs(Connection::SPtr conn,bool bAsync);
 			Connection::VPack httpExistingDbs(bool bSort,Connection::SPtr conn);
 			void setHost(std::string url,uint16_t port);
-			const std::string &getHost() const;
+			const std::string &getHttpHost() const;
 			
 			static SPtr create();
-			std::shared_ptr<Database> createDatabase(std::string name = "_system");
 		private:
 			explicit Server();
 
@@ -62,7 +61,7 @@ namespace dbinterface
 	}
 
 
-	inline const std::string &Server::getHost() const
+	inline const std::string &Server::getHttpHost() const
 	{
 		return m_host;
 	}

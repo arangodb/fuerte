@@ -52,10 +52,14 @@ class Connection
 		void setUrl(const std::string &inp);
 		void setErrBuf(char *inp);
 		void setPostField(const std::string &inp);
+		void setJsonContent();
 		void setHeaderOpts(HeaderList &inp);
 		void setCustomReq(const std::string inp);
 		void setVerbose(bool inp);
 		void reset();
+		template <typename T>
+		void setBuffer(T *p,size_t (T::*f)(char *p,size_t sz,size_t m) );
+		void setBuffer(size_t (*f)(char *p,size_t sz,size_t m) );
 		void setBuffer();
 
 		const std::string getBufString() const;
@@ -87,6 +91,13 @@ class Connection
 		ChrBuf m_buf;
 		uint8_t m_flgs;
 };
+
+template <typename T>
+inline void Connection::setBuffer(T *p,size_t (T::*f)(char *,size_t,size_t) )
+{
+	curlpp::types::WriteFunctionFunctor functor(p,f);
+	setOpt(curlpp::options::WriteFunction(functor));
+}
 
 inline void Connection::doRun()
 {

@@ -3,6 +3,7 @@ set(arangodbcppSRCS
 	connection.cpp
 	server.cpp
 	database.cpp
+	collection.cpp
 	)
 
 set(arangodbcppLIBS
