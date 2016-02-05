@@ -18,6 +18,10 @@
 #include <velocypack/Slice.h>
 #include <velocypack/Parser.h>
 #include <velocypack/Builder.h>
+#include <velocypack/Sink.h>
+#include <velocypack/Dumper.h>
+
+#include <curlpp/Infos.hpp>
 
 #include "arangodbcpp/connection.h"
 
@@ -26,6 +30,22 @@ namespace arangodb
 	
 namespace dbinterface
 {
+
+std::string Connection::toJson(VPack &v,bool bSort)
+{
+	using arangodb::velocypack::Slice;
+	using arangodb::velocypack::Dumper;
+	using arangodb::velocypack::StringSink;
+	using arangodb::velocypack::Options;
+	Slice slice{ v->data() };
+	std::string tmp;
+	StringSink sink(&tmp);
+	Options opts;
+	opts.sortAttributeNames = bSort;
+	Dumper::dump(slice,&sink,&opts);
+	return tmp;
+}
+
 
 void Connection::setBuffer()
 {
@@ -72,6 +92,18 @@ void Connection::errFound(const std::string &inp,bool bRun)
 	m_flgs = bRun?F_RunError:F_LogicError;
 }
 
+void Connection::doRun()
+{
+	if (m_flgs & F_Multi)
+	{
+		asyncDo();
+	}
+	else
+	{
+		syncDo();
+	}
+}
+
 void Connection::syncDo()
 {
 	try
@@ -107,10 +139,16 @@ void Connection::asyncDo()
 			m_flgs |= F_Running;
 			if (!m_async.perform(&nLeft))
 			{
+				errFound("Asynchronous operation failed");
 				return;
 			}
 			if (!nLeft)
 			{
+				if (m_buf.empty())
+				{
+					errFound("Asynchronous operation failed");
+					return;
+				}
 				m_async.remove(&m_request);
 				m_flgs = F_Done;
 				return;
@@ -141,7 +179,7 @@ void Connection::asyncDo()
 			if (rc == -1)
 			{
 				m_async.remove(&m_request);
-				errFound("Select error");
+				errFound("Asynchronous select error");
 				return;
 			}
 		}

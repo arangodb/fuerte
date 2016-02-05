@@ -18,7 +18,7 @@
 #ifndef COLLECTION_H
 #define COLLECTION_H
 
-#include <memory>
+#include "arangodbcpp/connection.h"
 
 namespace arangodb
 {
@@ -40,6 +40,8 @@ namespace dbinterface
 			Connection::VPack httpCreate(bool bSort, Connection::SPtr conn);
 			void httpDelete(Connection::SPtr conn, bool bAsync = false);
 			Connection::VPack httpDelete(bool bSort, Connection::SPtr conn);
+			std::string createDocUrl();
+			std::string refDocUrl(std::string key);
 		private:
 			std::shared_ptr<Database> m_database;
 			std::string m_id;
@@ -54,7 +56,6 @@ namespace dbinterface
 	{
 		return conn->fromJSon(bSort);
 	}
-	
 
 }
 }

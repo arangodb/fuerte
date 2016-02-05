@@ -32,6 +32,22 @@ namespace dbinterface
 	Collection::~Collection()
 	{
 	}
+	
+	std::string Collection::createDocUrl()
+	{
+		std::ostringstream os;
+		os << m_database->getHttpDatabase() << "/_api/document";
+		os << "?collection=" << m_id;
+		return os.str();
+	}
+
+	std::string Collection::refDocUrl(std::string key)
+	{
+		std::ostringstream os;
+		os << m_database->getHttpDatabase();
+		os << "/_api/document/" << m_id << "/" << key;
+		return os.str();
+	}
 
 	void Collection::httpCreate(Connection::SPtr p, bool bAsync)
 	{
@@ -54,7 +70,7 @@ namespace dbinterface
 		std::ostringstream os;
 		conn.reset();
 		os << m_database->getHttpDatabase() << "/_api/collection/" << m_id;
-		conn.setCustomReq("DELETE");
+		conn.setDeleteReq();
 		conn.setUrl(os.str());
 		conn.setBuffer();
 		conn.setReady(bAsync);

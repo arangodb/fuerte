@@ -16,56 +16,57 @@
  */
 #include <sstream>
 
-#include "arangodbcpp/server.h"
 #include "arangodbcpp/database.h"
 #include "arangodbcpp/collection.h"
-#include "arangodbcpp/connection.h"
+#include "arangodbcpp/document.h"
 
 namespace arangodb
 {
-	
+
 namespace dbinterface
 {
 
-Database::Database(Server::SPtr srv, std::string name) : m_server{srv},m_name(name)
+Document::Document(std::string inp) : m_key(inp)
 {
+
 }
 
-std::string Database::getHttpDatabase() const
+Document::~Document()
 {
-	std::ostringstream os;
-	os << m_server->getHttpHost();
-	if (!m_name.empty())
-	{
-		os << "/_db/" << m_name;
-	}
-	return os.str();
+
 }
 
-void Database::httpCreate(Connection::SPtr p, bool bAsync)
+void Document::httpCreate(Collection::SPtr pCol,Connection::SPtr pCon,bool bAsync)
 {
+	Connection &conn = *pCon;
 	std::ostringstream os;
-	Connection &conn = *p;
 	conn.reset();
+	conn.setUrl( pCol->createDocUrl() );
+	os << "{ \"_key\":\"" << m_key << "\" }";
 	conn.setJsonContent();
-	os << m_server->getHttpHost() << "/_api/database";
-	conn.setUrl(os.str());
-	os.str("");
-	os << "{ \"name\":\"" << m_name << "\" }";
-	conn.setPostReq();
 	conn.setPostField(os.str());
+	conn.setPostReq();
 	conn.setBuffer();
 	conn.setReady(bAsync);
 }
 
-void Database::httpDrop(Connection::SPtr p, bool bAsync)
+void Document::httpDelete(Collection::SPtr pCol,Connection::SPtr pCon,bool bAsync)
 {
+	Connection &conn = *pCon;
 	std::ostringstream os;
-	Connection &conn = *p;
 	conn.reset();
-	os << m_server->getHttpHost() << "/_api/database/" << m_name;
-	conn.setUrl(os.str());
+	conn.setUrl( pCol->refDocUrl(m_key) );
 	conn.setDeleteReq();
+	conn.setBuffer();
+	conn.setReady(bAsync);
+}
+
+void Document::httpGet(Collection::SPtr pCol,Connection::SPtr pCon,bool bAsync)
+{
+	Connection &conn = *pCon;
+	std::ostringstream os;
+	conn.reset();
+	conn.setUrl( pCol->refDocUrl(m_key) );
 	conn.setBuffer();
 	conn.setReady(bAsync);
 }

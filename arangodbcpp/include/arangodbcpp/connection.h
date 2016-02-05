@@ -55,6 +55,8 @@ class Connection
 		void setJsonContent();
 		void setHeaderOpts(HeaderList &inp);
 		void setCustomReq(const std::string inp);
+		void setPostReq();
+		void setDeleteReq();
 		void setVerbose(bool inp);
 		void reset();
 		template <typename T>
@@ -64,6 +66,7 @@ class Connection
 
 		const std::string getBufString() const;
 		VPack fromJSon(bool bSorted = true) const;
+		static std::string toJson(VPack &v,bool bSort);
 		void setReady(bool bAsync = false);
 		void doRun();
 		bool isError() const;
@@ -99,19 +102,19 @@ inline void Connection::setBuffer(T *p,size_t (T::*f)(char *,size_t,size_t) )
 	setOpt(curlpp::options::WriteFunction(functor));
 }
 
-inline void Connection::doRun()
-{
-	if (m_flgs & F_Multi)
-	{
-		asyncDo();
-		return;
-	}
-	syncDo();
-}
-
 inline bool Connection::bufEmpty() const
 {
 	return m_buf.empty();
+}
+
+inline void Connection::setPostReq()
+{
+	setCustomReq("POST");
+}
+
+inline void Connection::setDeleteReq()
+{
+	setCustomReq("DELETE");
 }
 
 inline void Connection::setErrBuf(char *inp)

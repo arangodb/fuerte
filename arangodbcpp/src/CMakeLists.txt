@@ -4,6 +4,7 @@ set(arangodbcppSRCS
 	server.cpp
 	database.cpp
 	collection.cpp
+	document.cpp
 	)
 
 set(arangodbcppLIBS
