@@ -29,8 +29,8 @@ namespace dbinterface
 			Connection::VPack httpUserDbs(bool bSort,Connection::SPtr conn);
 			void httpExistingDbs(Connection::SPtr conn,bool bAsync);
 			Connection::VPack httpExistingDbs(bool bSort,Connection::SPtr conn);
-			void setHost(std::string url,uint16_t port);
-			const std::string &getHttpHost() const;
+			void setHostUrl(std::string url,uint16_t port);
+			const std::string &getHostUrl() const;
 			
 			static SPtr create();
 		private:
@@ -61,7 +61,7 @@ namespace dbinterface
 	}
 
 
-	inline const std::string &Server::getHttpHost() const
+	inline const std::string &Server::getHostUrl() const
 	{
 		return m_host;
 	}

@@ -36,6 +36,12 @@ Document::~Document()
 
 }
 
+/**
+
+	Configure to create a new empty document with the set key name at the Database/Collection
+	location determined by the pCol parameter 
+
+*/
 void Document::httpCreate(Collection::SPtr pCol,Connection::SPtr pCon,bool bAsync)
 {
 	Connection &conn = *pCon;
@@ -50,6 +56,12 @@ void Document::httpCreate(Collection::SPtr pCol,Connection::SPtr pCon,bool bAsyn
 	conn.setReady(bAsync);
 }
 
+/**
+
+	Configure to delete a document with the set key name in the Database/Collection
+	location determined by the pCol parameter
+
+*/
 void Document::httpDelete(Collection::SPtr pCol,Connection::SPtr pCon,bool bAsync)
 {
 	Connection &conn = *pCon;
@@ -61,6 +73,12 @@ void Document::httpDelete(Collection::SPtr pCol,Connection::SPtr pCon,bool bAsyn
 	conn.setReady(bAsync);
 }
 
+/**
+
+	Configure to get a document with the set key name in the Database/Collection
+	location determined by the pCol parameter
+
+*/
 void Document::httpGet(Collection::SPtr pCol,Connection::SPtr pCon,bool bAsync)
 {
 	Connection &conn = *pCon;

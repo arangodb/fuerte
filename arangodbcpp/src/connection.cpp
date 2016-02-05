@@ -59,7 +59,15 @@ void Connection::setJsonContent()
 	setHeaderOpts(headers);
 }
 
+/**
 
+	Clears the buffer that holds received data and
+	any error messages
+
+	Configures whether the next operation will be done
+	synchronously or asyncronously
+
+*/
 void Connection::setReady(bool bAsync)
 {
 	m_buf.clear();
@@ -81,6 +89,12 @@ void Connection::reset()
 	m_flgs = 0;
 }
 
+/**
+
+	Flags an error has occured and transfers the error message
+	to the default write buffer
+
+*/
 void Connection::errFound(const std::string &inp,bool bRun)
 {
 	if (m_flgs & F_Multi)
@@ -104,6 +118,11 @@ void Connection::doRun()
 	}
 }
 
+/**
+
+	Synchronous operation which will complete before returning
+
+*/
 void Connection::syncDo()
 {
 	try
@@ -130,6 +149,12 @@ void Connection::syncDo()
   }
 }
 
+/**
+
+	Asynchronous operation which may need to be run multiple times
+	before completing
+
+*/
 void Connection::asyncDo()
 {
 	try
@@ -209,12 +234,24 @@ void Connection::setPostField(const std::string &inp)
 	setOpt(curlpp::options::PostFieldSize(inp.length()));
 }
 
+/**
+
+	Sets the curlpp callback function that receives the data returned
+	from the operation performed
+
+*/
 void Connection::setBuffer(size_t (*f)(char *p,size_t sz,size_t m) )
 {
 	curlpp::types::WriteFunctionFunctor fnc(f);
 	setOpt(curlpp::options::WriteFunction(fnc));
 }
 
+/**
+
+	Curlpp callback function that receives the data returned
+	from the operation performed into the default write buffer
+
+*/
 size_t Connection::WriteMemoryCallback( char *ptr, size_t size, size_t nmemb )
 {
 	size_t realsize = size * nmemb;
@@ -229,6 +266,13 @@ size_t Connection::WriteMemoryCallback( char *ptr, size_t size, size_t nmemb )
 	return realsize;
 }
 
+/**
+
+	Converts the contents of the default write buffer to a string
+	
+	This should either be JSon or an error message
+
+*/ 
 const std::string Connection::getBufString() const
 {
 	std::string tmp;
@@ -236,6 +280,12 @@ const std::string Connection::getBufString() const
 	return tmp;
 }
 
+/**
+
+	Converts JSon held in the default write buffer
+	to a shared velocypack buffer
+
+*/
 Connection::VPack Connection::fromJSon(bool bSorted) const
 {
 	if (!m_buf.empty())

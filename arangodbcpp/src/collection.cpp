@@ -33,29 +33,47 @@ namespace dbinterface
 	{
 	}
 	
+	/**
+	
+		Creates the base url required for creating a Document in the
+		Database Collection configured
+	
+	*/
 	std::string Collection::createDocUrl()
 	{
 		std::ostringstream os;
-		os << m_database->getHttpDatabase() << "/_api/document";
+		os << m_database->getDatabaseUrl() << "/_api/document";
 		os << "?collection=" << m_id;
 		return os.str();
 	}
 
+	/**
+	
+		Creates the base url required to get and delete a Document in the
+		Database Collection configured using the key value passed in
+	
+	*/
 	std::string Collection::refDocUrl(std::string key)
 	{
 		std::ostringstream os;
-		os << m_database->getHttpDatabase();
+		os << m_database->getDatabaseUrl();
 		os << "/_api/document/" << m_id << "/" << key;
 		return os.str();
 	}
 
+	/**
+
+		Configure to create a Collection using the configured Database
+		and Collection name
+	
+	*/
 	void Collection::httpCreate(Connection::SPtr p, bool bAsync)
 	{
 		Connection &conn = *p;
 		std::ostringstream os;
 		conn.reset();
 		conn.setJsonContent();
-		os << m_database->getHttpDatabase() << "/_api/collection";
+		os << m_database->getDatabaseUrl() << "/_api/collection";
 		conn.setUrl(os.str());
 		os.str("");
 		os << "{ \"name\":\"" << m_id << "\" }";
@@ -64,12 +82,18 @@ namespace dbinterface
 		conn.setReady(bAsync);
 	}
 	
+	/**
+
+		Configure to delete a Collection using the configured Database
+		and Collection name
+	
+	*/
 	void Collection::httpDelete(Connection::SPtr p, bool bAsync)
 	{
 		Connection &conn = *p;
 		std::ostringstream os;
 		conn.reset();
-		os << m_database->getHttpDatabase() << "/_api/collection/" << m_id;
+		os << m_database->getDatabaseUrl() << "/_api/collection/" << m_id;
 		conn.setDeleteReq();
 		conn.setUrl(os.str());
 		conn.setBuffer();

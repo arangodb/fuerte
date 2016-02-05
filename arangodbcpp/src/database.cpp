@@ -31,10 +31,15 @@ Database::Database(Server::SPtr srv, std::string name) : m_server{srv},m_name(na
 {
 }
 
-std::string Database::getHttpDatabase() const
+/**
+
+	Get the core database url
+
+*/ 
+std::string Database::getDatabaseUrl() const
 {
 	std::ostringstream os;
-	os << m_server->getHttpHost();
+	os << m_server->getHostUrl();
 	if (!m_name.empty())
 	{
 		os << "/_db/" << m_name;
@@ -42,13 +47,18 @@ std::string Database::getHttpDatabase() const
 	return os.str();
 }
 
+/**
+
+	Configure to create a Database using the configured name
+
+*/
 void Database::httpCreate(Connection::SPtr p, bool bAsync)
 {
 	std::ostringstream os;
 	Connection &conn = *p;
 	conn.reset();
 	conn.setJsonContent();
-	os << m_server->getHttpHost() << "/_api/database";
+	os << m_server->getHostUrl() << "/_api/database";
 	conn.setUrl(os.str());
 	os.str("");
 	os << "{ \"name\":\"" << m_name << "\" }";
@@ -58,12 +68,17 @@ void Database::httpCreate(Connection::SPtr p, bool bAsync)
 	conn.setReady(bAsync);
 }
 
-void Database::httpDrop(Connection::SPtr p, bool bAsync)
+/**
+
+	Configure to drop a Database using the configured name
+
+*/
+void Database::httpDelete(Connection::SPtr p, bool bAsync)
 {
 	std::ostringstream os;
 	Connection &conn = *p;
 	conn.reset();
-	os << m_server->getHttpHost() << "/_api/database/" << m_name;
+	os << m_server->getHostUrl() << "/_api/database/" << m_name;
 	conn.setUrl(os.str());
 	conn.setDeleteReq();
 	conn.setBuffer();

@@ -41,9 +41,9 @@ class Database
 		~Database();
 		void httpCreate(Connection::SPtr conn, bool bAsync = false);
 		Connection::VPack httpCreate(bool bSort, Connection::SPtr conn);
-		void httpDrop(Connection::SPtr conn, bool bAsync = false);
-		Connection::VPack httpDrop(bool bSort, Connection::SPtr conn);
-		std::string getHttpDatabase() const;
+		void httpDelete(Connection::SPtr conn, bool bAsync = false);
+		Connection::VPack httpDelete(bool bSort, Connection::SPtr conn);
+		std::string getDatabaseUrl() const;
 	private:
 		std::shared_ptr<Server> m_server;
 		std::string m_name;
@@ -58,7 +58,7 @@ inline Connection::VPack Database::httpCreate(bool bSort, Connection::SPtr conn)
 	return conn->fromJSon(bSort);
 }
 
-inline Connection::VPack Database::httpDrop(bool bSort, Connection::SPtr conn)
+inline Connection::VPack Database::httpDelete(bool bSort, Connection::SPtr conn)
 {
 	return conn->fromJSon(bSort);
 }
