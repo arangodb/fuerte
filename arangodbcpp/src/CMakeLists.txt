@@ -1,10 +1,10 @@
 
 set(arangodbcppSRCS
-	connection.cpp
-	server.cpp
-	database.cpp
-	collection.cpp
-	document.cpp
+	Connection.cpp
+	Server.cpp
+	Database.cpp
+	Collection.cpp
+	Document.cpp
 	)
 
 set(arangodbcppLIBS

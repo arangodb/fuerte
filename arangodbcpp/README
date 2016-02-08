@@ -4,7 +4,7 @@ arangodbcpp library
 
 This library was developed in the following environment
 
-Fedora Linux 4.3.4-300.fc23.x86_64
+Fedora Linux 4.3.5-300.fc23.x86_64
 
 KDE Development Platform 4.14.16
 
@@ -42,6 +42,14 @@ To build the program successfully you may need to edit the the following file
 ~/src/CMakeLists.txt
 
 to ensure the velocypack, curl, and curlpp libraries are linked into the build
+
+
+VelocyPack source can be obtained from GitHub using the following git command into your chosen directory 
+
+git clone https://github.com/arangodb/velocypack
+
+After you have downloaded the source read the install.md file for build and install instructions
+
 
 See the following websites for the source, more info, and examples for curl and curlpp which
 should help you to understand how curlpp is used
