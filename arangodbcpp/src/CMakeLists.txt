@@ -1,4 +1,3 @@
-
 set(arangodbcppSRCS
 	Connection.cpp
 	Server.cpp

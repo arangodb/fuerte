@@ -29,55 +29,61 @@
 #include "arangodbcpp/Collection.h"
 #include "arangodbcpp/Connection.h"
 
-namespace arangodb {
+namespace arangodb
+{
 
-namespace dbinterface {
+namespace dbinterface
+{
 
 Database::Database(Server::SPtr srv, std::string name)
-    : _server{srv}, _name(name) {}
+	: _server{srv}, _name(name) {}
 
 //
 //	Get the core database url
 //
-std::string Database::getDatabaseUrl() const {
-  std::ostringstream os;
-  os << _server->hostUrl();
-  if (!_name.empty()) {
-    os << "/_db/" << _name;
-  }
-  return os.str();
+std::string Database::databaseUrl() const
+{
+	std::ostringstream os;
+	os << _server->hostUrl();
+	if (!_name.empty())
+	{
+		os << "/_db/" << _name;
+	}
+	return os.str();
 }
 
 //
 //	Configure to create a Database using the configured name
 //
-void Database::httpCreate(Connection::SPtr p, bool bAsync) {
-  std::ostringstream os;
-  Connection& conn = *p;
-  conn.reset();
-  conn.setJsonContent();
-  os << _server->hostUrl() << "/_api/database";
-  conn.setUrl(os.str());
-  os.str("");
-  os << "{ \"name\":\"" << _name << "\" }";
-  conn.setPostReq();
-  conn.setPostField(os.str());
-  conn.setBuffer();
-  conn.setReady(bAsync);
+void Database::httpCreate(Connection::SPtr p, bool bAsync)
+{
+	std::ostringstream os;
+	Connection &conn = *p;
+	conn.reset();
+	conn.setJsonContent();
+	os << _server->hostUrl() << "/_api/database";
+	conn.setUrl(os.str());
+	os.str("");
+	os << "{ \"name\":\"" << _name << "\" }";
+	conn.setPostReq();
+	conn.setPostField(os.str());
+	conn.setBuffer();
+	conn.setReady(bAsync);
 }
 
 //
 //	Configure to drop a Database using the configured name
 //
-void Database::httpDelete(Connection::SPtr p, bool bAsync) {
-  std::ostringstream os;
-  Connection& conn = *p;
-  conn.reset();
-  os << _server->hostUrl() << "/_api/database/" << _name;
-  conn.setUrl(os.str());
-  conn.setDeleteReq();
-  conn.setBuffer();
-  conn.setReady(bAsync);
+void Database::httpDelete(Connection::SPtr p, bool bAsync)
+{
+	std::ostringstream os;
+	Connection &conn = *p;
+	conn.reset();
+	os << _server->hostUrl() << "/_api/database/" << _name;
+	conn.setUrl(os.str());
+	conn.setDeleteReq();
+	conn.setBuffer();
+	conn.setReady(bAsync);
 }
 }
 }

@@ -31,57 +31,67 @@
 
 #include "arangodbcpp/Connection.h"
 
-namespace arangodb {
+namespace arangodb
+{
 
-namespace dbinterface {
+namespace dbinterface
+{
 
 class Database;
 
-class Server {
- public:
-  typedef std::shared_ptr<Server> SPtr;
-  ~Server();
-  void httpVersion(Connection::SPtr conn, bool bAsync);
-  Connection::VPack httpVersion(bool bSort, Connection::SPtr conn);
-  void httpCurrentDb(Connection::SPtr conn, bool bAsync);
-  Connection::VPack httpCurrentDb(bool bSort, Connection::SPtr conn);
-  void httpUserDbs(Connection::SPtr conn, bool bAsync);
-  Connection::VPack httpUserDbs(bool bSort, Connection::SPtr conn);
-  void httpExistingDbs(Connection::SPtr conn, bool bAsync);
-  Connection::VPack httpExistingDbs(bool bSort, Connection::SPtr conn);
-  void setHostUrl(std::string url, uint16_t port);
-  const std::string& hostUrl() const;
+class Server
+{
+	public:
+		typedef std::shared_ptr<Server> SPtr;
+		~Server();
+		void httpVersion(Connection::SPtr conn, bool bAsync);
+		Connection::VPack httpVersion(bool bSort, Connection::SPtr conn);
+		void httpCurrentDb(Connection::SPtr conn, bool bAsync);
+		Connection::VPack httpCurrentDb(bool bSort, Connection::SPtr conn);
+		void httpUserDbs(Connection::SPtr conn, bool bAsync);
+		Connection::VPack httpUserDbs(bool bSort, Connection::SPtr conn);
+		void httpExistingDbs(Connection::SPtr conn, bool bAsync);
+		Connection::VPack httpExistingDbs(bool bSort, Connection::SPtr conn);
+		void setHostUrl(std::string url, uint16_t port);
+		const std::string &hostUrl() const;
 
-  static SPtr create();
+		static SPtr create();
 
- private:
-  explicit Server();
+	private:
+		explicit Server();
 
-  static uint16_t _inst;
-  std::string _host;
+		static uint16_t _inst;
+		std::string _host;
 };
 
 inline Connection::VPack Server::httpVersion(bool bSort,
-                                             Connection::SPtr conn) {
-  return conn->fromJSon(bSort);
+		Connection::SPtr conn)
+{
+	return conn->fromJSon(bSort);
 }
 
 inline Connection::VPack Server::httpUserDbs(bool bSort,
-                                             Connection::SPtr conn) {
-  return conn->fromJSon(bSort);
+		Connection::SPtr conn)
+{
+	return conn->fromJSon(bSort);
 }
 
 inline Connection::VPack Server::httpCurrentDb(bool bSort,
-                                               Connection::SPtr conn) {
-  return conn->fromJSon(bSort);
+		Connection::SPtr conn)
+{
+	return conn->fromJSon(bSort);
 }
 
 inline Connection::VPack Server::httpExistingDbs(bool bSort,
-                                                 Connection::SPtr conn) {
-  return conn->fromJSon(bSort);
+		Connection::SPtr conn)
+{
+	return conn->fromJSon(bSort);
 }
 
-inline const std::string& Server::hostUrl() const { return _host; }
+inline const std::string &Server::hostUrl() const
+{
+	return _host;
+}
 }
 }
 

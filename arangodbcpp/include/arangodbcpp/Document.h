@@ -28,38 +28,55 @@
 #include "arangodbcpp/Connection.h"
 #include "arangodbcpp/Collection.h"
 
-namespace arangodb {
+namespace arangodb
+{
 
-namespace dbinterface {
+namespace dbinterface
+{
 
-class Document {
- public:
-  typedef std::shared_ptr<Document> SPtr;
-  Document(std::string name = "NewDoc");
-  ~Document();
-  void httpCreate(Collection::SPtr pCol, Connection::SPtr pCon, bool bAsync);
-  void httpDelete(Collection::SPtr pCol, Connection::SPtr pCon, bool bAsync);
-  void httpGet(Collection::SPtr pCol, Connection::SPtr pCon, bool bAsync);
-  Connection::VPack httpCreate(bool bSort, Connection::SPtr pCon);
-  Connection::VPack httpDelete(bool bSort, Connection::SPtr pCon);
-  Connection::VPack httpGet(bool bSort, Connection::SPtr pCon);
+class Document
+{
+	public:
+		typedef std::shared_ptr<Document> SPtr;
+		Document(std::string name = "NewDoc");
+		~Document();
+		void httpCreate(Collection::SPtr pCol, Connection::SPtr pCon, bool bAsync);
+		void httpDelete(Collection::SPtr pCol, Connection::SPtr pCon, bool bAsync);
+		void httpGet(Collection::SPtr pCol, Connection::SPtr pCon, bool bAsync);
+		void httpHead(Collection::SPtr pCol, Connection::SPtr pCon, bool bAsync);
+		void httpPatch(Collection::SPtr pCol, Connection::SPtr pCon, bool bAsync,
+					   Connection::VPack data);
+		Connection::VPack httpCreate(bool bSort, Connection::SPtr pCon);
+		Connection::VPack httpDelete(bool bSort, Connection::SPtr pCon);
+		Connection::VPack httpGet(bool bSort, Connection::SPtr pCon);
+		Connection::VPack httpHead(bool bSort, Connection::SPtr pCon);
+		Connection::VPack httpPatch(bool bSort, Connection::SPtr pCon);
 
- private:
-  std::string _key;
+	private:
+		std::string _key;
 };
 
 inline Connection::VPack Document::httpCreate(bool bSort,
-                                              Connection::SPtr pCon) {
-  return pCon->fromJSon(bSort);
+		Connection::SPtr pCon)
+{
+	return pCon->fromJSon(bSort);
 }
 
 inline Connection::VPack Document::httpDelete(bool bSort,
-                                              Connection::SPtr pCon) {
-  return pCon->fromJSon(bSort);
+		Connection::SPtr pCon)
+{
+	return pCon->fromJSon(bSort);
 }
 
-inline Connection::VPack Document::httpGet(bool bSort, Connection::SPtr pCon) {
-  return pCon->fromJSon(bSort);
+inline Connection::VPack Document::httpGet(bool bSort, Connection::SPtr pCon)
+{
+	return pCon->fromJSon(bSort);
+}
+
+inline Connection::VPack Document::httpPatch(bool bSort,
+		Connection::SPtr pCon)
+{
+	return pCon->fromJSon(bSort);
 }
 }
 }

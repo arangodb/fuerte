@@ -27,76 +27,83 @@
 #include "arangodbcpp/Database.h"
 #include "arangodbcpp/Collection.h"
 
-namespace arangodb {
+namespace arangodb
+{
 
-namespace dbinterface {
+namespace dbinterface
+{
 
 Collection::Collection(Database::SPtr db, std::string nm)
-    : _database(db), _id(nm) {}
+	: _database(db), _id(nm) {}
 
 Collection::~Collection() {}
 
-/**
-
-        Creates the base url required for creating a Document in the
-        Database Collection configured
-
-*/
-std::string Collection::createDocUrl() {
-  std::ostringstream os;
-  os << _database->getDatabaseUrl() << "/_api/document";
-  os << "?collection=" << _id;
-  return os.str();
+//
+//		Creates the base url required for creating a Document in the
+//		Database Collection configured
+//
+std::string Collection::createDocUrl()
+{
+	std::ostringstream os;
+	os << _database->databaseUrl() << "/_api/document";
+	if (!_id.empty())
+	{
+		os << "?collection=" << _id;
+	}
+	return os.str();
 }
 
-/**
-
-        Creates the base url required to get and delete a Document in the
-        Database Collection configured using the key value passed in
-
-*/
-std::string Collection::refDocUrl(std::string key) {
-  std::ostringstream os;
-  os << _database->getDatabaseUrl();
-  os << "/_api/document/" << _id << "/" << key;
-  return os.str();
+//
+//		Creates the base url required to get and delete a Document in
+// the
+//		Database Collection configured using the key value passed in
+//
+std::string Collection::refDocUrl(std::string key)
+{
+	std::ostringstream os;
+	os << _database->databaseUrl();
+	os << "/_api/document/";
+	if (!_id.empty())
+	{
+		os << _id << "/";
+	}
+	os << key;
+	return os.str();
 }
 
-/**
-
-        Configure to create a Collection using the configured Database
-        and Collection name
-
-*/
-void Collection::httpCreate(Connection::SPtr p, bool bAsync) {
-  Connection& conn = *p;
-  std::ostringstream os;
-  conn.reset();
-  conn.setJsonContent();
-  os << _database->getDatabaseUrl() << "/_api/collection";
-  conn.setUrl(os.str());
-  os.str("");
-  os << "{ \"name\":\"" << _id << "\" }";
-  conn.setPostField(os.str());
-  conn.setBuffer();
-  conn.setReady(bAsync);
+//
+//		Configure to create a Collection using the configured Database
+//		and Collection name
+//
+void Collection::httpCreate(Connection::SPtr p, bool bAsync)
+{
+	Connection &conn = *p;
+	std::ostringstream os;
+	conn.reset();
+	conn.setJsonContent();
+	os << _database->databaseUrl() << "/_api/collection";
+	conn.setUrl(os.str());
+	os.str("");
+	os << "{ \"name\":\"" << _id << "\" }";
+	conn.setPostField(os.str());
+	conn.setBuffer();
+	conn.setReady(bAsync);
 }
 
-/**
-
-        Configure to delete a Collection using the configured Database
-        and Collection name
-
-*/
-void Collection::httpDelete(Connection::SPtr p, bool bAsync) {
-  Connection& conn = *p;
-  std::ostringstream os;
-  conn.reset();
-  os << _database->getDatabaseUrl() << "/_api/collection/" << _id;
-  conn.setDeleteReq();
-  conn.setUrl(os.str());
-  conn.setBuffer();
-  conn.setReady(bAsync);
+//
+//		Configure to delete a Collection using the configured Database
+//		and Collection name
+//
+void Collection::httpDelete(Connection::SPtr p, bool bAsync)
+{
+	Connection &conn = *p;
+	std::ostringstream os;
+	conn.reset();
+	os << _database->databaseUrl() << "/_api/collection/" << _id;
+	conn.setDeleteReq();
+	conn.setUrl(os.str());
+	conn.setBuffer();
+	conn.setReady(bAsync);
 }
 }
 }
