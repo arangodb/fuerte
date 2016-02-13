@@ -33,14 +33,11 @@
 
 #include "arangodbcpp/Connection.h"
 
-namespace arangodb
-{
+namespace arangodb {
 
-namespace dbinterface
-{
+namespace dbinterface {
 
-std::string Connection::json(VPack &v, bool bSort)
-{
+std::string Connection::json(VPack& v, bool bSort) {
   using arangodb::velocypack::Slice;
   using arangodb::velocypack::Dumper;
   using arangodb::velocypack::StringSink;
@@ -54,18 +51,13 @@ std::string Connection::json(VPack &v, bool bSort)
   return tmp;
 }
 
-void Connection::setPostField(VPack data)
-{
-  setPostField(json(data, false));
-}
+void Connection::setPostField(VPack data) { setPostField(json(data, false)); }
 
-void Connection::setBuffer()
-{
+void Connection::setBuffer() {
   setBuffer(this, &Connection::WriteMemoryCallback);
 }
 
-void Connection::setJsonContent()
-{
+void Connection::setJsonContent() {
   HeaderList headers;
   headers.push_back("Content-Type: application/json");
   setHeaderOpts(headers);
@@ -78,21 +70,17 @@ void Connection::setJsonContent()
 //	Configures whether the next operation will be done
 //	synchronously or asyncronously
 //
-void Connection::setReady(bool bAsync)
-{
+void Connection::setReady(bool bAsync) {
   _buf.clear();
   _flgs = 0;
-  if (bAsync)
-  {
+  if (bAsync) {
     _flgs = F_Multi;
     _async.add(&_request);
   }
 }
 
-void Connection::reset()
-{
-  if (_flgs & F_Multi)
-  {
+void Connection::reset() {
+  if (_flgs & F_Multi) {
     _async.remove(&_request);
   }
   _request.reset();
@@ -103,10 +91,8 @@ void Connection::reset()
 //	Flags an error has occured and transfers the error message
 //	to the default write buffer
 //
-void Connection::errFound(const std::string &inp, bool bRun)
-{
-  if (_flgs & F_Multi)
-  {
+void Connection::errFound(const std::string& inp, bool bRun) {
+  if (_flgs & F_Multi) {
     _async.remove(&_request);
   }
   _buf.clear();
@@ -114,14 +100,10 @@ void Connection::errFound(const std::string &inp, bool bRun)
   _flgs = bRun ? F_RunError : F_LogicError;
 }
 
-void Connection::run()
-{
-  if (_flgs & F_Multi)
-  {
+void Connection::run() {
+  if (_flgs & F_Multi) {
     asyncRun();
-  }
-  else
-  {
+  } else {
     syncRun();
   }
 }
@@ -129,25 +111,17 @@ void Connection::run()
 //
 //	Synchronous operation which will complete before returning
 //
-void Connection::syncRun()
-{
-  try
-  {
+void Connection::syncRun() {
+  try {
     _request.perform();
     _flgs = F_Done;
-  }
-  catch (curlpp::LogicError &e)
-  {
+  } catch (curlpp::LogicError& e) {
     errFound(e.what(), false);
     return;
-  }
-  catch (curlpp::LibcurlRuntimeError &e)
-  {
+  } catch (curlpp::LibcurlRuntimeError& e) {
     errFound(e.what());
     return;
-  }
-  catch (curlpp::RuntimeError &e)
-  {
+  } catch (curlpp::RuntimeError& e) {
     errFound(e.what());
     return;
   }
@@ -157,22 +131,17 @@ void Connection::syncRun()
 //	Asynchronous operation which may need to be run multiple times
 //	before completing
 //
-void Connection::asyncRun()
-{
-  try
-  {
+void Connection::asyncRun() {
+  try {
     {
       int nLeft;
       _flgs |= F_Running;
-      if (!_async.perform(&nLeft))
-      {
+      if (!_async.perform(&nLeft)) {
         errFound("Asynchronous operation failed");
         return;
       }
-      if (!nLeft)
-      {
-        if (_buf.empty())
-        {
+      if (!nLeft) {
+        if (_buf.empty()) {
           errFound("Asynchronous operation failed");
           return;
         }
@@ -197,33 +166,25 @@ void Connection::asyncRun()
       // get file descriptors from the transfers
       _async.fdset(&fdread, &fdwrite, &fdexcep, &maxfd);
       rc = select(maxfd + 1, &fdread, &fdwrite, &fdexcep, &timeout);
-      if (rc == -1)
-      {
+      if (rc == -1) {
         _async.remove(&_request);
         errFound("Asynchronous select error");
         return;
       }
     }
-  }
-  catch (curlpp::LogicError &e)
-  {
+  } catch (curlpp::LogicError& e) {
     errFound(e.what(), false);
     return;
-  }
-  catch (curlpp::LibcurlRuntimeError &e)
-  {
+  } catch (curlpp::LibcurlRuntimeError& e) {
     errFound(e.what());
     return;
-  }
-  catch (curlpp::RuntimeError &e)
-  {
+  } catch (curlpp::RuntimeError& e) {
     errFound(e.what());
     return;
   }
 }
 
-void Connection::setPostField(const std::string &inp)
-{
+void Connection::setPostField(const std::string& inp) {
   setOpt(curlpp::options::PostFields(inp));
   setOpt(curlpp::options::PostFieldSize(inp.length()));
 }
@@ -232,8 +193,7 @@ void Connection::setPostField(const std::string &inp)
 //	Sets the curlpp callback function that receives the data returned
 //	from the operation performed
 //
-void Connection::setBuffer(size_t (*f)(char *p, size_t sz, size_t m))
-{
+void Connection::setBuffer(size_t (*f)(char* p, size_t sz, size_t m)) {
   curlpp::types::WriteFunctionFunctor fnc(f);
   setOpt(curlpp::options::WriteFunction(fnc));
 }
@@ -242,11 +202,9 @@ void Connection::setBuffer(size_t (*f)(char *p, size_t sz, size_t m))
 //	Curlpp callback function that receives the data returned
 //	from the operation performed into the default write buffer
 //
-size_t Connection::WriteMemoryCallback(char *ptr, size_t size, size_t nmemb)
-{
+size_t Connection::WriteMemoryCallback(char* ptr, size_t size, size_t nmemb) {
   size_t realsize = size * nmemb;
-  if (realsize != 0)
-  {
+  if (realsize != 0) {
     size_t offset = _buf.size();
     _buf.resize(offset + realsize);
     memcpy(&_buf[offset], ptr, realsize);
@@ -259,35 +217,32 @@ size_t Connection::WriteMemoryCallback(char *ptr, size_t size, size_t nmemb)
 //
 //	This should either be JSon or an error message
 //
-const std::string Connection::bufString() const
-{
+const std::string Connection::bufString() const {
   std::string tmp;
   tmp.insert(tmp.begin(), _buf.cbegin(), _buf.cend());
   return tmp;
 }
 
-Connection::VPack Connection::notProcessed() const
-{
+Connection::VPack Connection::notProcessed() const {
   using arangodb::velocypack::Builder;
   using arangodb::velocypack::Value;
   using arangodb::velocypack::ValueType;
   using arangodb::velocypack::Options;
   Builder b;
   b.add(Value(ValueType::Object));  // Start building an object
-  b.add("Result",Value("Not processed"));
+  b.add("Result", Value("Not processed"));
   b.close();  // Finish the object
   return b.steal();
 }
 
-Connection::VPack Connection::noHost() const
-{
+Connection::VPack Connection::noHost() const {
   using arangodb::velocypack::Builder;
   using arangodb::velocypack::Value;
   using arangodb::velocypack::ValueType;
   using arangodb::velocypack::Options;
   Builder b;
   b.add(Value(ValueType::Object));  // Start building an object
-  b.add("Error",Value("No host url"));
+  b.add("Error", Value("No host url"));
   b.close();  // Finish the object
   return b.steal();
 }
@@ -296,10 +251,8 @@ Connection::VPack Connection::noHost() const
 //	Converts JSon held in the default write buffer
 //	to a shared velocypack buffer
 //
-Connection::VPack Connection::fromJSon(bool bSorted) const
-{
-  if (!_buf.empty())
-  {
+Connection::VPack Connection::fromJSon(bool bSorted) const {
+  if (!_buf.empty()) {
     using arangodb::velocypack::Builder;
     using arangodb::velocypack::Parser;
     using arangodb::velocypack::Options;

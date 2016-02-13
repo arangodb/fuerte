@@ -27,50 +27,44 @@
 
 #include "arangodbcpp/Connection.h"
 
-namespace arangodb
-{
+namespace arangodb {
 
-namespace dbinterface
-{
+namespace dbinterface {
 
 class Database;
 
-class Collection
-{
-	public:
-		typedef std::shared_ptr<Collection> SPtr;
-		Collection() = delete;
-		explicit Collection(std::shared_ptr<Database> db,
-							std::string nm = "new-collection");
-		~Collection();
-		void httpCreate(Connection::SPtr conn, bool bAsync = false);
-		Connection::VPack httpCreate(bool bSort, Connection::SPtr conn);
-		void httpDelete(Connection::SPtr conn, bool bAsync = false);
-		Connection::VPack httpDelete(bool bSort, Connection::SPtr conn);
-		std::string createDocUrl();
-		std::string refDocUrl(std::string key);
-		bool hasValidHost() const;
+class Collection {
+ public:
+  typedef std::shared_ptr<Collection> SPtr;
+  Collection() = delete;
+  explicit Collection(std::shared_ptr<Database> db,
+                      std::string nm = "new-collection");
+  ~Collection();
+  void httpCreate(Connection::SPtr conn, bool bAsync = false);
+  Connection::VPack httpCreate(bool bSort, Connection::SPtr conn);
+  void httpDelete(Connection::SPtr conn, bool bAsync = false);
+  Connection::VPack httpDelete(bool bSort, Connection::SPtr conn);
+  std::string createDocUrl();
+  std::string refDocUrl(std::string key);
+  bool hasValidHost() const;
 
-	private:
-		std::shared_ptr<Database> _database;
-		std::string _id;
+ private:
+  std::shared_ptr<Database> _database;
+  std::string _id;
 };
 
 inline Connection::VPack Collection::httpCreate(bool bSort,
-		Connection::SPtr conn)
-{
-	return conn->fromJSon(bSort);
+                                                Connection::SPtr conn) {
+  return conn->fromJSon(bSort);
 }
 
 inline Connection::VPack Collection::httpDelete(bool bSort,
-		Connection::SPtr conn)
-{
-	return conn->fromJSon(bSort);
+                                                Connection::SPtr conn) {
+  return conn->fromJSon(bSort);
 }
 
-inline bool Collection::hasValidHost() const
-{
-	return _database->hasValidHost();
+inline bool Collection::hasValidHost() const {
+  return _database->hasValidHost();
 }
 }
 }
