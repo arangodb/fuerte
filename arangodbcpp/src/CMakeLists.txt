@@ -4,6 +4,7 @@ set(arangodbcppSRCS
 	Database.cpp
 	Collection.cpp
 	Document.cpp
+  DocOptions.cpp
 	)
 
 set(arangodbcppLIBS

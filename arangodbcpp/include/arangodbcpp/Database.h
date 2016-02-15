@@ -47,6 +47,9 @@ class Database {
   Connection::VPack httpDelete(bool bSort, Connection::SPtr conn);
   std::string databaseUrl() const;
   bool hasValidHost() const;
+  Database& operator=(const std::string&);
+  Database& operator=(std::string&&);
+  const std::string name() const;
 
  private:
   std::shared_ptr<Server> _server;
@@ -54,6 +57,18 @@ class Database {
 };
 
 inline Database::~Database() {}
+
+inline Database& Database::operator=(const std::string& inp) {
+  _name = inp;
+  return *this;
+}
+
+inline Database& Database::operator=(std::string&& inp) {
+  _name = inp;
+  return *this;
+}
+
+inline const std::string Database::name() const { return _name; }
 
 inline Connection::VPack Database::httpCreate(bool bSort,
                                               Connection::SPtr conn) {

@@ -31,8 +31,8 @@ namespace arangodb {
 
 namespace dbinterface {
 
-Collection::Collection(Database::SPtr db, std::string nm)
-    : _database(db), _id(nm) {}
+Collection::Collection(const Database::SPtr& db, const std::string& id)
+    : _database(db), _id(id) {}
 
 Collection::~Collection() {}
 
@@ -51,17 +51,18 @@ std::string Collection::createDocUrl() {
 
 //
 //		Creates the base url required to get and delete a Document in
-// the
-//		Database Collection configured using the key value passed in
+//		the Database Collection configured using the key value passed in
 //
 std::string Collection::refDocUrl(std::string key) {
   std::ostringstream os;
   os << _database->databaseUrl();
-  os << "/_api/document/";
+  os << "/_api/document";
   if (!_id.empty()) {
-    os << _id << "/";
+    os << "/" << _id;
   }
-  os << key;
+  if (!key.empty()) {
+    os << "/" << key;
+  }
   return os.str();
 }
 
@@ -71,9 +72,11 @@ std::string Collection::refDocUrl(std::string key) {
 //
 void Collection::httpCreate(Connection::SPtr p, bool bAsync) {
   Connection& conn = *p;
+  Connection::HttpHeaderList headers;
   std::ostringstream os;
   conn.reset();
-  conn.setJsonContent();
+  conn.setJsonContent(headers);
+  conn.setHeaderOpts(headers);
   os << _database->databaseUrl() << "/_api/collection";
   conn.setUrl(os.str());
   os.str("");

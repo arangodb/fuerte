@@ -46,7 +46,7 @@ class Connection {
   typedef std::shared_ptr<Connection> SPtr;
   typedef arangodb::velocypack::Buffer<uint8_t> VBuffer;
   typedef std::shared_ptr<VBuffer> VPack;
-  typedef std::list<std::string> HeaderList;
+  typedef std::list<std::string> HttpHeaderList;
   typedef char ErrBuf[CURL_ERROR_SIZE];
   Connection();
   ~Connection();
@@ -54,8 +54,8 @@ class Connection {
   void setErrBuf(char* inp);
   void setPostField(const std::string& inp);
   void setPostField(VPack data);
-  void setJsonContent();
-  void setHeaderOpts(HeaderList& inp);
+  void setJsonContent(HttpHeaderList& headers);
+  void setHeaderOpts(HttpHeaderList& inp);
   void setCustomReq(const std::string inp);
   void setPostReq();
   void setDeleteReq();
@@ -73,12 +73,14 @@ class Connection {
   VPack fromJSon(bool bSorted = true) const;
   VPack notProcessed() const;
   VPack noHost() const;
-  static std::string json(VPack& v, bool bSort);
   void setReady(bool bAsync = false);
   void run();
   bool isError() const;
   bool isRunning() const;
   bool bufEmpty() const;
+
+  static std::string json(VPack& v, bool bSort = false);
+  static std::string strValue(VPack res, std::string attrib);
 
  private:
   enum Flags {
@@ -149,7 +151,7 @@ inline bool Connection::isRunning() const {
   return false;
 }
 
-inline void Connection::setHeaderOpts(HeaderList& inp) {
+inline void Connection::setHeaderOpts(HttpHeaderList& inp) {
   setOpt(curlpp::options::HttpHeader(inp));
 }
 

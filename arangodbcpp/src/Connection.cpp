@@ -51,16 +51,36 @@ std::string Connection::json(VPack& v, bool bSort) {
   return tmp;
 }
 
+//
+//	Get string attribute if available
+//
+std::string Connection::strValue(VPack res, std::string attrib) {
+  using arangodb::velocypack::Slice;
+  using arangodb::velocypack::ValueType;
+  Slice slice{res->data()};
+  std::string ret;
+  slice = slice.get(attrib);
+  if (slice.type() == ValueType::String) {
+    ret = slice.toString();
+    ret = ret.substr(1, ret.length() - 2);
+  }
+  return ret;
+}
+
 void Connection::setPostField(VPack data) { setPostField(json(data, false)); }
 
+//
+//
+//
 void Connection::setBuffer() {
   setBuffer(this, &Connection::WriteMemoryCallback);
 }
 
-void Connection::setJsonContent() {
-  HeaderList headers;
+//
+//
+//
+void Connection::setJsonContent(HttpHeaderList& headers) {
   headers.push_back("Content-Type: application/json");
-  setHeaderOpts(headers);
 }
 
 //
@@ -69,6 +89,9 @@ void Connection::setJsonContent() {
 //
 //	Configures whether the next operation will be done
 //	synchronously or asyncronously
+//
+//	IMPORTANT
+//	This should be the last configuration item to be set
 //
 void Connection::setReady(bool bAsync) {
   _buf.clear();
@@ -114,6 +137,10 @@ void Connection::run() {
 void Connection::syncRun() {
   try {
     _request.perform();
+    if (_buf.empty()) {
+      errFound("Synchronous operation failed");
+      return;
+    }
     _flgs = F_Done;
   } catch (curlpp::LogicError& e) {
     errFound(e.what(), false);
@@ -167,7 +194,6 @@ void Connection::asyncRun() {
       _async.fdset(&fdread, &fdwrite, &fdexcep, &maxfd);
       rc = select(maxfd + 1, &fdread, &fdwrite, &fdexcep, &timeout);
       if (rc == -1) {
-        _async.remove(&_request);
         errFound("Asynchronous select error");
         return;
       }

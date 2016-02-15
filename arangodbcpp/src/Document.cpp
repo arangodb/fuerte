@@ -42,14 +42,16 @@ Document::~Document() {}
 // Database/Collection
 // location determined by the pCol parameter
 //
-void Document::httpCreate(Collection::SPtr pCol, Connection::SPtr pCon,
-                          bool bAsync) {
+void Document::httpCreate(const Collection::SPtr& pCol,
+                          const Connection::SPtr& pCon, bool bAsync) {
   Connection& conn = *pCon;
   std::ostringstream os;
+  Connection::HttpHeaderList headers;
   conn.reset();
   conn.setUrl(pCol->createDocUrl());
   os << "{ \"_key\":\"" << _key << "\" }";
-  conn.setJsonContent();
+  conn.setJsonContent(headers);
+  conn.setHeaderOpts(headers);
   conn.setPostField(os.str());
   conn.setPostReq();
   conn.setBuffer();
@@ -61,8 +63,8 @@ void Document::httpCreate(Collection::SPtr pCol, Connection::SPtr pCon,
 //	Database/Collection
 //	location determined by the pCol parameter
 //
-void Document::httpDelete(Collection::SPtr pCol, Connection::SPtr pCon,
-                          bool bAsync) {
+void Document::httpDelete(const Collection::SPtr& pCol,
+                          const Connection::SPtr& pCon, bool bAsync) {
   Connection& conn = *pCon;
   std::ostringstream os;
   conn.reset();
@@ -72,24 +74,49 @@ void Document::httpDelete(Collection::SPtr pCol, Connection::SPtr pCon,
   conn.setReady(bAsync);
 }
 
-//
-//  Configure to get a document with the set key name in the
-//		Database/Collection
-//
-//		location determined by the pCol parameter
-//
-void Document::httpGet(Collection::SPtr pCol, Connection::SPtr pCon,
-                       bool bAsync) {
-  Connection& conn = *pCon;
+void Document::httpMatchOpts(Connection::HttpHeaderList& headers,
+                             const DocOptions& opts) {
   std::ostringstream os;
-  conn.reset();
-  conn.setUrl(pCol->refDocUrl(_key));
-  conn.setBuffer();
-  conn.setReady(bAsync);
+  const uint16_t match = opts.opts() & DocOptions::Opt_MatchMask;
+  switch (match) {
+    default: { return; }
+    case DocOptions::Opt_MatchRev: {
+      os << "If";
+      break;
+    }
+    case DocOptions::Opt_NoneMatchRev: {
+      os << "If-None";
+      break;
+    }
+  }
+  os << "-Match:\"" << opts.eTag() << "\"";
+  headers.push_back(os.str());
 }
 
-void Document::httpPatch(Collection::SPtr pCol, Connection::SPtr pCon,
-                         bool bAsync, Connection::VPack data) {
+//
+//  Configure to get a document with the set key name in the
+//	Database/Collection with options
+//
+//	location determined by the pCol parameter
+//
+void Document::httpGet(const Collection::SPtr& pCol,
+                       const Connection::SPtr& pCon, const DocOptions& opts) {
+  Connection& conn = *pCon;
+  const uint16_t flgs = opts.opts();
+  conn.reset();
+  conn.setUrl(pCol->refDocUrl(_key));
+  if (!opts.eTag().empty()) {
+    Connection::HttpHeaderList headers;
+    httpMatchOpts(headers, opts);
+    conn.setHeaderOpts(headers);
+  }
+  conn.setBuffer();
+  conn.setReady((flgs & DocOptions::Opt_RunAsync) != 0);
+}
+
+void Document::httpPatch(const Collection::SPtr& pCol,
+                         const Connection::SPtr& pCon, bool bAsync,
+                         Connection::VPack data) {
   Connection& conn = *pCon;
   std::ostringstream os;
   conn.reset();
@@ -100,7 +127,7 @@ void Document::httpPatch(Collection::SPtr pCol, Connection::SPtr pCon,
   conn.setReady(bAsync);
 }
 
-Connection::VPack Document::httpHead(bool bSort, Connection::SPtr pCon) {
+Connection::VPack Document::httpHead(bool bSort, const Connection::SPtr& pCon) {
   namespace VTest = arangodb::velocypack;
   using VTest::ValueType;
   using VTest::Value;
@@ -121,7 +148,7 @@ Connection::VPack Document::httpHead(bool bSort, Connection::SPtr pCon) {
       return;
     }
     if (value[0] == '"') {
-      split = value.find_first_of('"', 1);
+      split = value.rfind('"');
       value = value.substr(1, split - 1);
     }
     build.add(name, Value(value));
@@ -149,8 +176,8 @@ Connection::VPack Document::httpHead(bool bSort, Connection::SPtr pCon) {
   return build.steal();
 }
 
-void Document::httpHead(Collection::SPtr pCol, Connection::SPtr pCon,
-                        bool bAsync) {
+void Document::httpHead(const Collection::SPtr& pCol,
+                        const Connection::SPtr& pCon, bool bAsync) {
   Connection& conn = *pCon;
   std::ostringstream os;
   conn.reset();

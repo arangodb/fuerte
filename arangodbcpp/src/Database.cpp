@@ -54,8 +54,10 @@ std::string Database::databaseUrl() const {
 void Database::httpCreate(Connection::SPtr p, bool bAsync) {
   std::ostringstream os;
   Connection& conn = *p;
+  Connection::HttpHeaderList headers;
   conn.reset();
-  conn.setJsonContent();
+  conn.setJsonContent(headers);
+  conn.setHeaderOpts(headers);
   os << _server->hostUrl() << "/_api/database";
   conn.setUrl(os.str());
   os.str("");

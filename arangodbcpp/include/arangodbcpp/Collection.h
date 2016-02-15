@@ -37,8 +37,8 @@ class Collection {
  public:
   typedef std::shared_ptr<Collection> SPtr;
   Collection() = delete;
-  explicit Collection(std::shared_ptr<Database> db,
-                      std::string nm = "new-collection");
+  explicit Collection(const std::shared_ptr<Database>& db,
+                      const std::string& id = "new-collection");
   ~Collection();
   void httpCreate(Connection::SPtr conn, bool bAsync = false);
   Connection::VPack httpCreate(bool bSort, Connection::SPtr conn);
@@ -47,11 +47,26 @@ class Collection {
   std::string createDocUrl();
   std::string refDocUrl(std::string key);
   bool hasValidHost() const;
+  Collection& operator=(const std::string&);
+  Collection& operator=(std::string&&);
+  const std::string id() const;
 
  private:
   std::shared_ptr<Database> _database;
   std::string _id;
 };
+
+inline Collection& Collection::operator=(const std::string& inp) {
+  _id = inp;
+  return *this;
+}
+
+inline Collection& Collection::operator=(std::string&& inp) {
+  _id = inp;
+  return *this;
+}
+
+inline const std::string Collection::id() const { return _id; }
 
 inline Connection::VPack Collection::httpCreate(bool bSort,
                                                 Connection::SPtr conn) {
