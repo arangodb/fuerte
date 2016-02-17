@@ -28,6 +28,7 @@
 #include <memory>
 
 #include "arangodbcpp/Connection.h"
+#include "arangodbcpp/Collection.h"
 
 namespace arangodb {
 
@@ -41,10 +42,15 @@ class Database {
   Database() = delete;
   explicit Database(std::shared_ptr<Server> srv, std::string name = "_system");
   ~Database();
-  void httpCreate(Connection::SPtr conn, bool bAsync = false);
-  Connection::VPack httpCreate(bool bSort, Connection::SPtr conn);
-  void httpDelete(Connection::SPtr conn, bool bAsync = false);
-  Connection::VPack httpDelete(bool bSort, Connection::SPtr conn);
+  void httpCreateCollection(const Connection::SPtr p,
+                            const Collection::Options opts,
+                            const Connection::VPack body);
+  Connection::VPack httpCreateCollection(bool bSort,
+                                         const Connection::SPtr conn);
+  void httpCreate(const Connection::SPtr conn, bool bAsync = false);
+  Connection::VPack httpCreate(bool bSort, const Connection::SPtr conn);
+  void httpDelete(const Connection::SPtr conn, bool bAsync = false);
+  Connection::VPack httpDelete(bool bSort, const Connection::SPtr conn);
   std::string databaseUrl() const;
   bool hasValidHost() const;
   Database& operator=(const std::string&);
@@ -70,13 +76,18 @@ inline Database& Database::operator=(std::string&& inp) {
 
 inline const std::string Database::name() const { return _name; }
 
+inline Connection::VPack Database::httpCreateCollection(
+    bool bSort, const Connection::SPtr conn) {
+  return conn->fromJSon(bSort);
+}
+
 inline Connection::VPack Database::httpCreate(bool bSort,
-                                              Connection::SPtr conn) {
+                                              const Connection::SPtr conn) {
   return conn->fromJSon(bSort);
 }
 
 inline Connection::VPack Database::httpDelete(bool bSort,
-                                              Connection::SPtr conn) {
+                                              const Connection::SPtr conn) {
   return conn->fromJSon(bSort);
 }
 

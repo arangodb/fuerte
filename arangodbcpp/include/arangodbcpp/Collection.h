@@ -26,6 +26,7 @@
 #define COLLECTION_H
 
 #include "arangodbcpp/Connection.h"
+#include "arangodbcpp/DocOptions.h"
 
 namespace arangodb {
 
@@ -35,16 +36,33 @@ class Database;
 
 class Collection {
  public:
+  typedef uint16_t Options;
   typedef std::shared_ptr<Collection> SPtr;
+  enum {
+    Opt_Defaults = 0,
+    Opt_RunSync = 0,
+    Opt_RunAsync = 1,
+    Opt_ListPath = 0,
+    Opt_ListId = 2,
+    Opt_ListKey = 4,
+    Opt_ListMask = Opt_ListId | Opt_ListKey
+  };
   Collection() = delete;
   explicit Collection(const std::shared_ptr<Database>& db,
-                      const std::string& id = "new-collection");
+                      const std::string& id);
+  explicit Collection(const std::shared_ptr<Database>& db,
+                      std::string&& id = "new-collection");
   ~Collection();
-  void httpCreate(Connection::SPtr conn, bool bAsync = false);
-  Connection::VPack httpCreate(bool bSort, Connection::SPtr conn);
-  void httpDelete(Connection::SPtr conn, bool bAsync = false);
-  Connection::VPack httpDelete(bool bSort, Connection::SPtr conn);
-  std::string createDocUrl();
+  void httpCreateDoc(const Connection::SPtr p, const DocOptions& opts,
+                     const Connection::VPack data);
+  Connection::VPack httpCreateDoc(bool bSort, const Connection::SPtr conn);
+  void httpCreate(const Connection::SPtr conn, const Options = Opt_Defaults);
+  Connection::VPack httpCreate(bool bSort, const Connection::SPtr conn);
+  void httpDocs(const Connection::SPtr conn, const Options = Opt_Defaults);
+  Connection::VPack httpDocs(bool bSort, const Connection::SPtr conn);
+  void httpDelete(const Connection::SPtr conn, const Options = Opt_Defaults);
+  Connection::VPack httpDelete(bool bSort, const Connection::SPtr conn);
+  std::string selectUrl();
   std::string refDocUrl(std::string key);
   bool hasValidHost() const;
   Collection& operator=(const std::string&);
@@ -69,17 +87,23 @@ inline Collection& Collection::operator=(std::string&& inp) {
 inline const std::string Collection::id() const { return _id; }
 
 inline Connection::VPack Collection::httpCreate(bool bSort,
-                                                Connection::SPtr conn) {
+                                                const Connection::SPtr conn) {
+  return conn->fromJSon(bSort);
+}
+
+inline Connection::VPack Collection::httpCreateDoc(
+    bool bSort, const Connection::SPtr conn) {
   return conn->fromJSon(bSort);
 }
 
 inline Connection::VPack Collection::httpDelete(bool bSort,
-                                                Connection::SPtr conn) {
+                                                const Connection::SPtr conn) {
   return conn->fromJSon(bSort);
 }
 
-inline bool Collection::hasValidHost() const {
-  return _database->hasValidHost();
+inline Connection::VPack Collection::httpDocs(bool bSort,
+                                              const Connection::SPtr conn) {
+  return conn->fromJSon(bSort);
 }
 }
 }

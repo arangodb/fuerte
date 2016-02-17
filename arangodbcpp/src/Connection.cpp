@@ -37,7 +37,7 @@ namespace arangodb {
 
 namespace dbinterface {
 
-std::string Connection::json(VPack& v, bool bSort) {
+std::string Connection::json(const VPack& v, bool bSort) {
   using arangodb::velocypack::Slice;
   using arangodb::velocypack::Dumper;
   using arangodb::velocypack::StringSink;
@@ -54,7 +54,7 @@ std::string Connection::json(VPack& v, bool bSort) {
 //
 //	Get string attribute if available
 //
-std::string Connection::strValue(VPack res, std::string attrib) {
+std::string Connection::strValue(const VPack res, std::string attrib) {
   using arangodb::velocypack::Slice;
   using arangodb::velocypack::ValueType;
   Slice slice{res->data()};
@@ -67,7 +67,13 @@ std::string Connection::strValue(VPack res, std::string attrib) {
   return ret;
 }
 
-void Connection::setPostField(VPack data) { setPostField(json(data, false)); }
+void Connection::setPostField(const VPack data) {
+  std::string field{"{}"};
+  if (data.get() != nullptr) {
+    field = json(data, false);
+  }
+  setPostField(field);
+}
 
 //
 //
@@ -97,7 +103,7 @@ void Connection::setReady(bool bAsync) {
   _buf.clear();
   _flgs = 0;
   if (bAsync) {
-    _flgs = F_Multi;
+    _flgs = F_Multi | F_Running;
     _async.add(&_request);
   }
 }
@@ -162,7 +168,6 @@ void Connection::asyncRun() {
   try {
     {
       int nLeft;
-      _flgs |= F_Running;
       if (!_async.perform(&nLeft)) {
         errFound("Asynchronous operation failed");
         return;
@@ -179,7 +184,7 @@ void Connection::asyncRun() {
     }
     {
       struct timeval timeout;
-      int rc; /* select() return code */
+      int rc;  // select() return code
       fd_set fdread;
       fd_set fdwrite;
       fd_set fdexcep;

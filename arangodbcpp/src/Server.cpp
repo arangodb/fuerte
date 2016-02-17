@@ -67,10 +67,9 @@ void Server::setHostUrl(std::string url, uint16_t port) {
 //
 void Server::httpVersion(Connection::SPtr p, bool bAsync) {
   Connection& conn = *p;
-  std::ostringstream os;
-  os << _host << "/_api/version";
+  std::string url{_host + "/_api/version"};
   conn.reset();
-  conn.setUrl(os.str());
+  conn.setUrl(url);
   conn.setBuffer();
   conn.setReady(bAsync);
 }
@@ -80,10 +79,9 @@ void Server::httpVersion(Connection::SPtr p, bool bAsync) {
 //
 void Server::httpCurrentDb(Connection::SPtr p, bool bAsync) {
   Connection& conn = *p;
-  std::ostringstream os;
-  os << _host << "/_api/database/current";
+  std::string url{_host + "/_api/database/current"};
   conn.reset();
-  conn.setUrl(os.str());
+  conn.setUrl(url);
   conn.setBuffer();
   conn.setReady(bAsync);
 }
@@ -93,10 +91,9 @@ void Server::httpCurrentDb(Connection::SPtr p, bool bAsync) {
 //
 void Server::httpUserDbs(Connection::SPtr p, bool bAsync) {
   Connection& conn = *p;
-  std::ostringstream os;
-  os << _host << "/_api/database/user";
+  std::string url{_host + "/_api/database/user"};
   conn.reset();
-  conn.setUrl(os.str());
+  conn.setUrl(url);
   conn.setBuffer();
   conn.setReady(bAsync);
 }
@@ -106,10 +103,9 @@ void Server::httpUserDbs(Connection::SPtr p, bool bAsync) {
 //
 void Server::httpExistingDbs(Connection::SPtr p, bool bAsync) {
   Connection& conn = *p;
-  std::ostringstream os;
-  os << _host << "/_api/database";
+  std::string url{_host + "/_api/database"};
   conn.reset();
-  conn.setUrl(os.str());
+  conn.setUrl(url);
   conn.setBuffer();
   conn.setReady(bAsync);
 }

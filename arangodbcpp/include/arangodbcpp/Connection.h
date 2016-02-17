@@ -53,7 +53,7 @@ class Connection {
   void setUrl(const std::string& inp);
   void setErrBuf(char* inp);
   void setPostField(const std::string& inp);
-  void setPostField(VPack data);
+  void setPostField(const VPack data);
   void setJsonContent(HttpHeaderList& headers);
   void setHeaderOpts(HttpHeaderList& inp);
   void setCustomReq(const std::string inp);
@@ -61,6 +61,7 @@ class Connection {
   void setDeleteReq();
   void setHeadReq();
   void setGetReq();
+  void setPutReq();
   void setPatchReq();
   void setVerbose(bool inp);
   void reset();
@@ -79,8 +80,8 @@ class Connection {
   bool isRunning() const;
   bool bufEmpty() const;
 
-  static std::string json(VPack& v, bool bSort = false);
-  static std::string strValue(VPack res, std::string attrib);
+  static std::string json(const VPack& v, bool bSort = false);
+  static std::string strValue(const VPack res, std::string attrib);
 
  private:
   enum Flags {
@@ -124,6 +125,8 @@ inline void Connection::setHeadReq() {
 inline void Connection::setGetReq() { setCustomReq("GET"); }
 
 inline void Connection::setPatchReq() { setCustomReq("PATCH"); }
+
+inline void Connection::setPutReq() { setCustomReq("PUT"); }
 
 inline void Connection::setErrBuf(char* inp) {
   setOpt(cURLpp::options::ErrorBuffer(inp));

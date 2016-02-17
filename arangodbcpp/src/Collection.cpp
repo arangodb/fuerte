@@ -22,8 +22,6 @@
 /// @author John Bufton
 /// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
-#include <sstream>
-
 #include "arangodbcpp/Database.h"
 #include "arangodbcpp/Collection.h"
 
@@ -34,71 +32,106 @@ namespace dbinterface {
 Collection::Collection(const Database::SPtr& db, const std::string& id)
     : _database(db), _id(id) {}
 
+Collection::Collection(const Database::SPtr& db, std::string&& id)
+    : _database(db), _id(id) {}
+
 Collection::~Collection() {}
 
 //
-//		Creates the base url required for creating a Document in the
-//		Database Collection configured
+//	Creates the base url required for selecting this collection
+//  for various Document operations
 //
-std::string Collection::createDocUrl() {
-  std::ostringstream os;
-  os << _database->databaseUrl() << "/_api/document";
+std::string Collection::selectUrl() {
+  std::string url{_database->databaseUrl()};
+  url += "/_api/document";
   if (!_id.empty()) {
-    os << "?collection=" << _id;
+    url += "?collection=" + _id;
   }
-  return os.str();
+  return url;
 }
+
+bool Collection::hasValidHost() const { return _database->hasValidHost(); }
 
 //
 //		Creates the base url required to get and delete a Document in
 //		the Database Collection configured using the key value passed in
 //
 std::string Collection::refDocUrl(std::string key) {
-  std::ostringstream os;
-  os << _database->databaseUrl();
-  os << "/_api/document";
+  std::string url{_database->databaseUrl() + "/_api/document"};
   if (!_id.empty()) {
-    os << "/" << _id;
+    url += "/" + _id;
   }
   if (!key.empty()) {
-    os << "/" << key;
+    url += "/" + key;
   }
-  return os.str();
+  return url;
+}
+
+void Collection::httpDocs(const Connection::SPtr p, const Options opts) {
+  Connection& conn = *p;
+  std::string url{selectUrl()};
+  conn.reset();
+  switch (opts & Opt_ListMask) {
+    case Opt_ListId: {
+      url += "&type=id";
+      break;
+    }
+    case Opt_ListKey: {
+      url += "&type=key";
+      break;
+    }
+    default:;
+  }
+  conn.setUrl(url);
+  conn.setBuffer();
+  conn.setReady((opts & Opt_RunAsync) != 0);
+}
+
+void Collection::httpCreateDoc(const Connection::SPtr p, const DocOptions& opts,
+                               const Connection::VPack data) {
+  Connection& conn = *p;
+  Connection::HttpHeaderList headers;
+  conn.reset();
+  conn.setUrl(selectUrl());
+  conn.setJsonContent(headers);
+  conn.setHeaderOpts(headers);
+  conn.setPostField(data);
+  conn.setPostReq();
+  conn.setBuffer();
+  conn.setReady((opts.opts() & DocOptions::Opt_RunAsync) != 0);
 }
 
 //
-//		Configure to create a Collection using the configured Database
+//		Configure to create an empty Collection using the configured
+//Database
 //		and Collection name
 //
-void Collection::httpCreate(Connection::SPtr p, bool bAsync) {
+void Collection::httpCreate(const Connection::SPtr p, const Options opts) {
   Connection& conn = *p;
   Connection::HttpHeaderList headers;
-  std::ostringstream os;
+  std::string val{_database->databaseUrl() + "/_api/collection"};
   conn.reset();
   conn.setJsonContent(headers);
   conn.setHeaderOpts(headers);
-  os << _database->databaseUrl() << "/_api/collection";
-  conn.setUrl(os.str());
-  os.str("");
-  os << "{ \"name\":\"" << _id << "\" }";
-  conn.setPostField(os.str());
+  conn.setUrl(val);
+  val = "{ \"name\":\"" + _id + "\" }";
+  conn.setPostField(val);
   conn.setBuffer();
-  conn.setReady(bAsync);
+  conn.setReady((opts & Opt_RunAsync) != 0);
 }
 
 //
 //		Configure to delete a Collection using the configured Database
 //		and Collection name
 //
-void Collection::httpDelete(Connection::SPtr p, bool bAsync) {
+void Collection::httpDelete(const Connection::SPtr p, const Options opts) {
   Connection& conn = *p;
-  std::ostringstream os;
+  std::string url{_database->databaseUrl() + "/_api/collection/" + _id};
   conn.reset();
-  os << _database->databaseUrl() << "/_api/collection/" << _id;
   conn.setDeleteReq();
-  conn.setUrl(os.str());
+  conn.setUrl(url);
   conn.setBuffer();
-  conn.setReady(bAsync);
+  conn.setReady((opts & Opt_RunAsync) != 0);
 }
 }
 }

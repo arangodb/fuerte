@@ -26,8 +26,6 @@
 
 #include "arangodbcpp/Server.h"
 #include "arangodbcpp/Database.h"
-#include "arangodbcpp/Collection.h"
-#include "arangodbcpp/Connection.h"
 
 namespace arangodb {
 
@@ -40,30 +38,42 @@ Database::Database(Server::SPtr srv, std::string name)
 //	Get the core database url
 //
 std::string Database::databaseUrl() const {
-  std::ostringstream os;
-  os << _server->hostUrl();
+  std::string url{_server->hostUrl()};
   if (!_name.empty()) {
-    os << "/_db/" << _name;
+    url += "/_db/" + _name;
   }
-  return os.str();
+  return url;
 }
 
-//
-//	Configure to create a Database using the configured name
-//
-void Database::httpCreate(Connection::SPtr p, bool bAsync) {
-  std::ostringstream os;
+void Database::httpCreateCollection(const Connection::SPtr p,
+                                    const Collection::Options opts,
+                                    const Connection::VPack body) {
+  std::string val{databaseUrl() + "/_api/collection"};
   Connection& conn = *p;
   Connection::HttpHeaderList headers;
   conn.reset();
   conn.setJsonContent(headers);
   conn.setHeaderOpts(headers);
-  os << _server->hostUrl() << "/_api/database";
-  conn.setUrl(os.str());
-  os.str("");
-  os << "{ \"name\":\"" << _name << "\" }";
+  conn.setUrl(val);
+  conn.setPostField(body);
+  conn.setBuffer();
+  conn.setReady((opts & Collection::Opt_RunAsync) != 0);
+}
+
+//
+//	Configure to create a Database using the configured name
+//
+void Database::httpCreate(const Connection::SPtr p, bool bAsync) {
+  std::string val{_server->hostUrl() + "/_api/database"};
+  Connection& conn = *p;
+  Connection::HttpHeaderList headers;
+  conn.reset();
+  conn.setJsonContent(headers);
+  conn.setHeaderOpts(headers);
+  conn.setUrl(val);
+  val = "{ \"name\":\"" + _name + "\" }";
   conn.setPostReq();
-  conn.setPostField(os.str());
+  conn.setPostField(val);
   conn.setBuffer();
   conn.setReady(bAsync);
 }
@@ -71,7 +81,7 @@ void Database::httpCreate(Connection::SPtr p, bool bAsync) {
 //
 //	Configure to drop a Database using the configured name
 //
-void Database::httpDelete(Connection::SPtr p, bool bAsync) {
+void Database::httpDelete(const Connection::SPtr p, bool bAsync) {
   std::ostringstream os;
   Connection& conn = *p;
   conn.reset();

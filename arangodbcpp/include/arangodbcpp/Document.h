@@ -25,6 +25,8 @@
 #ifndef DOCUMENT_H
 #define DOCUMENT_H
 
+#include <velocypack/Builder.h>
+
 #include "arangodbcpp/Connection.h"
 #include "arangodbcpp/Collection.h"
 #include "arangodbcpp/DocOptions.h"
@@ -35,32 +37,38 @@ namespace dbinterface {
 
 class Document {
  public:
+  typedef DocOptions Options;
   typedef std::shared_ptr<Document> SPtr;
-  Document(std::string name = "NewDoc");
+  Document(const std::string& name);
+  Document(std::string&& name = "NewDoc");
   ~Document();
   void httpCreate(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
-                  bool bAsync);
+                  const Options& opts);
   void httpDelete(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
-                  bool bAsync);
+                  const Options& opts);
   void httpGet(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
-               const DocOptions& opts = DocOptions());
+               const Options& opts = DocOptions());
   void httpHead(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
-                bool bAsync);
+                const Options& opts);
   void httpPatch(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
-                 bool bAsync, Connection::VPack data);
+                 const Options& opts, Connection::VPack data);
+  void httpReplace(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
+                   const Options& opts, Connection::VPack data);
   Connection::VPack httpCreate(bool bSort, const Connection::SPtr& pCon);
   Connection::VPack httpDelete(bool bSort, const Connection::SPtr& pCon);
   Connection::VPack httpGet(bool bSort, const Connection::SPtr& pCon);
   Connection::VPack httpHead(bool bSort, const Connection::SPtr& pCon);
   Connection::VPack httpPatch(bool bSort, const Connection::SPtr& pCon);
+  void addKeyAttrib(arangodb::velocypack::Builder& builder);
 
   Document& operator=(const std::string&);
   Document& operator=(std::string&&);
   const std::string key();
 
  private:
-  static void httpMatchOpts(Connection::HttpHeaderList& headers,
+  static bool httpMatchOpts(Connection::HttpHeaderList& headers,
                             const DocOptions& opts);
+
   std::string _key;
 };
 
