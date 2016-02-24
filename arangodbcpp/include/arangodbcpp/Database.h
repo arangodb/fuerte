@@ -22,13 +22,12 @@
 /// @author John Bufton
 /// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
-#ifndef DATABASE_H
-#define DATABASE_H
+#ifndef FUERTE_DATABASE_H
+#define FUERTE_DATABASE_H
 
 #include <memory>
 
 #include "arangodbcpp/Connection.h"
-#include "arangodbcpp/Collection.h"
 
 namespace arangodb {
 
@@ -42,11 +41,6 @@ class Database {
   Database() = delete;
   explicit Database(std::shared_ptr<Server> srv, std::string name = "_system");
   ~Database();
-  void httpCreateCollection(const Connection::SPtr p,
-                            const Collection::Options opts,
-                            const Connection::VPack body);
-  Connection::VPack httpCreateCollection(bool bSort,
-                                         const Connection::SPtr conn);
   void httpCreate(const Connection::SPtr conn, bool bAsync = false);
   Connection::VPack httpCreate(bool bSort, const Connection::SPtr conn);
   void httpDelete(const Connection::SPtr conn, bool bAsync = false);
@@ -76,11 +70,6 @@ inline Database& Database::operator=(std::string&& inp) {
 
 inline const std::string Database::name() const { return _name; }
 
-inline Connection::VPack Database::httpCreateCollection(
-    bool bSort, const Connection::SPtr conn) {
-  return conn->fromJSon(bSort);
-}
-
 inline Connection::VPack Database::httpCreate(bool bSort,
                                               const Connection::SPtr conn) {
   return conn->fromJSon(bSort);
@@ -95,4 +84,4 @@ inline bool Database::hasValidHost() const { return _server.get() != nullptr; }
 }
 }
 
-#endif  // DATABASE_H
+#endif  // FUERTE_DATABASE_H

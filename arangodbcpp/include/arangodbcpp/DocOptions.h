@@ -22,8 +22,8 @@
 /// @author John Bufton
 /// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
-#ifndef DOCOPTIONS_H
-#define DOCOPTIONS_H
+#ifndef FUERTE_DOCOPTIONS_H
+#define FUERTE_DOCOPTIONS_H
 
 #include <string>
 
@@ -33,7 +33,8 @@ namespace dbinterface {
 
 class DocOptions {
  public:
-  enum {
+  typedef uint16_t Flags;
+  enum Flag : Flags {
     Opt_Defaults = 0,
     Opt_NoneMatchRev = 1,
     Opt_MatchRev = 2,
@@ -51,25 +52,32 @@ class DocOptions {
     Opt_NoMerge = 128,
     Opt_RunSync = 0  // Default to run synchronusly
     ,
-    Opt_RunAsync = 256
+    Opt_RunAsync = 256,
+    Opt_RemoveNull = 512
   };
-  DocOptions(const uint16_t opts, const std::string& tag = "");
-  DocOptions(const uint16_t opts = Opt_Defaults, std::string&& tag = "");
+  DocOptions(const Flags flags, const std::string& tag = "");
+  DocOptions(const Flags flags = Opt_Defaults, std::string&& tag = "");
   const std::string& eTag() const;
-  uint16_t opts() const;
-  void selectOpts(uint16_t);
-  void clearOpts(uint16_t);
-  DocOptions& operator=(uint16_t inp);
+  Flags flags() const;
+  void selectOpts(Flags);
+  void clearOpts(Flags);
+  DocOptions& operator=(const Flags inp);
+  DocOptions& operator=(const Flag inp);
   DocOptions& operator=(const std::string& inp);
   DocOptions& operator=(std::string&& inp);
 
  private:
   std::string _eTag;
-  uint16_t _opts;
+  Flags _flgs;
 };
 
-inline DocOptions& DocOptions::operator=(uint16_t inp) {
-  _opts = inp;
+inline DocOptions& DocOptions::operator=(const Flags inp) {
+  _flgs = inp;
+  return *this;
+}
+
+inline DocOptions& DocOptions::operator=(const Flag inp) {
+  _flgs = inp;
   return *this;
 }
 
@@ -85,12 +93,12 @@ inline DocOptions& DocOptions::operator=(std::string&& inp) {
 
 inline const std::string& DocOptions::eTag() const { return _eTag; }
 
-inline uint16_t DocOptions::opts() const { return _opts; }
+inline DocOptions::Flags DocOptions::flags() const { return _flgs; }
 
-inline void DocOptions::selectOpts(uint16_t inp) { _opts |= inp; }
+inline void DocOptions::selectOpts(Flags inp) { _flgs |= inp; }
 
-inline void DocOptions::clearOpts(uint16_t inp) { _opts &= ~inp; }
+inline void DocOptions::clearOpts(Flags inp) { _flgs &= ~inp; }
 }
 }
 
-#endif  // DOCOPTIONS_H
+#endif  // FUERTE_DOCOPTIONS_H

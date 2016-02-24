@@ -22,8 +22,8 @@
 /// @author John Bufton
 /// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
-#ifndef DOCUMENT_H
-#define DOCUMENT_H
+#ifndef FUERTE_DOCUMENT_H
+#define FUERTE_DOCUMENT_H
 
 #include <velocypack/Builder.h>
 
@@ -38,12 +38,16 @@ namespace dbinterface {
 class Document {
  public:
   typedef DocOptions Options;
+  typedef DocOptions::Flags Flags;
   typedef std::shared_ptr<Document> SPtr;
   Document(const std::string& name);
   Document(std::string&& name = "NewDoc");
   ~Document();
   void httpCreate(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
                   const Options& opts);
+  static void httpCreate(const Collection::SPtr& pCol,
+                         const Connection::SPtr& pConn,
+                         const Connection::VPack data, const Options& opts);
   void httpDelete(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
                   const Options& opts);
   void httpGet(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
@@ -66,8 +70,30 @@ class Document {
   const std::string key();
 
  private:
-  static bool httpMatchOpts(Connection::HttpHeaderList& headers,
-                            const DocOptions& opts);
+  static void httpCreate(const Collection::SPtr& pCol,
+                         const Connection::SPtr& pCon, const std::string json,
+                         const Options& opts);
+  static Connection::QueryPrefix httpCreateQuery(
+      std::string& url, const Flags flgs,
+      const Connection::QueryPrefix = Connection::QueryPrefix::Next);
+  static Connection::QueryPrefix httpSyncQuery(
+      std::string& url, const Flags flgs,
+      const Connection::QueryPrefix = Connection::QueryPrefix::Next);
+  static Connection::QueryPrefix httpMergeQuery(
+      std::string& url, const Flags flgs,
+      const Connection::QueryPrefix = Connection::QueryPrefix::Next);
+  static Connection::QueryPrefix httpPolicyQuery(
+      std::string& url, const Flags flgs,
+      const Connection::QueryPrefix = Connection::QueryPrefix::Next);
+  static Connection::QueryPrefix httpRevQuery(
+      std::string& url, const DocOptions& opt,
+      const Connection::QueryPrefix = Connection::QueryPrefix::Next);
+  static Connection::QueryPrefix httpKeepNullQuery(
+      std::string& url, const Flags flgs,
+      const Connection::QueryPrefix = Connection::QueryPrefix::Next);
+
+  static void httpMatchHeader(Connection::HttpHeaderList& headers,
+                              const DocOptions& opts);
 
   std::string _key;
 };
@@ -75,6 +101,19 @@ class Document {
 inline Connection::VPack Document::httpCreate(bool bSort,
                                               const Connection::SPtr& pCon) {
   return pCon->fromJSon(bSort);
+}
+
+inline void Document::httpCreate(const Collection::SPtr& pCol,
+                                 const Connection::SPtr& pCon,
+                                 const Connection::VPack data,
+                                 const Options& opts) {
+  httpCreate(pCol, pCon, Connection::json(data, false), opts);
+}
+
+inline void Document::httpCreate(const Collection::SPtr& pCol,
+                                 const Connection::SPtr& pCon,
+                                 const Options& opts) {
+  httpCreate(pCol, pCon, std::string{"{\"_key\":\"" + _key + "\"}"}, opts);
 }
 
 inline Connection::VPack Document::httpDelete(bool bSort,
@@ -106,4 +145,4 @@ inline const std::string Document::key() { return _key; }
 }
 }
 
-#endif  // DOCUMENT_H
+#endif  // FUERTE_DOCUMENT_H

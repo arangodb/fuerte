@@ -38,30 +38,11 @@ Database::Database(Server::SPtr srv, std::string name)
 //	Get the core database url
 //
 std::string Database::databaseUrl() const {
-  std::string url{_server->hostUrl()};
-  if (!_name.empty()) {
-    url += "/_db/" + _name;
-  }
-  return url;
-}
-
-void Database::httpCreateCollection(const Connection::SPtr p,
-                                    const Collection::Options opts,
-                                    const Connection::VPack body) {
-  std::string val{databaseUrl() + "/_api/collection"};
-  Connection& conn = *p;
-  Connection::HttpHeaderList headers;
-  conn.reset();
-  conn.setJsonContent(headers);
-  conn.setHeaderOpts(headers);
-  conn.setUrl(val);
-  conn.setPostField(body);
-  conn.setBuffer();
-  conn.setReady((opts & Collection::Opt_RunAsync) != 0);
+  return _server->hostUrl() + "/_db/" + _name;
 }
 
 //
-//	Configure to create a Database using the configured name
+// Configure to create a Database using the configured name
 //
 void Database::httpCreate(const Connection::SPtr p, bool bAsync) {
   std::string val{_server->hostUrl() + "/_api/database"};
@@ -79,14 +60,13 @@ void Database::httpCreate(const Connection::SPtr p, bool bAsync) {
 }
 
 //
-//	Configure to drop a Database using the configured name
+// Configure to drop a Database using the configured name
 //
 void Database::httpDelete(const Connection::SPtr p, bool bAsync) {
-  std::ostringstream os;
+  std::string url{_server->hostUrl() + "/_api/database/" + _name};
   Connection& conn = *p;
   conn.reset();
-  os << _server->hostUrl() << "/_api/database/" << _name;
-  conn.setUrl(os.str());
+  conn.setUrl(url);
   conn.setDeleteReq();
   conn.setBuffer();
   conn.setReady(bAsync);

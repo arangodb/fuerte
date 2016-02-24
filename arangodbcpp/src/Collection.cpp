@@ -24,52 +24,52 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include "arangodbcpp/Database.h"
 #include "arangodbcpp/Collection.h"
+#include "arangodbcpp/Document.h"
 
 namespace arangodb {
 
 namespace dbinterface {
 
 Collection::Collection(const Database::SPtr& db, const std::string& id)
-    : _database(db), _id(id) {}
+    : _database(db), _name(id) {}
 
 Collection::Collection(const Database::SPtr& db, std::string&& id)
-    : _database(db), _id(id) {}
+    : _database(db), _name(id) {}
 
 Collection::~Collection() {}
 
+std::string Collection::httpDocApi{"/_api/document"};
+std::string Collection::httpColApi{"/_api/collection"};
+
 //
-//	Creates the base url required for selecting this collection
-//  for various Document operations
+// Creates the base url required for selecting this collection
+// for various Document operations
 //
-std::string Collection::selectUrl() {
-  std::string url{_database->databaseUrl()};
-  url += "/_api/document";
-  if (!_id.empty()) {
-    url += "?collection=" + _id;
-  }
-  return url;
+std::string Collection::docColUrl() const {
+  return _database->databaseUrl() + httpDocApi + "?collection=" + _name;
+}
+
+//
+// Creates the base url required to get and delete a Document
+//
+std::string Collection::refDocUrl(std::string& key) {
+  return std::string{_database->databaseUrl() + httpDocApi + '/' + _name + '/' +
+                     key};
+}
+
+const std::string Collection::httpApi() const {
+  return _database->databaseUrl() + httpColApi;
+}
+
+void Collection::addNameAttrib(arangodb::velocypack::Builder& builder) {
+  builder.add("name", arangodb::velocypack::Value(_name));
 }
 
 bool Collection::hasValidHost() const { return _database->hasValidHost(); }
 
-//
-//		Creates the base url required to get and delete a Document in
-//		the Database Collection configured using the key value passed in
-//
-std::string Collection::refDocUrl(std::string key) {
-  std::string url{_database->databaseUrl() + "/_api/document"};
-  if (!_id.empty()) {
-    url += "/" + _id;
-  }
-  if (!key.empty()) {
-    url += "/" + key;
-  }
-  return url;
-}
-
-void Collection::httpDocs(const Connection::SPtr p, const Options opts) {
-  Connection& conn = *p;
-  std::string url{selectUrl()};
+void Collection::httpDocs(const Connection::SPtr& pCon, const Options opts) {
+  Connection& conn = *pCon;
+  std::string url{docColUrl()};
   conn.reset();
   switch (opts & Opt_ListMask) {
     case Opt_ListId: {
@@ -87,49 +87,56 @@ void Collection::httpDocs(const Connection::SPtr p, const Options opts) {
   conn.setReady((opts & Opt_RunAsync) != 0);
 }
 
-void Collection::httpCreateDoc(const Connection::SPtr p, const DocOptions& opts,
-                               const Connection::VPack data) {
-  Connection& conn = *p;
-  Connection::HttpHeaderList headers;
-  conn.reset();
-  conn.setUrl(selectUrl());
-  conn.setJsonContent(headers);
-  conn.setHeaderOpts(headers);
-  conn.setPostField(data);
-  conn.setPostReq();
-  conn.setBuffer();
-  conn.setReady((opts.opts() & DocOptions::Opt_RunAsync) != 0);
-}
-
 //
-//		Configure to create an empty Collection using the configured
-//Database
-//		and Collection name
+// Configure to create an empty Collection using the configured
+// Database.
 //
-void Collection::httpCreate(const Connection::SPtr p, const Options opts) {
-  Connection& conn = *p;
-  Connection::HttpHeaderList headers;
-  std::string val{_database->databaseUrl() + "/_api/collection"};
+// Other collection configuration items are held in the config parameter
+//
+void Collection::httpCreate(const Database::SPtr& pDb,
+                            const Connection::SPtr& pCon,
+                            const Connection::VPack& config,
+                            const Options opts) {
+  Connection& conn = *pCon;
   conn.reset();
-  conn.setJsonContent(headers);
-  conn.setHeaderOpts(headers);
-  conn.setUrl(val);
-  val = "{ \"name\":\"" + _id + "\" }";
-  conn.setPostField(val);
+  conn.setUrl(pDb->databaseUrl() + httpColApi);
+  conn.setPostField(Connection::json(config, false));
   conn.setBuffer();
   conn.setReady((opts & Opt_RunAsync) != 0);
 }
 
 //
-//		Configure to delete a Collection using the configured Database
-//		and Collection name
+// Configure to create an empty Collection using the configured
+// Database and Collection name
 //
-void Collection::httpDelete(const Connection::SPtr p, const Options opts) {
-  Connection& conn = *p;
-  std::string url{_database->databaseUrl() + "/_api/collection/" + _id};
+void Collection::httpCreate(const Connection::SPtr& pCon, const Options opts) {
+  Connection& conn = *pCon;
+  conn.reset();
+  conn.setUrl(httpApi());
+  conn.setPostField("{ \"name\":\"" + _name + "\" }");
+  conn.setBuffer();
+  conn.setReady((opts & Opt_RunAsync) != 0);
+}
+
+//
+// Configure to delete a Collection using the configured Database
+// and Collection name
+//
+void Collection::httpDelete(const Connection::SPtr& pCon, const Options opts) {
+  Connection& conn = *pCon;
   conn.reset();
   conn.setDeleteReq();
-  conn.setUrl(url);
+  conn.setUrl(httpApi() + '/' + _name);
+  conn.setBuffer();
+  conn.setReady((opts & Opt_RunAsync) != 0);
+}
+
+void Collection::httpTruncate(const Connection::SPtr& pCon,
+                              const Options opts) {
+  Connection& conn = *pCon;
+  conn.reset();
+  conn.setPutReq();
+  conn.setUrl(httpApi() + '/' + _name + "/truncate");
   conn.setBuffer();
   conn.setReady((opts & Opt_RunAsync) != 0);
 }

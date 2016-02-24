@@ -22,8 +22,8 @@
 /// @author John Bufton
 /// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
-#ifndef CONNECTION_H
-#define CONNECTION_H
+#ifndef FUERTE_CONNECTION_H
+#define FUERTE_CONNECTION_H
 
 #include <memory>
 #include <vector>
@@ -32,6 +32,7 @@
 #include <curlpp/Easy.hpp>
 #include <curlpp/Multi.hpp>
 #include <curlpp/Options.hpp>
+#include <curlpp/Infos.hpp>
 
 namespace arangodb {
 
@@ -43,6 +44,7 @@ namespace dbinterface {
 //
 class Connection {
  public:
+  enum class QueryPrefix : uint8_t { First = '?', Next = '&' };
   typedef std::shared_ptr<Connection> SPtr;
   typedef arangodb::velocypack::Buffer<uint8_t> VBuffer;
   typedef std::shared_ptr<VBuffer> VPack;
@@ -51,6 +53,7 @@ class Connection {
   Connection();
   ~Connection();
   void setUrl(const std::string& inp);
+  void setUrl(std::string&& inp);
   void setErrBuf(char* inp);
   void setPostField(const std::string& inp);
   void setPostField(const VPack data);
@@ -69,6 +72,7 @@ class Connection {
   void setBuffer(T* p, size_t (T::*f)(char* p, size_t sz, size_t m));
   void setBuffer(size_t (*f)(char* p, size_t sz, size_t m));
   void setBuffer();
+  long httpResponseCode();
 
   const std::string bufString() const;
   VPack fromJSon(bool bSorted = true) const;
@@ -84,7 +88,8 @@ class Connection {
   static std::string strValue(const VPack res, std::string attrib);
 
  private:
-  enum Flags {
+  enum : uint8_t {
+    F_Clear = 0,
     F_Multi = 1,
     F_Running = 2,
     F_Done = 4,
@@ -97,7 +102,9 @@ class Connection {
   void setOpt(const T& inp);
   void asyncRun();
   void syncRun();
-  void errFound(const std::string& inp, bool bRun = true);
+  void errFound(const std::string& inp, uint8_t err = F_RunError);
+  void httpResponse();
+  void setBuffer(const std::string& inp);
 
   curlpp::Easy _request;
   curlpp::Multi _async;
@@ -113,20 +120,62 @@ inline void Connection::setBuffer(T* p, size_t (T::*f)(char*, size_t, size_t)) {
 
 inline bool Connection::bufEmpty() const { return _buf.empty(); }
 
-inline void Connection::setPostReq() { setCustomReq("POST"); }
+inline std::string operator+(const Connection::QueryPrefix pre,
+                             const std::string& query) {
+  return static_cast<char>(pre) + query;
+}
 
-inline void Connection::setDeleteReq() { setCustomReq("DELETE"); }
+inline std::string operator+(const Connection::QueryPrefix pre,
+                             std::string&& query) {
+  return static_cast<char>(pre) + query;
+}
 
+inline long Connection::httpResponseCode() {
+  return curlpp::infos::ResponseCode::get(_request);
+}
+
+//
+// For curl, a HEADER request is implemented as a GET request with options
+//
 inline void Connection::setHeadReq() {
+  setGetReq();
   _request.setOpt(curlpp::options::Header(true));
   _request.setOpt(curlpp::options::NoBody(true));
 }
+
+inline void Connection::setPostReq() { setCustomReq("POST"); }
+
+inline void Connection::setDeleteReq() { setCustomReq("DELETE"); }
 
 inline void Connection::setGetReq() { setCustomReq("GET"); }
 
 inline void Connection::setPatchReq() { setCustomReq("PATCH"); }
 
 inline void Connection::setPutReq() { setCustomReq("PUT"); }
+
+//
+// Converts the contents of the default write buffer to a string
+//
+// This will usually be either JSon or an error message
+//
+inline const std::string Connection::bufString() const {
+  return std::string(_buf.data(), _buf.size());
+}
+
+inline void Connection::setBuffer(const std::string& inp) {
+  size_t len = inp.length();
+  _buf.resize(len);
+  memcpy(_buf.data(), inp.data(), len);
+}
+
+//
+// Flags an error has occured and transfers the error message
+// to the default write buffer
+//
+inline void Connection::errFound(const std::string& inp, uint8_t err) {
+  setBuffer(inp);
+  _flgs |= err;
+}
 
 inline void Connection::setErrBuf(char* inp) {
   setOpt(cURLpp::options::ErrorBuffer(inp));
@@ -141,24 +190,22 @@ inline void Connection::setVerbose(bool inp) {
 }
 
 inline bool Connection::isError() const {
-  if (_flgs & (F_LogicError | F_RunError)) {
-    return true;
-  }
-  return false;
+  return (_flgs & (F_LogicError | F_RunError)) != 0;
 }
 
-inline bool Connection::isRunning() const {
-  if (_flgs & F_Running) {
-    return true;
-  }
-  return false;
-}
+inline bool Connection::isRunning() const { return (_flgs & F_Running) != 0; }
 
 inline void Connection::setHeaderOpts(HttpHeaderList& inp) {
-  setOpt(curlpp::options::HttpHeader(inp));
+  if (!inp.empty()) {
+    setOpt(curlpp::options::HttpHeader(inp));
+  }
 }
 
 inline void Connection::setUrl(const std::string& inp) {
+  setOpt(curlpp::options::Url(inp));
+}
+
+inline void Connection::setUrl(std::string&& inp) {
   setOpt(curlpp::options::Url(inp));
 }
 
@@ -169,4 +216,4 @@ inline void Connection::setOpt(const T& inp) {
 }
 }
 
-#endif  // CONNECTION_H
+#endif  // FUERTE_CONNECTION_H

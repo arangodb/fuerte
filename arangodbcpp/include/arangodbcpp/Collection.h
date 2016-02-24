@@ -22,23 +22,22 @@
 /// @author John Bufton
 /// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
-#ifndef COLLECTION_H
-#define COLLECTION_H
+#ifndef FUERTE_COLLECTION_H
+#define FUERTE_COLLECTION_H
+#include <velocypack/Builder.h>
 
+#include "arangodbcpp/Database.h"
 #include "arangodbcpp/Connection.h"
-#include "arangodbcpp/DocOptions.h"
 
 namespace arangodb {
 
 namespace dbinterface {
 
-class Database;
-
 class Collection {
  public:
   typedef uint16_t Options;
   typedef std::shared_ptr<Collection> SPtr;
-  enum {
+  enum : Options {
     Opt_Defaults = 0,
     Opt_RunSync = 0,
     Opt_RunAsync = 1,
@@ -53,59 +52,68 @@ class Collection {
   explicit Collection(const std::shared_ptr<Database>& db,
                       std::string&& id = "new-collection");
   ~Collection();
-  void httpCreateDoc(const Connection::SPtr p, const DocOptions& opts,
-                     const Connection::VPack data);
-  Connection::VPack httpCreateDoc(bool bSort, const Connection::SPtr conn);
-  void httpCreate(const Connection::SPtr conn, const Options = Opt_Defaults);
-  Connection::VPack httpCreate(bool bSort, const Connection::SPtr conn);
-  void httpDocs(const Connection::SPtr conn, const Options = Opt_Defaults);
-  Connection::VPack httpDocs(bool bSort, const Connection::SPtr conn);
-  void httpDelete(const Connection::SPtr conn, const Options = Opt_Defaults);
-  Connection::VPack httpDelete(bool bSort, const Connection::SPtr conn);
-  std::string selectUrl();
-  std::string refDocUrl(std::string key);
+  static void httpCreate(const Database::SPtr& pDb,
+                         const Connection::SPtr& pCon,
+                         const Connection::VPack& body,
+                         const Options = Opt_Defaults);
+  void httpCreate(const Connection::SPtr& pCon, const Options = Opt_Defaults);
+  Connection::VPack httpCreate(bool bSort, const Connection::SPtr& pCon);
+  void httpDocs(const Connection::SPtr& pCon, const Options = Opt_Defaults);
+  Connection::VPack httpDocs(bool bSort, const Connection::SPtr& pCon);
+  void httpDelete(const Connection::SPtr& pCon, const Options = Opt_Defaults);
+  Connection::VPack httpDelete(bool bSort, const Connection::SPtr& pCon);
+  void httpTruncate(const Connection::SPtr& pCon, const Options = Opt_Defaults);
+  Connection::VPack httpTruncate(bool bSort, const Connection::SPtr& pCon);
+  std::string docColUrl() const;
+  std::string refDocUrl(std::string& key);
   bool hasValidHost() const;
   Collection& operator=(const std::string&);
   Collection& operator=(std::string&&);
   const std::string id() const;
+  void addNameAttrib(arangodb::velocypack::Builder& builder);
 
  private:
+  const std::string httpApi() const;
+
+  static std::string httpDocApi;
+  static std::string httpColApi;
+
   std::shared_ptr<Database> _database;
-  std::string _id;
+  std::string _name;
 };
 
 inline Collection& Collection::operator=(const std::string& inp) {
-  _id = inp;
+  _name = inp;
   return *this;
 }
 
 inline Collection& Collection::operator=(std::string&& inp) {
-  _id = inp;
+  _name = inp;
   return *this;
 }
 
-inline const std::string Collection::id() const { return _id; }
+inline const std::string Collection::id() const { return _name; }
 
 inline Connection::VPack Collection::httpCreate(bool bSort,
-                                                const Connection::SPtr conn) {
-  return conn->fromJSon(bSort);
-}
-
-inline Connection::VPack Collection::httpCreateDoc(
-    bool bSort, const Connection::SPtr conn) {
-  return conn->fromJSon(bSort);
+                                                const Connection::SPtr& pCon) {
+  return pCon->fromJSon(bSort);
 }
 
 inline Connection::VPack Collection::httpDelete(bool bSort,
-                                                const Connection::SPtr conn) {
-  return conn->fromJSon(bSort);
+                                                const Connection::SPtr& pCon) {
+  return pCon->fromJSon(bSort);
+}
+
+inline Connection::VPack Collection::httpTruncate(
+    bool bSort, const Connection::SPtr& pCon) {
+  return pCon->fromJSon(bSort);
 }
 
 inline Connection::VPack Collection::httpDocs(bool bSort,
-                                              const Connection::SPtr conn) {
-  return conn->fromJSon(bSort);
+                                              const Connection::SPtr& pCon) {
+  return pCon->fromJSon(bSort);
 }
 }
 }
 
-#endif  // COLLECTION_H
+#endif  // FUERTE_COLLECTION_H

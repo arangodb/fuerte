@@ -90,14 +90,14 @@ void Connection::setJsonContent(HttpHeaderList& headers) {
 }
 
 //
-//	Clears the buffer that holds received data and
-//	any error messages
+// Clears the buffer that holds received data and
+// any error messages
 //
-//	Configures whether the next operation will be done
-//	synchronously or asyncronously
+// Configures whether the next operation will be done
+// synchronously or asyncronously
 //
-//	IMPORTANT
-//	This should be the last configuration item to be set
+// IMPORTANT
+// This should be the last configuration item to be set
 //
 void Connection::setReady(bool bAsync) {
   _buf.clear();
@@ -109,47 +109,35 @@ void Connection::setReady(bool bAsync) {
 }
 
 void Connection::reset() {
-  if (_flgs & F_Multi) {
-    _async.remove(&_request);
-  }
   _request.reset();
-  _flgs = 0;
-}
-
-//
-//	Flags an error has occured and transfers the error message
-//	to the default write buffer
-//
-void Connection::errFound(const std::string& inp, bool bRun) {
-  if (_flgs & F_Multi) {
-    _async.remove(&_request);
-  }
-  _buf.clear();
-  _buf.insert(_buf.begin(), inp.cbegin(), inp.cend());
-  _flgs = bRun ? F_RunError : F_LogicError;
+  _flgs = F_Clear;
 }
 
 void Connection::run() {
   if (_flgs & F_Multi) {
     asyncRun();
+    if (_flgs & F_Running) {
+      return;
+    }
   } else {
     syncRun();
+  }
+  if (_buf.empty()) {
+    httpResponse();
+  }
+  if (_flgs & F_Multi) {
+    _async.remove(&_request);
   }
 }
 
 //
-//	Synchronous operation which will complete before returning
+// Synchronous operation which will complete before returning
 //
 void Connection::syncRun() {
   try {
     _request.perform();
-    if (_buf.empty()) {
-      errFound("Synchronous operation failed");
-      return;
-    }
-    _flgs = F_Done;
   } catch (curlpp::LogicError& e) {
-    errFound(e.what(), false);
+    errFound(e.what(), F_LogicError);
     return;
   } catch (curlpp::LibcurlRuntimeError& e) {
     errFound(e.what());
@@ -161,24 +149,18 @@ void Connection::syncRun() {
 }
 
 //
-//	Asynchronous operation which may need to be run multiple times
-//	before completing
+// Asynchronous operation which may need to be run multiple times
+// before completing
 //
 void Connection::asyncRun() {
   try {
     {
-      int nLeft;
+      int nLeft = 1;
       if (!_async.perform(&nLeft)) {
-        errFound("Asynchronous operation failed");
         return;
       }
       if (!nLeft) {
-        if (_buf.empty()) {
-          errFound("Asynchronous operation failed");
-          return;
-        }
-        _async.remove(&_request);
-        _flgs = F_Done;
+        _flgs ^= F_Running;
         return;
       }
     }
@@ -200,18 +182,38 @@ void Connection::asyncRun() {
       rc = select(maxfd + 1, &fdread, &fdwrite, &fdexcep, &timeout);
       if (rc == -1) {
         errFound("Asynchronous select error");
-        return;
       }
     }
   } catch (curlpp::LogicError& e) {
-    errFound(e.what(), false);
+    _flgs ^= F_Running;
+    errFound(e.what(), F_LogicError);
     return;
   } catch (curlpp::LibcurlRuntimeError& e) {
+    _flgs ^= F_Running;
     errFound(e.what());
     return;
   } catch (curlpp::RuntimeError& e) {
+    _flgs ^= F_Running;
     errFound(e.what());
     return;
+  }
+}
+
+void Connection::httpResponse() {
+  long res = httpResponseCode();
+  if (!res && (_flgs & F_Multi)) {
+    typedef curlpp::Multi::Msgs M_Msgs;
+    M_Msgs msgs = _async.info();
+    CURLcode code = msgs.front().second.code;
+    std::string msg{curl_easy_strerror(code)};
+    errFound(msg);
+    return;
+  }
+  {
+    // Create a JSon response
+    std::ostringstream os;
+    os << "{\"result\":true,\"error\":false,\"code\":\"" << res << "\"}";
+    setBuffer(os.str());
   }
 }
 
@@ -221,8 +223,8 @@ void Connection::setPostField(const std::string& inp) {
 }
 
 //
-//	Sets the curlpp callback function that receives the data returned
-//	from the operation performed
+// Sets the curlpp callback function that receives the data returned
+// from the operation performed
 //
 void Connection::setBuffer(size_t (*f)(char* p, size_t sz, size_t m)) {
   curlpp::types::WriteFunctionFunctor fnc(f);
@@ -241,17 +243,6 @@ size_t Connection::WriteMemoryCallback(char* ptr, size_t size, size_t nmemb) {
     memcpy(&_buf[offset], ptr, realsize);
   }
   return realsize;
-}
-
-//
-//	Converts the contents of the default write buffer to a string
-//
-//	This should either be JSon or an error message
-//
-const std::string Connection::bufString() const {
-  std::string tmp;
-  tmp.insert(tmp.begin(), _buf.cbegin(), _buf.cend());
-  return tmp;
 }
 
 Connection::VPack Connection::notProcessed() const {
@@ -279,8 +270,8 @@ Connection::VPack Connection::noHost() const {
 }
 
 //
-//	Converts JSon held in the default write buffer
-//	to a shared velocypack buffer
+// Converts JSon held in the default write buffer
+// to a shared velocypack buffer
 //
 Connection::VPack Connection::fromJSon(bool bSorted) const {
   if (!_buf.empty()) {

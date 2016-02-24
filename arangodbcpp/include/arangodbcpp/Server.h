@@ -22,9 +22,9 @@
 /// @author John Bufton
 /// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
-#ifndef SERVER_H
+#ifndef FUERTE_SERVER_H
 
-#define SERVER_H
+#define FUERTE_SERVER_H
 
 #include <memory>
 #include <string.h>
@@ -85,4 +85,4 @@ inline const std::string& Server::hostUrl() const { return _host; }
 }
 }
 
-#endif  // SERVER_H
+#endif  // FUERTE_SERVER_H
