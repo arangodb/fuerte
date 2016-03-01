@@ -57,13 +57,14 @@ class Collection {
                          const Connection::VPack& body,
                          const Options = Opt_Defaults);
   void httpCreate(const Connection::SPtr& pCon, const Options = Opt_Defaults);
-  Connection::VPack httpCreate(bool bSort, const Connection::SPtr& pCon);
+  static Connection::VPack httpCreate(bool bSort, const Connection::SPtr& pCon);
   void httpDocs(const Connection::SPtr& pCon, const Options = Opt_Defaults);
-  Connection::VPack httpDocs(bool bSort, const Connection::SPtr& pCon);
+  static Connection::VPack httpDocs(bool bSort, const Connection::SPtr& pCon);
   void httpDelete(const Connection::SPtr& pCon, const Options = Opt_Defaults);
-  Connection::VPack httpDelete(bool bSort, const Connection::SPtr& pCon);
+  static Connection::VPack httpDelete(bool bSort, const Connection::SPtr& pCon);
   void httpTruncate(const Connection::SPtr& pCon, const Options = Opt_Defaults);
-  Connection::VPack httpTruncate(bool bSort, const Connection::SPtr& pCon);
+  static Connection::VPack httpTruncate(bool bSort,
+                                        const Connection::SPtr& pCon);
   std::string docColUrl() const;
   std::string refDocUrl(std::string& key);
   bool hasValidHost() const;
@@ -71,6 +72,7 @@ class Collection {
   Collection& operator=(std::string&&);
   const std::string id() const;
   void addNameAttrib(arangodb::velocypack::Builder& builder);
+  operator const std::string&() const;
 
  private:
   const std::string httpApi() const;
@@ -86,6 +88,8 @@ inline Collection& Collection::operator=(const std::string& inp) {
   _name = inp;
   return *this;
 }
+
+inline Collection::operator const std::string&() const { return _name; }
 
 inline Collection& Collection::operator=(std::string&& inp) {
   _name = inp;

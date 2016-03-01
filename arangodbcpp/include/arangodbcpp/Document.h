@@ -58,16 +58,16 @@ class Document {
                  const Options& opts, Connection::VPack data);
   void httpReplace(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
                    const Options& opts, Connection::VPack data);
-  Connection::VPack httpCreate(bool bSort, const Connection::SPtr& pCon);
-  Connection::VPack httpDelete(bool bSort, const Connection::SPtr& pCon);
-  Connection::VPack httpGet(bool bSort, const Connection::SPtr& pCon);
-  Connection::VPack httpHead(bool bSort, const Connection::SPtr& pCon);
-  Connection::VPack httpPatch(bool bSort, const Connection::SPtr& pCon);
+  static Connection::VPack httpCreate(bool bSort, const Connection::SPtr& pCon);
+  static Connection::VPack httpDelete(bool bSort, const Connection::SPtr& pCon);
+  static Connection::VPack httpGet(bool bSort, const Connection::SPtr& pCon);
+  static Connection::VPack httpHead(bool bSort, const Connection::SPtr& pCon);
+  static Connection::VPack httpPatch(bool bSort, const Connection::SPtr& pCon);
   void addKeyAttrib(arangodb::velocypack::Builder& builder);
 
   Document& operator=(const std::string&);
   Document& operator=(std::string&&);
-  const std::string key();
+  operator const std::string&() const;
 
  private:
   static void httpCreate(const Collection::SPtr& pCol,
@@ -131,6 +131,8 @@ inline Connection::VPack Document::httpPatch(bool bSort,
   return pCon->fromJSon(bSort);
 }
 
+inline Document::operator const std::string&() const { return _key; }
+
 inline Document& Document::operator=(const std::string& inp) {
   _key = inp;
   return *this;
@@ -140,8 +142,6 @@ inline Document& Document::operator=(std::string&& inp) {
   _key = inp;
   return *this;
 }
-
-inline const std::string Document::key() { return _key; }
 }
 }
 

@@ -36,27 +36,36 @@ namespace dbinterface {
 class Server;
 
 class Database {
+ private:
+  typedef std::shared_ptr<Server> ServerPtr;
+
  public:
   typedef std::shared_ptr<Database> SPtr;
   Database() = delete;
   explicit Database(std::shared_ptr<Server> srv, std::string name = "_system");
   ~Database();
-  void httpCreate(const Connection::SPtr conn, bool bAsync = false);
-  Connection::VPack httpCreate(bool bSort, const Connection::SPtr conn);
-  void httpDelete(const Connection::SPtr conn, bool bAsync = false);
-  Connection::VPack httpDelete(bool bSort, const Connection::SPtr conn);
+  void httpCreate(const ServerPtr& server, const Connection::SPtr& p,
+                  const Connection::VPack& data, bool bAsync);
+  void httpCreate(const Connection::SPtr& conn, bool bAsync = false);
+  static Connection::VPack httpCreate(bool bSort, const Connection::SPtr& conn);
+  void httpDelete(const Connection::SPtr& conn, bool bAsync = false);
+  static Connection::VPack httpDelete(bool bSort, const Connection::SPtr& conn);
   std::string databaseUrl() const;
   bool hasValidHost() const;
   Database& operator=(const std::string&);
   Database& operator=(std::string&&);
-  const std::string name() const;
+  operator const std::string&() const;
 
  private:
-  std::shared_ptr<Server> _server;
+  static const std::string httpDbApi;
+
+  ServerPtr _server;
   std::string _name;
 };
 
 inline Database::~Database() {}
+
+inline Database::operator const std::string&() const { return _name; }
 
 inline Database& Database::operator=(const std::string& inp) {
   _name = inp;
@@ -68,15 +77,13 @@ inline Database& Database::operator=(std::string&& inp) {
   return *this;
 }
 
-inline const std::string Database::name() const { return _name; }
-
 inline Connection::VPack Database::httpCreate(bool bSort,
-                                              const Connection::SPtr conn) {
+                                              const Connection::SPtr& conn) {
   return conn->fromJSon(bSort);
 }
 
 inline Connection::VPack Database::httpDelete(bool bSort,
-                                              const Connection::SPtr conn) {
+                                              const Connection::SPtr& conn) {
   return conn->fromJSon(bSort);
 }
 

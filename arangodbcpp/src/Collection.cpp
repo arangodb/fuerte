@@ -91,8 +91,6 @@ void Collection::httpDocs(const Connection::SPtr& pCon, const Options opts) {
 // Configure to create an empty Collection using the configured
 // Database.
 //
-// Other collection configuration items are held in the config parameter
-//
 void Collection::httpCreate(const Database::SPtr& pDb,
                             const Connection::SPtr& pCon,
                             const Connection::VPack& config,

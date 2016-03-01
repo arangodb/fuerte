@@ -31,6 +31,8 @@ namespace arangodb {
 
 namespace dbinterface {
 
+const std::string Database::httpDbApi{"/_api/database"};
+
 Database::Database(Server::SPtr srv, std::string name)
     : _server{srv}, _name(name) {}
 
@@ -42,10 +44,28 @@ std::string Database::databaseUrl() const {
 }
 
 //
+// Configure to create a Database using the VPack configuration data
+//
+void Database::httpCreate(const Server::SPtr& server, const Connection::SPtr& p,
+                          const Connection::VPack& data, bool bAsync) {
+  std::string val{server->hostUrl() + httpDbApi};
+  Connection& conn = *p;
+  Connection::HttpHeaderList headers;
+  conn.reset();
+  conn.setJsonContent(headers);
+  conn.setHeaderOpts(headers);
+  conn.setUrl(val);
+  conn.setPostReq();
+  conn.setPostField(Connection::json(data));
+  conn.setBuffer();
+  conn.setReady(bAsync);
+}
+
+//
 // Configure to create a Database using the configured name
 //
-void Database::httpCreate(const Connection::SPtr p, bool bAsync) {
-  std::string val{_server->hostUrl() + "/_api/database"};
+void Database::httpCreate(const Connection::SPtr& p, bool bAsync) {
+  std::string val{_server->hostUrl() + httpDbApi};
   Connection& conn = *p;
   Connection::HttpHeaderList headers;
   conn.reset();
@@ -62,8 +82,8 @@ void Database::httpCreate(const Connection::SPtr p, bool bAsync) {
 //
 // Configure to drop a Database using the configured name
 //
-void Database::httpDelete(const Connection::SPtr p, bool bAsync) {
-  std::string url{_server->hostUrl() + "/_api/database/" + _name};
+void Database::httpDelete(const Connection::SPtr& p, bool bAsync) {
+  std::string url{_server->hostUrl() + httpDbApi + _name};
   Connection& conn = *p;
   conn.reset();
   conn.setUrl(url);

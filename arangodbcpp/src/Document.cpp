@@ -57,20 +57,16 @@ Connection::QueryPrefix Document::httpSyncQuery(
   return Connection::QueryPrefix::Next;
 }
 
+//
+// Note : default policy is error so not needed
+//
 Connection::QueryPrefix Document::httpPolicyQuery(
     std::string& url, const Flags flgs, const Connection::QueryPrefix prefix) {
-  switch (flgs & Options::Opt_PolicyMask) {
-    case Options::Opt_PolicyError: {
-      url += prefix + "policy=error";
-      break;
-    }
-    case Options::Opt_PolicyLast: {
-      url += prefix + "policy=last";
-      break;
-    }
-    default: { return prefix; }
+  if (flgs & Options::Opt_PolicyLast) {
+    url += prefix + "policy=last";
+    return Connection::QueryPrefix::Next;
   }
-  return Connection::QueryPrefix::Next;
+  return prefix;
 }
 
 Connection::QueryPrefix Document::httpCreateQuery(
@@ -204,7 +200,6 @@ void Document::httpGet(const Collection::SPtr& pCol,
 // Replace a Document with new values in VelocyPack data
 //
 // All options implemented, match rev done as a query
-// DONE
 //
 void Document::httpReplace(const Collection::SPtr& pCol,
                            const Connection::SPtr& pCon, const Options& opts,
@@ -276,17 +271,17 @@ Connection::VPack Document::httpHead(bool bSort, const Connection::SPtr& pCon) {
   Options opts;
   opts.sortAttributeNames = bSort;
   Builder build{&opts};
-  const std::string delimEol{"\r\n"};
+  static const std::string delimEol{"\r\n"};
   std::string res = pCon->bufString();
   sz_type old = 0;
   sz_type pos = res.find_first_of(delimEol, old);
-  build.add(Value(ValueType::Object));  // Start building an object
-  while (pos != std::string::npos) {
+  // Start building an object
+  build.add(Value(ValueType::Object));
+  for (; pos != std::string::npos; pos = res.find_first_of(delimEol, old)) {
     if (pos != old) {
       processLine(res.substr(old, pos - old), build);
     }
     old = pos + 1;
-    pos = res.find_first_of(delimEol, old);
   }
   pos = res.length();
   if (old != pos) {

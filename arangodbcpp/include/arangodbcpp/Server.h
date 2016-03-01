@@ -42,13 +42,13 @@ class Server {
   typedef std::shared_ptr<Server> SPtr;
   ~Server();
   void httpVersion(Connection::SPtr conn, bool bAsync);
-  Connection::VPack httpVersion(bool bSort, Connection::SPtr conn);
+  static Connection::VPack httpVersion(bool bSort, Connection::SPtr conn);
   void httpCurrentDb(Connection::SPtr conn, bool bAsync);
-  Connection::VPack httpCurrentDb(bool bSort, Connection::SPtr conn);
+  static Connection::VPack httpCurrentDb(bool bSort, Connection::SPtr conn);
   void httpUserDbs(Connection::SPtr conn, bool bAsync);
-  Connection::VPack httpUserDbs(bool bSort, Connection::SPtr conn);
+  static Connection::VPack httpUserDbs(bool bSort, Connection::SPtr conn);
   void httpExistingDbs(Connection::SPtr conn, bool bAsync);
-  Connection::VPack httpExistingDbs(bool bSort, Connection::SPtr conn);
+  static Connection::VPack httpExistingDbs(bool bSort, Connection::SPtr conn);
   void setHostUrl(std::string url, uint16_t port);
   const std::string& hostUrl() const;
 

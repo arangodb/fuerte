@@ -5,6 +5,7 @@ set(arangodbcppSRCS
 	Collection.cpp
 	Document.cpp
   DocOptions.cpp
+  Cursor.cpp
 	)
 
 set(arangodbcppLIBS

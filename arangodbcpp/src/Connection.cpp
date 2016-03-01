@@ -23,11 +23,12 @@
 /// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
 #include <cstring>
+#include <velocypack/Builder.h>
 #include <velocypack/Slice.h>
 #include <velocypack/Parser.h>
-#include <velocypack/Builder.h>
 #include <velocypack/Sink.h>
 #include <velocypack/Dumper.h>
+#include <velocypack/Value.h>
 
 #include <curlpp/Infos.hpp>
 
@@ -57,12 +58,14 @@ std::string Connection::json(const VPack& v, bool bSort) {
 std::string Connection::strValue(const VPack res, std::string attrib) {
   using arangodb::velocypack::Slice;
   using arangodb::velocypack::ValueType;
+  using arangodb::velocypack::ValueLength;
   Slice slice{res->data()};
   std::string ret;
   slice = slice.get(attrib);
   if (slice.type() == ValueType::String) {
-    ret = slice.toString();
-    ret = ret.substr(1, ret.length() - 2);
+    ValueLength len = slice.getStringLength();
+    const char* pData = slice.getString(len);
+    ret = std::string(pData, len);
   }
   return ret;
 }

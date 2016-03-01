@@ -39,24 +39,23 @@ class DocOptions {
     Opt_NoneMatchRev = 1,
     Opt_MatchRev = 2,
     Opt_MatchMask = Opt_NoneMatchRev | Opt_MatchRev,
-    Opt_PolicyError = 4,
-    Opt_PolicyLast = 8,
-    Opt_PolicyMask = Opt_PolicyError | Opt_PolicyLast,
-    Opt_WaitForSync = 16,
-    Opt_NoWaitForSync = 32,
+    Opt_PolicyLast = 4,
+    Opt_WaitForSync = 8,
+    Opt_NoWaitForSync = 16,
     Opt_SyncMask = Opt_NoWaitForSync | Opt_WaitForSync,
-    Opt_CreateCollection = 64  // Default is collection must exist
-    ,
-    Opt_Merge = 0  // Default is to merge
-    ,
-    Opt_NoMerge = 128,
-    Opt_RunSync = 0  // Default to run synchronusly
-    ,
-    Opt_RunAsync = 256,
-    Opt_RemoveNull = 512
+    // Default is collection must exist
+    Opt_CreateCollection = 32,
+    // Default is to merge
+    Opt_Merge = 0,
+    Opt_NoMerge = 64,
+    // Default to run synchronusly
+    Opt_RunSync = 0,
+    Opt_RunAsync = 128,
+    Opt_RemoveNull = 256
   };
   DocOptions(const Flags flags, const std::string& tag = "");
   DocOptions(const Flags flags = Opt_Defaults, std::string&& tag = "");
+  operator const std::string&() const;
   const std::string& eTag() const;
   Flags flags() const;
   void selectOpts(Flags);
