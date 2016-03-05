@@ -15,11 +15,11 @@ std::ostream& operator<<(std::ostream& os, Cursor::CacheMode mode) {
 }
 
 std::string Cursor::httpCursorUrl() const {
-  return _Server->hostUrl() + "/_api/cursor";
+  return _Database->databaseUrl() + "/_api/cursor";
 }
 
 std::string Cursor::httpCacheUrl() const {
-  return _Server->hostUrl() + "/_api/query-cache";
+  return _Database->databaseUrl() + "/_api/query-cache";
 }
 
 std::string Cursor::httpCachePropsUrl() const {

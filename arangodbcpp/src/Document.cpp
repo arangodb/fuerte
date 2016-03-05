@@ -42,13 +42,14 @@ void Document::addKeyAttrib(arangodb::velocypack::Builder& builder) {
 }
 
 Connection::QueryPrefix Document::httpSyncQuery(
-    std::string& url, const Flags flgs, const Connection::QueryPrefix prefix) {
-  switch (flgs & Options::Opt_SyncMask) {
-    case Options::Opt_NoWaitForSync: {
+    std::string& url, const Options& opts,
+    const Connection::QueryPrefix prefix) {
+  switch (opts.flag<Options::Sync>()) {
+    case Options::Sync::NoWait: {
       url += prefix + "waitForSync=false";
       break;
     }
-    case Options::Opt_WaitForSync: {
+    case Options::Sync::Wait: {
       url += prefix + "waitForSync=true";
       break;
     }
@@ -61,8 +62,9 @@ Connection::QueryPrefix Document::httpSyncQuery(
 // Note : default policy is error so not needed
 //
 Connection::QueryPrefix Document::httpPolicyQuery(
-    std::string& url, const Flags flgs, const Connection::QueryPrefix prefix) {
-  if (flgs & Options::Opt_PolicyLast) {
+    std::string& url, const Options& opts,
+    const Connection::QueryPrefix prefix) {
+  if (opts.flagged(Options::Policy::Last)) {
     url += prefix + "policy=last";
     return Connection::QueryPrefix::Next;
   }
@@ -70,8 +72,9 @@ Connection::QueryPrefix Document::httpPolicyQuery(
 }
 
 Connection::QueryPrefix Document::httpCreateQuery(
-    std::string& url, const Flags flgs, const Connection::QueryPrefix prefix) {
-  if (flgs & Options::Opt_CreateCollection) {
+    std::string& url, const Options& opts,
+    const Connection::QueryPrefix prefix) {
+  if (opts.flagged(Options::CreateCol::Yes)) {
     url += prefix + "createCollection=true";
     return Connection::QueryPrefix::Next;
   }
@@ -79,8 +82,9 @@ Connection::QueryPrefix Document::httpCreateQuery(
 }
 
 Connection::QueryPrefix Document::httpMergeQuery(
-    std::string& url, const Flags flgs, const Connection::QueryPrefix prefix) {
-  if (flgs & Options::Opt_NoMerge) {
+    std::string& url, const Options& opts,
+    const Connection::QueryPrefix prefix) {
+  if (opts.flagged(Options::Merge::No)) {
     url += prefix + "mergeObjects=false";
     return Connection::QueryPrefix::Next;
   }
@@ -88,8 +92,9 @@ Connection::QueryPrefix Document::httpMergeQuery(
 }
 
 Connection::QueryPrefix Document::httpKeepNullQuery(
-    std::string& url, const Flags flgs, const Connection::QueryPrefix prefix) {
-  if (flgs & Options::Opt_RemoveNull) {
+    std::string& url, const Options& opts,
+    const Connection::QueryPrefix prefix) {
+  if (opts.flagged(Options::RemoveNull::Yes)) {
     url += prefix + "KeepNull=false";
     return Connection::QueryPrefix::Next;
   }
@@ -104,16 +109,15 @@ void Document::httpCreate(const Collection::SPtr& pCol,
                           const Connection::SPtr& pCon, const std::string json,
                           const Options& opts) {
   Connection& conn = *pCon;
-  Flags flgs = opts.flags();
   std::string url{pCol->docColUrl()};
-  httpSyncQuery(url, flgs);
-  httpCreateQuery(url, flgs);
+  httpSyncQuery(url, opts);
+  httpCreateQuery(url, opts);
   conn.reset();
   conn.setUrl(url);
   conn.setPostField(json);
   conn.setPostReq();
   conn.setBuffer();
-  conn.setReady((flgs & Options::Opt_RunAsync) != 0);
+  conn.setReady(opts.flagged(Options::Run::Async));
 }
 
 //
@@ -125,25 +129,23 @@ void Document::httpDelete(const Collection::SPtr& pCol,
                           const Connection::SPtr& pCon, const Options& opts) {
   typedef Connection::QueryPrefix QueryPrefix;
   Connection& conn = *pCon;
-  const Flags flgs = opts.flags();
   std::string url = pCol->refDocUrl(_key);
-  QueryPrefix pre = httpSyncQuery(url, flgs, QueryPrefix::First);
+  QueryPrefix pre = httpSyncQuery(url, opts, QueryPrefix::First);
   pre = httpRevQuery(url, opts, pre);
-  httpPolicyQuery(url, flgs, pre);
+  httpPolicyQuery(url, opts, pre);
   conn.reset();
   conn.setUrl(url);
   conn.setDeleteReq();
   conn.setBuffer();
-  conn.setReady((flgs & Options::Opt_RunAsync) != 0);
+  conn.setReady(opts.flagged(Options::Run::Async));
 }
 
 Connection::QueryPrefix Document::httpRevQuery(
     std::string& url, const DocOptions& opts,
     const Connection::QueryPrefix prefix) {
-  const std::string rev = opts.eTag();
+  const std::string rev = opts;
   if (!rev.empty()) {
-    const Flags match = opts.flags() & Options::Opt_MatchRev;
-    if (match != 0) {
+    if (opts.flagged(Options::Rev::Match)) {
       url += prefix + "rev=" + rev;
       return Connection::QueryPrefix::Next;
     }
@@ -153,17 +155,16 @@ Connection::QueryPrefix Document::httpRevQuery(
 
 void Document::httpMatchHeader(Connection::HttpHeaderList& headers,
                                const Options& opts) {
-  std::string rev = opts.eTag();
+  std::string rev = opts;
   if (!rev.empty()) {
     std::string opt;
-    const Flags match = opts.flags() & Options::Opt_MatchMask;
-    switch (match) {
+    switch (opts.flag<Options::Rev>()) {
       default: { return; }
-      case Options::Opt_MatchRev: {
+      case Options::Rev::Match: {
         opt += "If";
         break;
       }
-      case Options::Opt_NoneMatchRev: {
+      case Options::Rev::NoMatch: {
         opt += "If-None";
         break;
       }
@@ -183,7 +184,6 @@ void Document::httpMatchHeader(Connection::HttpHeaderList& headers,
 void Document::httpGet(const Collection::SPtr& pCol,
                        const Connection::SPtr& pCon, const Options& opts) {
   Connection& conn = *pCon;
-  const Flags flgs = opts.flags();
   Connection::HttpHeaderList headers;
   httpMatchHeader(headers, opts);
   conn.reset();
@@ -193,7 +193,7 @@ void Document::httpGet(const Collection::SPtr& pCol,
     conn.setHeaderOpts(headers);
   }
   conn.setBuffer();
-  conn.setReady((flgs & Options::Opt_RunAsync) != 0);
+  conn.setReady(opts.flagged(Options::Run::Async));
 }
 
 //
@@ -206,17 +206,16 @@ void Document::httpReplace(const Collection::SPtr& pCol,
                            Connection::VPack data) {
   typedef Connection::QueryPrefix QueryPrefix;
   Connection& conn = *pCon;
-  const Flags flgs = opts.flags();
   std::string url = pCol->refDocUrl(_key);
-  QueryPrefix pre = httpSyncQuery(url, flgs, QueryPrefix::First);
-  pre = httpPolicyQuery(url, flgs, pre);
+  QueryPrefix pre = httpSyncQuery(url, opts, QueryPrefix::First);
+  pre = httpPolicyQuery(url, opts, pre);
   httpRevQuery(url, opts, pre);
   conn.reset();
   conn.setUrl(url);
   conn.setPostField(Connection::json(data, false));
   conn.setPutReq();
   conn.setBuffer();
-  conn.setReady((flgs & Options::Opt_RunAsync) != 0);
+  conn.setReady(opts.flagged(Options::Run::Async));
 }
 
 //
@@ -227,19 +226,18 @@ void Document::httpPatch(const Collection::SPtr& pCol,
                          Connection::VPack data) {
   typedef Connection::QueryPrefix QueryPrefix;
   Connection& conn = *pCon;
-  Flags flgs = opts.flags();
   std::string url{pCol->refDocUrl(_key)};
-  QueryPrefix pre = httpSyncQuery(url, flgs, QueryPrefix::First);
-  pre = httpMergeQuery(url, flgs, pre);
+  QueryPrefix pre = httpSyncQuery(url, opts, QueryPrefix::First);
+  pre = httpMergeQuery(url, opts, pre);
   pre = httpRevQuery(url, opts, pre);
-  pre = httpPolicyQuery(url, flgs, pre);
-  httpKeepNullQuery(url, flgs, pre);
+  pre = httpPolicyQuery(url, opts, pre);
+  httpKeepNullQuery(url, opts, pre);
   conn.reset();
   conn.setPatchReq();
   conn.setUrl(url);
   conn.setPostField(Connection::json(data, false));
   conn.setBuffer();
-  conn.setReady((flgs & Options::Opt_RunAsync) != 0);
+  conn.setReady(opts.flagged(Options::Run::Async));
 }
 
 Connection::VPack Document::httpHead(bool bSort, const Connection::SPtr& pCon) {
@@ -297,14 +295,13 @@ Connection::VPack Document::httpHead(bool bSort, const Connection::SPtr& pCon) {
 void Document::httpHead(const Collection::SPtr& pCol,
                         const Connection::SPtr& pCon, const Options& opts) {
   Connection& conn = *pCon;
-  const Flags flgs = opts.flags();
   std::string url = pCol->refDocUrl(_key);
   httpRevQuery(url, opts, Connection::QueryPrefix::First);
   conn.reset();
   conn.setHeadReq();
   conn.setUrl(url);
   conn.setBuffer();
-  conn.setReady((flgs & Options::Opt_RunAsync) != 0);
+  conn.setReady(opts.flagged(Options::Run::Async));
 }
 }
 }

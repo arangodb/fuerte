@@ -35,16 +35,20 @@ namespace dbinterface {
 
 class Collection {
  public:
-  typedef uint16_t Options;
+  typedef uint8_t Options;
   typedef std::shared_ptr<Collection> SPtr;
-  enum : Options {
-    Opt_Defaults = 0,
-    Opt_RunSync = 0,
-    Opt_RunAsync = 1,
-    Opt_ListPath = 0,
-    Opt_ListId = 2,
-    Opt_ListKey = 4,
-    Opt_ListMask = Opt_ListId | Opt_ListKey
+  enum class Run : Options {
+    Reset = 0,
+    Sync = Reset,
+    Async = Sync + 1,
+    Mask = 1
+  };
+  enum class List : Options {
+    Reset = 0,
+    Path = Reset,
+    Id = Path + 2,
+    Key = Id + 2,
+    Mask = 6
   };
   Collection() = delete;
   explicit Collection(const std::shared_ptr<Database>& db,
@@ -55,14 +59,14 @@ class Collection {
   static void httpCreate(const Database::SPtr& pDb,
                          const Connection::SPtr& pCon,
                          const Connection::VPack& body,
-                         const Options = Opt_Defaults);
-  void httpCreate(const Connection::SPtr& pCon, const Options = Opt_Defaults);
+                         const Options = options());
+  void httpCreate(const Connection::SPtr& pCon, const Options = options());
   static Connection::VPack httpCreate(bool bSort, const Connection::SPtr& pCon);
-  void httpDocs(const Connection::SPtr& pCon, const Options = Opt_Defaults);
+  void httpDocs(const Connection::SPtr& pCon, const Options = options());
   static Connection::VPack httpDocs(bool bSort, const Connection::SPtr& pCon);
-  void httpDelete(const Connection::SPtr& pCon, const Options = Opt_Defaults);
+  void httpDelete(const Connection::SPtr& pCon, const Options = options());
   static Connection::VPack httpDelete(bool bSort, const Connection::SPtr& pCon);
-  void httpTruncate(const Connection::SPtr& pCon, const Options = Opt_Defaults);
+  void httpTruncate(const Connection::SPtr& pCon, const Options = options());
   static Connection::VPack httpTruncate(bool bSort,
                                         const Connection::SPtr& pCon);
   std::string docColUrl() const;
@@ -74,7 +78,22 @@ class Collection {
   void addNameAttrib(arangodb::velocypack::Builder& builder);
   operator const std::string&() const;
 
+  static Options options();
+  template <typename T>
+  static Options options(T inp);
+  template <typename T, typename... Args>
+  static Options options(T inp, Args... args);
+
+  template <typename T>
+  static T flag(Options opts);
+  template <typename T>
+  static bool flagged(Options opts, T inp);
+
  private:
+  template <typename T>
+  static Options addOptions(Options ret, T inp);
+  template <typename T, typename... Args>
+  static Options addOptions(Options ret, T inp, Args... args);
   const std::string httpApi() const;
 
   static std::string httpDocApi;
@@ -83,6 +102,44 @@ class Collection {
   std::shared_ptr<Database> _database;
   std::string _name;
 };
+
+template <typename T>
+inline T Collection::flag(Options opts) {
+  Options ret = opts & static_cast<Options>(T::Mask);
+  return static_cast<T>(ret);
+}
+
+inline Collection::Options Collection::options() { return 0; }
+
+template <typename T>
+inline Collection::Options Collection::addOptions(Options opts, T inp) {
+  opts &= ~static_cast<Options>(T::Mask);
+  return opts | static_cast<Options>(inp);
+}
+
+template <typename T, typename... Args>
+Collection::Options Collection::addOptions(Options opts, T inp, Args... args) {
+  opts = addOptions(opts, inp);
+  return addOptions(opts, args...);
+}
+
+template <typename T>
+inline Collection::Options Collection::options(T inp) {
+  if (T::Mask == T::Mask) {
+  }
+  return static_cast<Options>(inp);
+}
+
+template <typename T, typename... Args>
+inline Collection::Options Collection::options(T inp, Args... args) {
+  Options opts = options(inp);
+  return addOptions(opts, args...);
+}
+
+template <typename T>
+inline bool Collection::flagged(Options opts, T inp) {
+  return flag<T>(opts) == inp;
+}
 
 inline Collection& Collection::operator=(const std::string& inp) {
   _name = inp;

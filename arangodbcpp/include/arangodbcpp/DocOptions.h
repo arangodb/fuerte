@@ -32,51 +32,146 @@ namespace arangodb {
 namespace dbinterface {
 
 class DocOptions {
- public:
+ private:
   typedef uint16_t Flags;
-  enum Flag : Flags {
-    Opt_Defaults = 0,
-    Opt_NoneMatchRev = 1,
-    Opt_MatchRev = 2,
-    Opt_MatchMask = Opt_NoneMatchRev | Opt_MatchRev,
-    Opt_PolicyLast = 4,
-    Opt_WaitForSync = 8,
-    Opt_NoWaitForSync = 16,
-    Opt_SyncMask = Opt_NoWaitForSync | Opt_WaitForSync,
-    // Default is collection must exist
-    Opt_CreateCollection = 32,
-    // Default is to merge
-    Opt_Merge = 0,
-    Opt_NoMerge = 64,
-    // Default to run synchronusly
-    Opt_RunSync = 0,
-    Opt_RunAsync = 128,
-    Opt_RemoveNull = 256
+  std::string _eTag;
+  Flags _flgs;
+
+ public:
+  enum class Rev : Flags {
+    Reset = 0,
+    Match = Reset + 1,
+    NoMatch = Match + 1,
+    Mask = 3
   };
-  DocOptions(const Flags flags, const std::string& tag = "");
-  DocOptions(const Flags flags = Opt_Defaults, std::string&& tag = "");
+
+  enum class Policy : Flags {
+    Reset = 0,
+    Error = Reset,
+    Last = Error + 4,
+    Mask = 4
+  };
+
+  enum class Sync : Flags {
+    Reset = 0,
+    Wait = Reset + 8,
+    NoWait = Wait + 8,
+    Mask = 24
+  };
+
+  enum class CreateCol : Flags {
+    Reset = 0,
+    No = Reset,
+    Yes = No + 32,
+    Mask = 32
+  };
+
+  enum class Merge : Flags { Reset = 0, Yes = Reset, No = Yes + 64, Mask = 64 };
+
+  enum class Run : Flags {
+    Reset = 0,
+    Sync = Reset,
+    Async = Sync + 128,
+    Mask = 128
+  };
+
+  enum class RemoveNull : Flags {
+    Reset = 0,
+    No = Reset,
+    Yes = No + 256,
+    Mask = 256
+  };
+
+  DocOptions& resetAllFlags();
+  template <typename C>
+  DocOptions& resetFlags();
+  template <typename T>
+  const T flag() const;
+  template <typename T>
+  bool flagged(T inp) const;
   operator const std::string&() const;
-  const std::string& eTag() const;
-  Flags flags() const;
-  void selectOpts(Flags);
-  void clearOpts(Flags);
-  DocOptions& operator=(const Flags inp);
-  DocOptions& operator=(const Flag inp);
   DocOptions& operator=(const std::string& inp);
   DocOptions& operator=(std::string&& inp);
 
  private:
-  std::string _eTag;
-  Flags _flgs;
+  template <typename T>
+  void addFlags(T flag);
+  template <typename T, typename... Args>
+  void addFlags(T flag, Args... args);
+
+ public:
+  template <typename T, typename... Args>
+  DocOptions& setFlags(T flag, Args... args);
+  template <typename T>
+  DocOptions& setFlags(T flag);
+  explicit DocOptions();
+  explicit DocOptions(const DocOptions& inp);
+  explicit DocOptions(DocOptions&& inp);
+  explicit DocOptions(const std::string& inp);
+  explicit DocOptions(std::string&& inp);
+  template <typename T, typename... Args>
+  explicit DocOptions(const std::string& tag, T flag, Args... args);
+  template <typename T, typename... Args>
+  explicit DocOptions(std::string&& tag, T flag, Args... args);
 };
 
-inline DocOptions& DocOptions::operator=(const Flags inp) {
-  _flgs = inp;
+inline DocOptions::DocOptions(const DocOptions& inp)
+    : _eTag(inp._eTag), _flgs(inp._flgs) {}
+
+inline DocOptions::DocOptions(DocOptions&& inp)
+    : _eTag(inp._eTag), _flgs(inp._flgs) {}
+
+template <typename T, typename... Args>
+DocOptions::DocOptions(const std::string& tag, T flag, Args... args)
+    : _eTag(tag) {
+  setFlags(flag, args...);
+}
+
+template <typename T, typename... Args>
+DocOptions::DocOptions(std::string&& tag, T flag, Args... args)
+    : _eTag(tag) {
+  setFlags(flag, args...);
+}
+
+inline DocOptions::DocOptions(const std::string& inp) : _eTag(inp), _flgs(0) {}
+
+inline DocOptions::DocOptions(std::string&& inp) : _eTag(inp), _flgs(0) {}
+
+inline DocOptions::DocOptions() : _eTag("12345678"), _flgs(0) {}
+
+template <typename T>
+void DocOptions::addFlags(T flag) {
+  _flgs &= ~static_cast<Flags>(T::Mask);
+  _flgs |= static_cast<Flags>(flag);
+}
+
+template <typename T, typename... Args>
+void DocOptions::addFlags(T flag, Args... args) {
+  addFlags(flag);
+  addFlags(args...);
+}
+
+template <typename T>
+DocOptions& DocOptions::setFlags(T flag) {
+  if (T::Mask == T::Mask) _flgs = static_cast<Flags>(flag);
   return *this;
 }
 
-inline DocOptions& DocOptions::operator=(const Flag inp) {
-  _flgs = inp;
+template <typename T, typename... Args>
+DocOptions& DocOptions::setFlags(T flag, Args... args) {
+  setFlags(flag);
+  addFlags(args...);
+  return *this;
+}
+
+inline DocOptions& DocOptions::resetAllFlags() {
+  _flgs = 0;
+  return *this;
+}
+
+template <typename C>
+inline DocOptions& DocOptions::resetFlags() {
+  _flgs &= ~static_cast<Flags>(C::Mask);
   return *this;
 }
 
@@ -90,13 +185,18 @@ inline DocOptions& DocOptions::operator=(std::string&& inp) {
   return *this;
 }
 
-inline const std::string& DocOptions::eTag() const { return _eTag; }
+inline DocOptions::operator const std::string&() const { return _eTag; }
 
-inline DocOptions::Flags DocOptions::flags() const { return _flgs; }
+template <typename T>
+inline const T DocOptions::flag() const {
+  Flags tmp = _flgs & static_cast<Flags>(T::Mask);
+  return static_cast<T>(tmp);
+}
 
-inline void DocOptions::selectOpts(Flags inp) { _flgs |= inp; }
-
-inline void DocOptions::clearOpts(Flags inp) { _flgs &= ~inp; }
+template <typename T>
+inline bool DocOptions::flagged(T inp) const {
+  return flag<T>() == inp;
+}
 }
 }
 

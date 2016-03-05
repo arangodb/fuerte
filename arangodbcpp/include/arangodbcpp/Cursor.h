@@ -1,7 +1,7 @@
 #ifndef FUERTE_CURSOR_H
 #define FUERTE_CURSOR_H
 
-#include "arangodbcpp/Server.h"
+#include "arangodbcpp/Database.h"
 #include "arangodbcpp/Connection.h"
 
 namespace arangodb {
@@ -10,9 +10,10 @@ namespace dbinterface {
 
 class Cursor {
  public:
+  typedef std::shared_ptr<Cursor> SPtr;
   enum class CacheMode : uint8_t { on = 0, off, demand };
 
-  Cursor(const Server::SPtr& inp);
+  Cursor(const Database::SPtr& inp);
   Cursor() = delete;
 
   void httpCreate(const Connection::SPtr& pCon, const std::string query,
@@ -49,10 +50,10 @@ class Cursor {
   std::string httpCacheUrl() const;
   std::string httpCachePropsUrl() const;
 
-  Server::SPtr _Server;
+  Database::SPtr _Database;
 };
 
-inline Cursor::Cursor(const Server::SPtr& inp) : _Server(inp) {}
+inline Cursor::Cursor(const Database::SPtr& inp) : _Database(inp) {}
 
 std::ostream& operator<<(std::ostream& os, Cursor::CacheMode mode);
 

@@ -71,20 +71,21 @@ void Collection::httpDocs(const Connection::SPtr& pCon, const Options opts) {
   Connection& conn = *pCon;
   std::string url{docColUrl()};
   conn.reset();
-  switch (opts & Opt_ListMask) {
-    case Opt_ListId: {
+  switch (flag<List>(opts)) {
+    case List::Id: {
       url += "&type=id";
       break;
     }
-    case Opt_ListKey: {
+    case List::Key: {
       url += "&type=key";
       break;
     }
+    case List::Path:
     default:;
   }
   conn.setUrl(url);
   conn.setBuffer();
-  conn.setReady((opts & Opt_RunAsync) != 0);
+  conn.setReady(flagged(opts, Run::Async));
 }
 
 //
@@ -100,7 +101,7 @@ void Collection::httpCreate(const Database::SPtr& pDb,
   conn.setUrl(pDb->databaseUrl() + httpColApi);
   conn.setPostField(Connection::json(config, false));
   conn.setBuffer();
-  conn.setReady((opts & Opt_RunAsync) != 0);
+  conn.setReady(flagged(opts, Run::Async));
 }
 
 //
@@ -113,7 +114,7 @@ void Collection::httpCreate(const Connection::SPtr& pCon, const Options opts) {
   conn.setUrl(httpApi());
   conn.setPostField("{ \"name\":\"" + _name + "\" }");
   conn.setBuffer();
-  conn.setReady((opts & Opt_RunAsync) != 0);
+  conn.setReady(flagged(opts, Run::Async));
 }
 
 //
@@ -126,7 +127,7 @@ void Collection::httpDelete(const Connection::SPtr& pCon, const Options opts) {
   conn.setDeleteReq();
   conn.setUrl(httpApi() + '/' + _name);
   conn.setBuffer();
-  conn.setReady((opts & Opt_RunAsync) != 0);
+  conn.setReady(flagged(opts, Run::Async));
 }
 
 void Collection::httpTruncate(const Connection::SPtr& pCon,
@@ -136,7 +137,7 @@ void Collection::httpTruncate(const Connection::SPtr& pCon,
   conn.setPutReq();
   conn.setUrl(httpApi() + '/' + _name + "/truncate");
   conn.setBuffer();
-  conn.setReady((opts & Opt_RunAsync) != 0);
+  conn.setReady(flagged(opts, Run::Async));
 }
 }
 }

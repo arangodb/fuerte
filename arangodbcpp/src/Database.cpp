@@ -83,7 +83,7 @@ void Database::httpCreate(const Connection::SPtr& p, bool bAsync) {
 // Configure to drop a Database using the configured name
 //
 void Database::httpDelete(const Connection::SPtr& p, bool bAsync) {
-  std::string url{_server->hostUrl() + httpDbApi + _name};
+  std::string url{_server->hostUrl() + httpDbApi + '/' + _name};
   Connection& conn = *p;
   conn.reset();
   conn.setUrl(url);

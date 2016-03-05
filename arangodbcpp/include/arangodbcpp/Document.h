@@ -38,7 +38,6 @@ namespace dbinterface {
 class Document {
  public:
   typedef DocOptions Options;
-  typedef DocOptions::Flags Flags;
   typedef std::shared_ptr<Document> SPtr;
   Document(const std::string& name);
   Document(std::string&& name = "NewDoc");
@@ -74,22 +73,22 @@ class Document {
                          const Connection::SPtr& pCon, const std::string json,
                          const Options& opts);
   static Connection::QueryPrefix httpCreateQuery(
-      std::string& url, const Flags flgs,
+      std::string& url, const Options& opts,
       const Connection::QueryPrefix = Connection::QueryPrefix::Next);
   static Connection::QueryPrefix httpSyncQuery(
-      std::string& url, const Flags flgs,
+      std::string& url, const DocOptions& opts,
       const Connection::QueryPrefix = Connection::QueryPrefix::Next);
   static Connection::QueryPrefix httpMergeQuery(
-      std::string& url, const Flags flgs,
+      std::string& url, const Options& opts,
       const Connection::QueryPrefix = Connection::QueryPrefix::Next);
   static Connection::QueryPrefix httpPolicyQuery(
-      std::string& url, const Flags flgs,
+      std::string& url, const Options& opts,
       const Connection::QueryPrefix = Connection::QueryPrefix::Next);
   static Connection::QueryPrefix httpRevQuery(
       std::string& url, const DocOptions& opt,
       const Connection::QueryPrefix = Connection::QueryPrefix::Next);
   static Connection::QueryPrefix httpKeepNullQuery(
-      std::string& url, const Flags flgs,
+      std::string& url, const Options& optds,
       const Connection::QueryPrefix = Connection::QueryPrefix::Next);
 
   static void httpMatchHeader(Connection::HttpHeaderList& headers,
