@@ -67,7 +67,7 @@ class Connection {
   void setPutReq();
   void setPatchReq();
   void setVerbose(bool inp);
-  void reset();
+  Connection& reset();
   template <typename T>
   void setBuffer(T* p, size_t (T::*f)(char* p, size_t sz, size_t m));
   void setBuffer(size_t (*f)(char* p, size_t sz, size_t m));
@@ -78,7 +78,7 @@ class Connection {
   VPack fromJSon(bool bSorted = true) const;
   VPack notProcessed() const;
   VPack noHost() const;
-  void setReady(bool bAsync = false);
+  void setSync(bool bAsync = false);
   void run();
   bool isError() const;
   bool isRunning() const;
@@ -173,7 +173,8 @@ inline void Connection::setBuffer(const std::string& inp) {
 // to the default write buffer
 //
 inline void Connection::errFound(const std::string& inp, uint8_t err) {
-  setBuffer(inp);
+  std::string json{"{ \"errorMessage\":\"" + inp + "\"}"};
+  setBuffer(json);
   _flgs |= err;
 }
 

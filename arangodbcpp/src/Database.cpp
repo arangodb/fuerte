@@ -49,16 +49,15 @@ std::string Database::databaseUrl() const {
 void Database::httpCreate(const Server::SPtr& server, const Connection::SPtr& p,
                           const Connection::VPack& data, bool bAsync) {
   std::string val{server->hostUrl() + httpDbApi};
-  Connection& conn = *p;
+  Connection& conn = p->reset();
   Connection::HttpHeaderList headers;
-  conn.reset();
   conn.setJsonContent(headers);
   conn.setHeaderOpts(headers);
   conn.setUrl(val);
   conn.setPostReq();
   conn.setPostField(Connection::json(data));
   conn.setBuffer();
-  conn.setReady(bAsync);
+  conn.setSync(bAsync);
 }
 
 //
@@ -66,9 +65,8 @@ void Database::httpCreate(const Server::SPtr& server, const Connection::SPtr& p,
 //
 void Database::httpCreate(const Connection::SPtr& p, bool bAsync) {
   std::string val{_server->hostUrl() + httpDbApi};
-  Connection& conn = *p;
+  Connection& conn = p->reset();
   Connection::HttpHeaderList headers;
-  conn.reset();
   conn.setJsonContent(headers);
   conn.setHeaderOpts(headers);
   conn.setUrl(val);
@@ -76,7 +74,7 @@ void Database::httpCreate(const Connection::SPtr& p, bool bAsync) {
   conn.setPostReq();
   conn.setPostField(val);
   conn.setBuffer();
-  conn.setReady(bAsync);
+  conn.setSync(bAsync);
 }
 
 //
@@ -84,12 +82,11 @@ void Database::httpCreate(const Connection::SPtr& p, bool bAsync) {
 //
 void Database::httpDelete(const Connection::SPtr& p, bool bAsync) {
   std::string url{_server->hostUrl() + httpDbApi + '/' + _name};
-  Connection& conn = *p;
-  conn.reset();
+  Connection& conn = p->reset();
   conn.setUrl(url);
   conn.setDeleteReq();
   conn.setBuffer();
-  conn.setReady(bAsync);
+  conn.setSync(bAsync);
 }
 }
 }

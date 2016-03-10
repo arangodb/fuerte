@@ -82,6 +82,7 @@ void Connection::setPostField(const VPack data) {
 //
 //
 void Connection::setBuffer() {
+  _buf.clear();
   setBuffer(this, &Connection::WriteMemoryCallback);
 }
 
@@ -93,17 +94,13 @@ void Connection::setJsonContent(HttpHeaderList& headers) {
 }
 
 //
-// Clears the buffer that holds received data and
-// any error messages
-//
 // Configures whether the next operation will be done
 // synchronously or asyncronously
 //
 // IMPORTANT
 // This should be the last configuration item to be set
 //
-void Connection::setReady(bool bAsync) {
-  _buf.clear();
+void Connection::setSync(bool bAsync) {
   _flgs = 0;
   if (bAsync) {
     _flgs = F_Multi | F_Running;
@@ -111,9 +108,13 @@ void Connection::setReady(bool bAsync) {
   }
 }
 
-void Connection::reset() {
+Connection& Connection::reset() {
+  if (_flgs & F_Multi) {
+    _async.remove(&_request);
+  }
   _request.reset();
   _flgs = F_Clear;
+  return *this;
 }
 
 void Connection::run() {

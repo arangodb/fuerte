@@ -66,48 +66,45 @@ void Server::setHostUrl(std::string url, uint16_t port) {
 //	Configure to request the Arangodb version
 //
 void Server::httpVersion(Connection::SPtr p, bool bAsync) {
-  Connection& conn = *p;
+  Connection& conn = p->reset();
   std::string url{_host + "/_api/version"};
-  conn.reset();
   conn.setUrl(url);
   conn.setBuffer();
-  conn.setReady(bAsync);
+  conn.setSync(bAsync);
 }
 
 //
 //	Configure to request the current default Database
 //
 void Server::httpCurrentDb(Connection::SPtr p, bool bAsync) {
-  Connection& conn = *p;
+  Connection& conn = p->reset();
   std::string url{_host + "/_api/database/current"};
-  conn.reset();
   conn.setUrl(url);
   conn.setBuffer();
-  conn.setReady(bAsync);
+  conn.setSync(bAsync);
 }
 
 //
 //	Configure to request the user Databases available
 //
 void Server::httpUserDbs(Connection::SPtr p, bool bAsync) {
-  Connection& conn = *p;
+  Connection& conn = p->reset();
   std::string url{_host + "/_api/database/user"};
   conn.reset();
   conn.setUrl(url);
   conn.setBuffer();
-  conn.setReady(bAsync);
+  conn.setSync(bAsync);
 }
 
 //
 //	Configure to request the Databases available
 //
 void Server::httpExistingDbs(Connection::SPtr p, bool bAsync) {
-  Connection& conn = *p;
+  Connection& conn = p->reset();
   std::string url{_host + "/_api/database"};
-  conn.reset();
   conn.setUrl(url);
   conn.setBuffer();
-  conn.setReady(bAsync);
+  conn.setSync(bAsync);
 }
 }
 }

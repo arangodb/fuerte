@@ -117,7 +117,7 @@ void Document::httpCreate(const Collection::SPtr& pCol,
   conn.setPostField(json);
   conn.setPostReq();
   conn.setBuffer();
-  conn.setReady(opts.flagged(Options::Run::Async));
+  conn.setSync(opts.flagged(Options::Run::Async));
 }
 
 //
@@ -137,7 +137,7 @@ void Document::httpDelete(const Collection::SPtr& pCol,
   conn.setUrl(url);
   conn.setDeleteReq();
   conn.setBuffer();
-  conn.setReady(opts.flagged(Options::Run::Async));
+  conn.setSync(opts.flagged(Options::Run::Async));
 }
 
 Connection::QueryPrefix Document::httpRevQuery(
@@ -183,17 +183,16 @@ void Document::httpMatchHeader(Connection::HttpHeaderList& headers,
 //
 void Document::httpGet(const Collection::SPtr& pCol,
                        const Connection::SPtr& pCon, const Options& opts) {
-  Connection& conn = *pCon;
+  Connection& conn = pCon->reset();
   Connection::HttpHeaderList headers;
   httpMatchHeader(headers, opts);
-  conn.reset();
   conn.setUrl(pCol->refDocUrl(_key));
   conn.setGetReq();
   if (!headers.empty()) {
     conn.setHeaderOpts(headers);
   }
   conn.setBuffer();
-  conn.setReady(opts.flagged(Options::Run::Async));
+  conn.setSync(opts.flagged(Options::Run::Async));
 }
 
 //
@@ -205,17 +204,16 @@ void Document::httpReplace(const Collection::SPtr& pCol,
                            const Connection::SPtr& pCon, const Options& opts,
                            Connection::VPack data) {
   typedef Connection::QueryPrefix QueryPrefix;
-  Connection& conn = *pCon;
+  Connection& conn = pCon->reset();
   std::string url = pCol->refDocUrl(_key);
   QueryPrefix pre = httpSyncQuery(url, opts, QueryPrefix::First);
   pre = httpPolicyQuery(url, opts, pre);
   httpRevQuery(url, opts, pre);
-  conn.reset();
   conn.setUrl(url);
   conn.setPostField(Connection::json(data, false));
   conn.setPutReq();
   conn.setBuffer();
-  conn.setReady(opts.flagged(Options::Run::Async));
+  conn.setSync(opts.flagged(Options::Run::Async));
 }
 
 //
@@ -224,20 +222,19 @@ void Document::httpReplace(const Collection::SPtr& pCol,
 void Document::httpPatch(const Collection::SPtr& pCol,
                          const Connection::SPtr& pCon, const Options& opts,
                          Connection::VPack data) {
-  typedef Connection::QueryPrefix QueryPrefix;
-  Connection& conn = *pCon;
+  typedef Connection::QueryPrefix Prefix;
+  Connection& conn = pCon->reset();
   std::string url{pCol->refDocUrl(_key)};
-  QueryPrefix pre = httpSyncQuery(url, opts, QueryPrefix::First);
+  Prefix pre = httpSyncQuery(url, opts, Prefix::First);
   pre = httpMergeQuery(url, opts, pre);
   pre = httpRevQuery(url, opts, pre);
   pre = httpPolicyQuery(url, opts, pre);
   httpKeepNullQuery(url, opts, pre);
-  conn.reset();
   conn.setPatchReq();
   conn.setUrl(url);
   conn.setPostField(Connection::json(data, false));
   conn.setBuffer();
-  conn.setReady(opts.flagged(Options::Run::Async));
+  conn.setSync(opts.flagged(Options::Run::Async));
 }
 
 Connection::VPack Document::httpHead(bool bSort, const Connection::SPtr& pCon) {
@@ -294,14 +291,13 @@ Connection::VPack Document::httpHead(bool bSort, const Connection::SPtr& pCon) {
 //
 void Document::httpHead(const Collection::SPtr& pCol,
                         const Connection::SPtr& pCon, const Options& opts) {
-  Connection& conn = *pCon;
+  Connection& conn = pCon->reset();
   std::string url = pCol->refDocUrl(_key);
   httpRevQuery(url, opts, Connection::QueryPrefix::First);
-  conn.reset();
   conn.setHeadReq();
   conn.setUrl(url);
   conn.setBuffer();
-  conn.setReady(opts.flagged(Options::Run::Async));
+  conn.setSync(opts.flagged(Options::Run::Async));
 }
 }
 }

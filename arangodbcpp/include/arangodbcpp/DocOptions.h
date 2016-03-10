@@ -153,7 +153,9 @@ void DocOptions::addFlags(T flag, Args... args) {
 
 template <typename T>
 DocOptions& DocOptions::setFlags(T flag) {
-  if (T::Mask == T::Mask) _flgs = static_cast<Flags>(flag);
+  if (T::Mask == T::Mask) {
+    _flgs = static_cast<Flags>(flag);
+  }
   return *this;
 }
 

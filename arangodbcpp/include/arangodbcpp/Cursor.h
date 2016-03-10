@@ -26,6 +26,19 @@ class Cursor {
                 bool bAsync = false);
   static Connection::VPack httpMore(bool bSort, const Connection::SPtr& pCon);
 
+  void httpAddFnc(const Connection::SPtr& pCon, const std::string& name,
+                  const std::string& code, bool bAsync);
+  static Connection::VPack httpAddFnc(bool bSort, const Connection::SPtr& pCon);
+
+  void httpDeleteFnc(const Connection::SPtr& pCon, const std::string& name,
+                     bool bAsync);
+  static Connection::VPack httpDeleteFnc(bool bSort,
+                                         const Connection::SPtr& pCon);
+
+  void httpGetFncs(const Connection::SPtr& pCon, bool bAsync);
+  static Connection::VPack httpGetFncs(const bool bSort,
+                                       const Connection::SPtr& pCon);
+
   void httpDelete(const Connection::SPtr& pCon, std::string id,
                   bool bAsync = false);
   static Connection::VPack httpDelete(bool bSort, const Connection::SPtr& pCon);
@@ -47,6 +60,7 @@ class Cursor {
 
  private:
   std::string httpCursorUrl() const;
+  std::string httpAqlFnc() const;
   std::string httpCacheUrl() const;
   std::string httpCachePropsUrl() const;
 
@@ -84,6 +98,21 @@ inline Connection::VPack Cursor::httpCacheProperties(
 
 inline Connection::VPack Cursor::httpSetCacheProps(
     bool bSort, const Connection::SPtr& pCon) {
+  return pCon->fromJSon(bSort);
+}
+
+inline Connection::VPack Cursor::httpAddFnc(bool bSort,
+                                            const Connection::SPtr& pCon) {
+  return pCon->fromJSon(bSort);
+}
+
+inline Connection::VPack Cursor::httpDeleteFnc(bool bSort,
+                                               const Connection::SPtr& pCon) {
+  return pCon->fromJSon(bSort);
+}
+
+inline Connection::VPack Cursor::httpGetFncs(const bool bSort,
+                                             const Connection::SPtr& pCon) {
   return pCon->fromJSon(bSort);
 }
 }
