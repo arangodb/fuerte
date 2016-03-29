@@ -60,14 +60,13 @@ std::string Connection::strValue(const VPack res, std::string attrib) {
   using arangodb::velocypack::ValueType;
   using arangodb::velocypack::ValueLength;
   Slice slice{res->data()};
-  std::string ret;
   slice = slice.get(attrib);
   if (slice.type() == ValueType::String) {
     ValueLength len = slice.getStringLength();
     const char* pData = slice.getString(len);
-    ret = std::string(pData, len);
+    return std::string(pData, len);
   }
-  return ret;
+  return std::string{};
 }
 
 void Connection::setPostField(const VPack data) {
@@ -100,37 +99,60 @@ void Connection::setJsonContent(HttpHeaderList& headers) {
 // IMPORTANT
 // This should be the last configuration item to be set
 //
-void Connection::setSync(bool bAsync) {
-  _flgs = 0;
+void Connection::setSync(const bool bAsync) {
   if (bAsync) {
-    _flgs = F_Multi | F_Running;
+    _mode = Mode::AsyncRun;
     _async.add(&_request);
+    return;
   }
+  _mode = Mode::SyncRun;
 }
 
-Connection& Connection::reset() {
-  if (_flgs & F_Multi) {
+void Connection::reset(const Mode inp) {
+  if (_mode == Mode::AsyncRun) {
     _async.remove(&_request);
   }
   _request.reset();
-  _flgs = F_Clear;
-  return *this;
+  _mode = inp;
+}
+
+void Connection::runAgain(bool bAsync) {
+  if (_mode == Mode::Done) {
+    _buf.clear();
+    if (bAsync) {
+      _mode = Mode::AsyncRun;
+      _async.add(&_request);
+      asyncRun();
+      if (_mode == Mode::AsyncRun) {
+        return;
+      }
+    } else {
+      _mode = Mode::SyncRun;
+      syncRun();
+    }
+    if (_buf.empty()) {
+      httpResponse();
+    }
+  }
 }
 
 void Connection::run() {
-  if (_flgs & F_Multi) {
-    asyncRun();
-    if (_flgs & F_Running) {
-      return;
+  switch (_mode) {
+    case Mode::AsyncRun: {
+      asyncRun();
+      if (_mode != Mode::AsyncRun) {
+        break;
+      }
+      // Deliberately drops through
     }
-  } else {
-    syncRun();
+    default: { return; }
+    case Mode::SyncRun: {
+      syncRun();
+      break;
+    }
   }
   if (_buf.empty()) {
     httpResponse();
-  }
-  if (_flgs & F_Multi) {
-    _async.remove(&_request);
   }
 }
 
@@ -140,8 +162,9 @@ void Connection::run() {
 void Connection::syncRun() {
   try {
     _request.perform();
+    _mode = Mode::Done;
   } catch (curlpp::LogicError& e) {
-    errFound(e.what(), F_LogicError);
+    errFound(e.what(), Mode::LogicError);
     return;
   } catch (curlpp::LibcurlRuntimeError& e) {
     errFound(e.what());
@@ -164,7 +187,8 @@ void Connection::asyncRun() {
         return;
       }
       if (!nLeft) {
-        _flgs ^= F_Running;
+        _async.remove(&_request);
+        _mode = Mode::Done;
         return;
       }
     }
@@ -189,15 +213,12 @@ void Connection::asyncRun() {
       }
     }
   } catch (curlpp::LogicError& e) {
-    _flgs ^= F_Running;
-    errFound(e.what(), F_LogicError);
+    errFound(e.what(), Mode::LogicError);
     return;
   } catch (curlpp::LibcurlRuntimeError& e) {
-    _flgs ^= F_Running;
     errFound(e.what());
     return;
   } catch (curlpp::RuntimeError& e) {
-    _flgs ^= F_Running;
     errFound(e.what());
     return;
   }
@@ -205,7 +226,7 @@ void Connection::asyncRun() {
 
 void Connection::httpResponse() {
   long res = httpResponseCode();
-  if (!res && (_flgs & F_Multi)) {
+  if (!res && _mode == Mode::AsyncRun) {
     typedef curlpp::Multi::Msgs M_Msgs;
     M_Msgs msgs = _async.info();
     CURLcode code = msgs.front().second.code;
@@ -249,35 +270,11 @@ size_t Connection::WriteMemoryCallback(char* ptr, size_t size, size_t nmemb) {
   return realsize;
 }
 
-Connection::VPack Connection::notProcessed() const {
-  using arangodb::velocypack::Builder;
-  using arangodb::velocypack::Value;
-  using arangodb::velocypack::ValueType;
-  using arangodb::velocypack::Options;
-  Builder b;
-  b.add(Value(ValueType::Object));  // Start building an object
-  b.add("Result", Value("Not processed"));
-  b.close();  // Finish the object
-  return b.steal();
-}
-
-Connection::VPack Connection::noHost() const {
-  using arangodb::velocypack::Builder;
-  using arangodb::velocypack::Value;
-  using arangodb::velocypack::ValueType;
-  using arangodb::velocypack::Options;
-  Builder b;
-  b.add(Value(ValueType::Object));  // Start building an object
-  b.add("Error", Value("No host url"));
-  b.close();  // Finish the object
-  return b.steal();
-}
-
 //
 // Converts JSon held in the default write buffer
 // to a shared velocypack buffer
 //
-Connection::VPack Connection::fromJSon(bool bSorted) const {
+Connection::VPack Connection::fromJSon(const bool bSorted) const {
   if (!_buf.empty()) {
     using arangodb::velocypack::Builder;
     using arangodb::velocypack::Parser;

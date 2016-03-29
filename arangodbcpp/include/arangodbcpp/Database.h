@@ -42,14 +42,17 @@ class Database {
  public:
   typedef std::shared_ptr<Database> SPtr;
   Database() = delete;
-  explicit Database(std::shared_ptr<Server> srv, std::string name = "_system");
+  explicit Database(const ServerPtr& srv, const std::string& name);
+  explicit Database(const ServerPtr& srv, std::string&& name = "_system");
   ~Database();
   void httpCreate(const ServerPtr& server, const Connection::SPtr& p,
-                  const Connection::VPack& data, bool bAsync);
-  void httpCreate(const Connection::SPtr& conn, bool bAsync = false);
-  static Connection::VPack httpCreate(bool bSort, const Connection::SPtr& conn);
-  void httpDelete(const Connection::SPtr& conn, bool bAsync = false);
-  static Connection::VPack httpDelete(bool bSort, const Connection::SPtr& conn);
+                  const Connection::VPack& data, const bool bAsync);
+  void httpCreate(const Connection::SPtr& conn, const bool bAsync = false);
+  static Connection::VPack httpCreate(const bool bSort,
+                                      const Connection::SPtr& conn);
+  void httpDelete(const Connection::SPtr& conn, const bool bAsync = false);
+  static Connection::VPack httpDelete(const bool bSort,
+                                      const Connection::SPtr& conn);
   std::string databaseUrl() const;
   bool hasValidHost() const;
   Database& operator=(const std::string&);
@@ -77,12 +80,12 @@ inline Database& Database::operator=(std::string&& inp) {
   return *this;
 }
 
-inline Connection::VPack Database::httpCreate(bool bSort,
+inline Connection::VPack Database::httpCreate(const bool bSort,
                                               const Connection::SPtr& conn) {
   return conn->fromJSon(bSort);
 }
 
-inline Connection::VPack Database::httpDelete(bool bSort,
+inline Connection::VPack Database::httpDelete(const bool bSort,
                                               const Connection::SPtr& conn) {
   return conn->fromJSon(bSort);
 }

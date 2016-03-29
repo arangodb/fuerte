@@ -55,7 +55,7 @@ std::string Collection::docColUrl() const {
 //
 // Creates the base url required to get and delete a Document
 //
-std::string Collection::refDocUrl(std::string& key) {
+std::string Collection::refDocUrl(const std::string& key) const {
   return std::string{_database->databaseUrl() + httpDocApi + '/' + _name + '/' +
                      key};
 }
@@ -75,9 +75,11 @@ void Collection::addNameAttrib(arangodb::velocypack::Builder& builder) {
 bool Collection::hasValidHost() const { return _database->hasValidHost(); }
 
 void Collection::httpDocs(const Connection::SPtr& pCon, const Options opts) {
+  typedef Options::List List;
+  typedef Options::Run Run;
   Connection& conn = pCon->reset();
   std::string url{docColUrl()};
-  switch (flag<List>(opts)) {
+  switch (opts.flag<List>()) {
     case List::Id: {
       url += "&type=id";
       break;
@@ -91,7 +93,7 @@ void Collection::httpDocs(const Connection::SPtr& pCon, const Options opts) {
   }
   conn.setUrl(url);
   conn.setBuffer();
-  conn.setSync(flagged(opts, Run::Async));
+  conn.setSync(opts.flagged(Run::Async));
 }
 
 //
@@ -106,7 +108,7 @@ void Collection::httpCreate(const Database::SPtr& pDb,
   conn.setUrl(pDb->databaseUrl() + httpColApi);
   conn.setPostField(Connection::json(config, false));
   conn.setBuffer();
-  conn.setSync(flagged(opts, Run::Async));
+  conn.setSync(opts.flagged(Options::Run::Async));
 }
 
 //
@@ -118,7 +120,7 @@ void Collection::httpCreate(const Connection::SPtr& pCon, const Options opts) {
   conn.setUrl(httpApi());
   conn.setPostField("{ \"name\":\"" + _name + "\" }");
   conn.setBuffer();
-  conn.setSync(flagged(opts, Run::Async));
+  conn.setSync(opts.flagged(Options::Run::Async));
 }
 
 //
@@ -130,7 +132,26 @@ void Collection::httpDelete(const Connection::SPtr& pCon, const Options opts) {
   conn.setDeleteReq();
   conn.setUrl(httpApiName());
   conn.setBuffer();
-  conn.setSync(flagged(opts, Run::Async));
+  conn.setSync(opts.flagged(Options::Run::Async));
+}
+
+void Collection::httpAbout(const Connection::SPtr& pCon, const Options opts) {
+  Connection& conn = pCon->reset();
+  conn.setGetReq();
+  conn.setUrl(httpApiName());
+  conn.setBuffer();
+  conn.setSync(opts.flagged(Options::Run::Async));
+}
+
+void Collection::httpRename(const Connection::SPtr& pCon,
+                            const std::string& name, const Options opts) {
+  Connection& conn = pCon->reset();
+  std::string data{"{ \"name\":\"" + name + "\" }"};
+  conn.setPutReq();
+  conn.setUrl(httpApiName() + "/rename");
+  conn.setPostField(data);
+  conn.setBuffer();
+  conn.setSync(opts.flagged(Options::Run::Async));
 }
 
 //
@@ -142,7 +163,7 @@ void Collection::httpInfo(const Connection::SPtr& pCon, const Options opts,
   Connection& conn = pCon->reset();
   conn.setUrl(httpApiName() + info);
   conn.setBuffer();
-  conn.setSync(flagged(opts, Run::Async));
+  conn.setSync(opts.flagged(Options::Run::Async));
 }
 
 void Collection::httpChecksum(const Connection::SPtr& pCon,
@@ -151,16 +172,16 @@ void Collection::httpChecksum(const Connection::SPtr& pCon,
   Connection& conn = pCon->reset();
   std::string url = httpApiName() + "/checksum";
   Prefix pre = Prefix::First;
-  if (flagged(opts, Revs::Yes)) {
+  if (opts.flagged(Options::Revs::Yes)) {
     url += pre + "withRevisions=true";
     pre = Prefix::Next;
   }
-  if (flagged(opts, Data::Yes)) {
+  if (opts.flagged(Options::Data::Yes)) {
     url += pre + "withData=true";
   }
   conn.setUrl(url);
   conn.setBuffer();
-  conn.setSync(flagged(opts, Run::Async));
+  conn.setSync(opts.flagged(Options::Run::Async));
 }
 
 void Collection::httpTruncate(const Connection::SPtr& pCon,
@@ -169,7 +190,7 @@ void Collection::httpTruncate(const Connection::SPtr& pCon,
   conn.setPutReq();
   conn.setUrl(httpApiName() + "/truncate");
   conn.setBuffer();
-  conn.setSync(flagged(opts, Run::Async));
+  conn.setSync(opts.flagged(Options::Run::Async));
 }
 }
 }

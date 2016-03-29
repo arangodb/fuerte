@@ -56,30 +56,42 @@ class DocOptions {
     Reset = 0,
     Wait = Reset + 8,
     NoWait = Wait + 8,
-    Mask = 24
+    Mask = 0x18
   };
 
   enum class CreateCol : Flags {
     Reset = 0,
     No = Reset,
-    Yes = No + 32,
-    Mask = 32
+    Yes = No + 0x20,
+    Mask = 0x20
   };
 
-  enum class Merge : Flags { Reset = 0, Yes = Reset, No = Yes + 64, Mask = 64 };
+  enum class Merge : Flags {
+    Reset = 0,
+    Yes = Reset,
+    No = Yes + 0x40,
+    Mask = 0x40
+  };
 
   enum class Run : Flags {
     Reset = 0,
     Sync = Reset,
-    Async = Sync + 128,
-    Mask = 128
+    Async = Sync + 0x80,
+    Mask = 0x80
   };
 
   enum class RemoveNull : Flags {
     Reset = 0,
     No = Reset,
-    Yes = No + 256,
-    Mask = 256
+    Yes = No + 0x100,
+    Mask = 0x100
+  };
+
+  enum class CreateColType : Flags {
+    Reset = 0,
+    Document = Reset,
+    Edge = Document + 0x200,
+    Mask = 0x200
   };
 
   DocOptions& resetAllFlags();

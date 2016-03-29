@@ -40,6 +40,7 @@ class Database;
 class Server {
  public:
   typedef std::shared_ptr<Server> SPtr;
+  explicit Server(std::string url = {"localhost"}, uint16_t port = 8529);
   ~Server();
   void httpVersion(Connection::SPtr conn, bool bAsync);
   static Connection::VPack httpVersion(bool bSort, Connection::SPtr conn);
@@ -52,11 +53,7 @@ class Server {
   void setHostUrl(std::string url, uint16_t port);
   const std::string& hostUrl() const;
 
-  static SPtr create();
-
  private:
-  explicit Server();
-
   static uint16_t _inst;
   std::string _host;
 };

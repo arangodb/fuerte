@@ -34,16 +34,12 @@ namespace dbinterface {
 
 uint16_t Server::_inst = 0;
 
-//
-//	Create a shared pointer to a server object
-//
-Server::SPtr Server::create() { return SPtr(new Server()); }
-
-Server::Server() : _host{"http://localhost:8529"} {
+Server::Server(std::string url, uint16_t port) {
   if (!_inst) {
     curlpp::initialize();
   }
   ++_inst;
+  setHostUrl(url, port);
 }
 
 Server::~Server() {

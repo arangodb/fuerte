@@ -33,7 +33,10 @@ namespace dbinterface {
 
 const std::string Database::httpDbApi{"/_api/database"};
 
-Database::Database(Server::SPtr srv, std::string name)
+Database::Database(const Server::SPtr& srv, const std::string& name)
+    : _server{srv}, _name(name) {}
+
+Database::Database(const Server::SPtr& srv, std::string&& name)
     : _server{srv}, _name(name) {}
 
 //
@@ -47,7 +50,7 @@ std::string Database::databaseUrl() const {
 // Configure to create a Database using the VPack configuration data
 //
 void Database::httpCreate(const Server::SPtr& server, const Connection::SPtr& p,
-                          const Connection::VPack& data, bool bAsync) {
+                          const Connection::VPack& data, const bool bAsync) {
   std::string val{server->hostUrl() + httpDbApi};
   Connection& conn = p->reset();
   Connection::HttpHeaderList headers;
@@ -63,7 +66,7 @@ void Database::httpCreate(const Server::SPtr& server, const Connection::SPtr& p,
 //
 // Configure to create a Database using the configured name
 //
-void Database::httpCreate(const Connection::SPtr& p, bool bAsync) {
+void Database::httpCreate(const Connection::SPtr& p, const bool bAsync) {
   std::string val{_server->hostUrl() + httpDbApi};
   Connection& conn = p->reset();
   Connection::HttpHeaderList headers;
@@ -80,7 +83,7 @@ void Database::httpCreate(const Connection::SPtr& p, bool bAsync) {
 //
 // Configure to drop a Database using the configured name
 //
-void Database::httpDelete(const Connection::SPtr& p, bool bAsync) {
+void Database::httpDelete(const Connection::SPtr& p, const bool bAsync) {
   std::string url{_server->hostUrl() + httpDbApi + '/' + _name};
   Connection& conn = p->reset();
   conn.setUrl(url);

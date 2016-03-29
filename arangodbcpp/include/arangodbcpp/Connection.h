@@ -58,7 +58,7 @@ class Connection {
   void setPostField(const std::string& inp);
   void setPostField(const VPack data);
   void setJsonContent(HttpHeaderList& headers);
-  void setHeaderOpts(HttpHeaderList& inp);
+  void setHeaderOpts(const HttpHeaderList& inp);
   void setCustomReq(const std::string inp);
   void setPostReq();
   void setDeleteReq();
@@ -66,20 +66,20 @@ class Connection {
   void setGetReq();
   void setPutReq();
   void setPatchReq();
-  void setVerbose(bool inp);
+  void setVerbose(const bool inp);
   Connection& reset();
   template <typename T>
   void setBuffer(T* p, size_t (T::*f)(char* p, size_t sz, size_t m));
   void setBuffer(size_t (*f)(char* p, size_t sz, size_t m));
   void setBuffer();
   long httpResponseCode();
+  std::string httpEffectiveUrl();
 
   const std::string bufString() const;
-  VPack fromJSon(bool bSorted = true) const;
-  VPack notProcessed() const;
-  VPack noHost() const;
-  void setSync(bool bAsync = false);
+  VPack fromJSon(const bool bSorted = true) const;
+  void setSync(const bool bAsync = false);
   void run();
+  void runAgain(bool bAsync);
   bool isError() const;
   bool isRunning() const;
   bool bufEmpty() const;
@@ -88,28 +88,29 @@ class Connection {
   static std::string strValue(const VPack res, std::string attrib);
 
  private:
-  enum : uint8_t {
-    F_Clear = 0,
-    F_Multi = 1,
-    F_Running = 2,
-    F_Done = 4,
-    F_LogicError = 8,
-    F_RunError = 16
+  enum class Mode : uint8_t {
+    Clear = 0,
+    AsyncRun = 1,
+    SyncRun = 2,
+    Done = 3,
+    LogicError = 4,
+    RunError = 5
   };
   typedef std::vector<char> ChrBuf;
   size_t WriteMemoryCallback(char* ptr, size_t size, size_t nmemb);
   template <typename T>
   void setOpt(const T& inp);
   void asyncRun();
+  void reset(const Mode inp);
   void syncRun();
-  void errFound(const std::string& inp, uint8_t err = F_RunError);
+  void errFound(const std::string& inp, const Mode err = Mode::RunError);
   void httpResponse();
   void setBuffer(const std::string& inp);
 
   curlpp::Easy _request;
   curlpp::Multi _async;
   ChrBuf _buf;
-  uint8_t _flgs;
+  Mode _mode;
 };
 
 template <typename T>
@@ -132,6 +133,10 @@ inline std::string operator+(const Connection::QueryPrefix pre,
 
 inline long Connection::httpResponseCode() {
   return curlpp::infos::ResponseCode::get(_request);
+}
+
+inline std::string Connection::httpEffectiveUrl() {
+  return curlpp::infos::EffectiveUrl::get(_request);
 }
 
 //
@@ -172,10 +177,15 @@ inline void Connection::setBuffer(const std::string& inp) {
 // Flags an error has occured and transfers the error message
 // to the default write buffer
 //
-inline void Connection::errFound(const std::string& inp, uint8_t err) {
+inline void Connection::errFound(const std::string& inp, const Mode err) {
   std::string json{"{ \"errorMessage\":\"" + inp + "\"}"};
   setBuffer(json);
-  _flgs |= err;
+  reset(err);
+}
+
+inline Connection& Connection::reset() {
+  reset(Mode::Clear);
+  return *this;
 }
 
 inline void Connection::setErrBuf(char* inp) {
@@ -186,20 +196,20 @@ inline void Connection::setCustomReq(const std::string inp) {
   setOpt(cURLpp::options::CustomRequest(inp));
 }
 
-inline void Connection::setVerbose(bool inp) {
+inline void Connection::setVerbose(const bool inp) {
   setOpt(cURLpp::options::Verbose(inp));
 }
 
 inline bool Connection::isError() const {
-  return (_flgs & (F_LogicError | F_RunError)) != 0;
+  return _mode == Mode::LogicError || _mode == Mode::RunError;
 }
 
-inline bool Connection::isRunning() const { return (_flgs & F_Running) != 0; }
+inline bool Connection::isRunning() const {
+  return _mode == Mode::AsyncRun || _mode == Mode::SyncRun;
+}
 
-inline void Connection::setHeaderOpts(HttpHeaderList& inp) {
-  if (!inp.empty()) {
-    setOpt(curlpp::options::HttpHeader(inp));
-  }
+inline void Connection::setHeaderOpts(const HttpHeaderList& inp) {
+  setOpt(curlpp::options::HttpHeader(inp));
 }
 
 inline void Connection::setUrl(const std::string& inp) {

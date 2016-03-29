@@ -44,12 +44,13 @@ void Document::addKeyAttrib(arangodb::velocypack::Builder& builder) {
 Connection::QueryPrefix Document::httpSyncQuery(
     std::string& url, const Options& opts,
     const Connection::QueryPrefix prefix) {
-  switch (opts.flag<Options::Sync>()) {
-    case Options::Sync::NoWait: {
+  typedef Options::Sync Sync;
+  switch (opts.flag<Sync>()) {
+    case Sync::NoWait: {
       url += prefix + "waitForSync=false";
       break;
     }
-    case Options::Sync::Wait: {
+    case Sync::Wait: {
       url += prefix + "waitForSync=true";
       break;
     }
@@ -76,6 +77,16 @@ Connection::QueryPrefix Document::httpCreateQuery(
     const Connection::QueryPrefix prefix) {
   if (opts.flagged(Options::CreateCol::Yes)) {
     url += prefix + "createCollection=true";
+    return Connection::QueryPrefix::Next;
+  }
+  return prefix;
+}
+
+Connection::QueryPrefix Document::httpCreateTypeQuery(
+    std::string& url, const Options& opts,
+    const Connection::QueryPrefix prefix) {
+  if (opts.flagged(Options::CreateColType::Edge)) {
+    url += prefix + "createCollectionType=edge";
     return Connection::QueryPrefix::Next;
   }
   return prefix;
@@ -141,7 +152,7 @@ void Document::httpDelete(const Collection::SPtr& pCol,
 }
 
 Connection::QueryPrefix Document::httpRevQuery(
-    std::string& url, const DocOptions& opts,
+    std::string& url, const Options& opts,
     const Connection::QueryPrefix prefix) {
   const std::string rev = opts;
   if (!rev.empty()) {
@@ -153,24 +164,26 @@ Connection::QueryPrefix Document::httpRevQuery(
   return prefix;
 }
 
-void Document::httpMatchHeader(Connection::HttpHeaderList& headers,
-                               const Options& opts) {
-  std::string rev = opts;
+void Document::httpMatchHeader(Connection& conn, const Options& opts) {
+  typedef Options::Rev Rev;
+  const std::string& rev = opts;
+  std::string opt;
   if (!rev.empty()) {
-    std::string opt;
-    switch (opts.flag<Options::Rev>()) {
+    switch (opts.flag<Rev>()) {
       default: { return; }
-      case Options::Rev::Match: {
-        opt += "If";
+      case Rev::Match: {
+        opt = "If";
         break;
       }
-      case Options::Rev::NoMatch: {
-        opt += "If-None";
+      case Rev::NoMatch: {
+        opt = "If-None";
         break;
       }
     }
-    opt += "-Match:\"" + rev + "\"";
-    headers.push_back(opt);
+    opt += "-Match:\"";
+    opt += rev;
+    opt += '\"';
+    conn.setHeaderOpts(Connection::HttpHeaderList{{opt}});
   }
 }
 
@@ -184,13 +197,9 @@ void Document::httpMatchHeader(Connection::HttpHeaderList& headers,
 void Document::httpGet(const Collection::SPtr& pCol,
                        const Connection::SPtr& pCon, const Options& opts) {
   Connection& conn = pCon->reset();
-  Connection::HttpHeaderList headers;
-  httpMatchHeader(headers, opts);
+  httpMatchHeader(conn, opts);
   conn.setUrl(pCol->refDocUrl(_key));
   conn.setGetReq();
-  if (!headers.empty()) {
-    conn.setHeaderOpts(headers);
-  }
   conn.setBuffer();
   conn.setSync(opts.flagged(Options::Run::Async));
 }
@@ -201,8 +210,8 @@ void Document::httpGet(const Collection::SPtr& pCol,
 // All options implemented, match rev done as a query
 //
 void Document::httpReplace(const Collection::SPtr& pCol,
-                           const Connection::SPtr& pCon, const Options& opts,
-                           Connection::VPack data) {
+                           const Connection::SPtr& pCon, Connection::VPack data,
+                           const Options& opts) {
   typedef Connection::QueryPrefix QueryPrefix;
   Connection& conn = pCon->reset();
   std::string url = pCol->refDocUrl(_key);
@@ -220,8 +229,8 @@ void Document::httpReplace(const Collection::SPtr& pCol,
 // DONE
 //
 void Document::httpPatch(const Collection::SPtr& pCol,
-                         const Connection::SPtr& pCon, const Options& opts,
-                         Connection::VPack data) {
+                         const Connection::SPtr& pCon, Connection::VPack data,
+                         const Options& opts) {
   typedef Connection::QueryPrefix Prefix;
   Connection& conn = pCon->reset();
   std::string url{pCol->refDocUrl(_key)};
@@ -250,7 +259,7 @@ Connection::VPack Document::httpHead(bool bSort, const Connection::SPtr& pCon) {
       return;
     }
     std::string name = line.substr(0, split);
-    split = line.find_first_not_of("\t ", split + 1);
+    split = line.find_first_not_of("\t\r\n ", split + 1);
     std::string value = line.substr(split, line.length() - split);
     if (std::isdigit(value[0])) {
       sz_type num = std::stoul(value);
@@ -293,7 +302,7 @@ void Document::httpHead(const Collection::SPtr& pCol,
                         const Connection::SPtr& pCon, const Options& opts) {
   Connection& conn = pCon->reset();
   std::string url = pCol->refDocUrl(_key);
-  httpRevQuery(url, opts, Connection::QueryPrefix::First);
+  httpMatchHeader(*pCon, opts);
   conn.setHeadReq();
   conn.setUrl(url);
   conn.setBuffer();

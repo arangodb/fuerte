@@ -27,4 +27,19 @@
 *.out
 *.app
 
-build/
+# clang-format backup files
+*.cpp.orig
+*.h.orig
+
+# QtCreator config
+*.txt.user
+
+# KDevelop 4 config
+*.kdev4
+.kdev4/
+
+# build directories
+arangodbcpp/build/
+arangodbcpp/test/BasicTests/build/
+arangodbcpp/test/ColTests/build/
+arangodbcpp/test/DocTests/build/

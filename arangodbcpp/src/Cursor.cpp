@@ -15,15 +15,15 @@ std::ostream& operator<<(std::ostream& os, Cursor::CacheMode mode) {
 }
 
 std::string Cursor::httpAqlFnc() const {
-  return _Database->databaseUrl() + "/_api/aqlfunction";
+  return _database->databaseUrl() + "/_api/aqlfunction";
 }
 
 std::string Cursor::httpCursorUrl() const {
-  return _Database->databaseUrl() + "/_api/cursor";
+  return _database->databaseUrl() + "/_api/cursor";
 }
 
 std::string Cursor::httpCacheUrl() const {
-  return _Database->databaseUrl() + "/_api/query-cache";
+  return _database->databaseUrl() + "/_api/query-cache";
 }
 
 std::string Cursor::httpCachePropsUrl() const {
@@ -42,7 +42,8 @@ void Cursor::httpSetCacheProps(const Connection::SPtr& pCon, CacheMode mode,
   conn.setSync(bAsync);
 }
 
-void Cursor::httpCacheProperties(const Connection::SPtr& pCon, bool bAsync) {
+void Cursor::httpCacheProperties(const Connection::SPtr& pCon,
+                                 const bool bAsync) {
   Connection& conn = pCon->reset();
   conn.setUrl(httpCachePropsUrl());
   conn.setGetReq();
@@ -50,7 +51,7 @@ void Cursor::httpCacheProperties(const Connection::SPtr& pCon, bool bAsync) {
   conn.setSync(bAsync);
 }
 
-void Cursor::httpClearCache(const Connection::SPtr& pCon, bool bAsync) {
+void Cursor::httpClearCache(const Connection::SPtr& pCon, const bool bAsync) {
   Connection& conn = pCon->reset();
   conn.setUrl(httpCacheUrl());
   conn.setDeleteReq();
@@ -59,7 +60,7 @@ void Cursor::httpClearCache(const Connection::SPtr& pCon, bool bAsync) {
 }
 
 void Cursor::httpDelete(const Connection::SPtr& pCon, std::string id,
-                        bool bAsync) {
+                        const bool bAsync) {
   Connection& conn = pCon->reset();
   conn.setUrl(httpCursorUrl() + '/' + id);
   conn.setDeleteReq();
@@ -68,7 +69,7 @@ void Cursor::httpDelete(const Connection::SPtr& pCon, std::string id,
 }
 
 void Cursor::httpMore(const Connection::SPtr& pCon, std::string id,
-                      bool bAsync) {
+                      const bool bAsync) {
   Connection& conn = pCon->reset();
   conn.setUrl(httpCursorUrl() + '/' + id);
   conn.setPutReq();
@@ -77,7 +78,7 @@ void Cursor::httpMore(const Connection::SPtr& pCon, std::string id,
 }
 
 void Cursor::httpCreate(const Connection::SPtr& pCon, const std::string query,
-                        uint16_t batSize, bool bAsync) {
+                        uint16_t batSize, const bool bAsync) {
   std::ostringstream os;
   Connection& conn = pCon->reset();
   conn.setUrl(httpCursorUrl());
@@ -93,7 +94,7 @@ void Cursor::httpCreate(const Connection::SPtr& pCon, const std::string query,
 }
 
 void Cursor::httpCreate(const Connection::SPtr& pCon,
-                        const Connection::VPack& config, bool bAsync) {
+                        const Connection::VPack& config, const bool bAsync) {
   Connection& conn = pCon->reset();
   conn.setUrl(httpCursorUrl());
   conn.setPostField(config);
@@ -102,7 +103,7 @@ void Cursor::httpCreate(const Connection::SPtr& pCon,
 }
 
 void Cursor::httpAddFnc(const Connection::SPtr& pCon, const std::string& name,
-                        const std::string& code, bool bAsync) {
+                        const std::string& code, const bool bAsync) {
   Connection& conn = pCon->reset();
   std::string config = " { \"name\":\"" + name;
   config += "\",\"code\":\"" + code;
@@ -114,7 +115,7 @@ void Cursor::httpAddFnc(const Connection::SPtr& pCon, const std::string& name,
 }
 
 void Cursor::httpDeleteFnc(const Connection::SPtr& pCon,
-                           const std::string& name, bool bAsync) {
+                           const std::string& name, const bool bAsync) {
   Connection& conn = pCon->reset();
   conn.setUrl(httpAqlFnc() + '/' + name);
   conn.setDeleteReq();
@@ -122,7 +123,7 @@ void Cursor::httpDeleteFnc(const Connection::SPtr& pCon,
   conn.setSync(bAsync);
 }
 
-void Cursor::httpGetFncs(const Connection::SPtr& pCon, bool bAsync) {
+void Cursor::httpGetFncs(const Connection::SPtr& pCon, const bool bAsync) {
   Connection& conn = pCon->reset();
   conn.setUrl(httpAqlFnc());
   conn.setGetReq();

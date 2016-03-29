@@ -4,10 +4,17 @@ arangodbcpp library
 
 This library was developed in the following environment
 
-Fedora Linux 4.3.5-300.fc23.x86_64
+Fedora Linux 4.4.6-300.fc23.x86_64
 
-KDE Development Platform 4.14.16
+kdevelop -version
+Qt: 4.8.7
+KDE Development Platform: 4.14.18
+KDevelop: 4.7.3
 
+qtcreator -version 
+Qt Creator 3.6.0 based on Qt 5.5.1
+
+cmake --version
 cmake version 3.4.1
 
 gcc -v
@@ -19,9 +26,9 @@ Configured with: ../configure --enable-bootstrap --enable-languages=c,c++,objc,o
 Thread model: posix
 gcc version 5.3.1 20151207 (Red Hat 5.3.1-2) (GCC)
 
-libcurl 7.43.0-5
+libcurl.x86_64                                        7.43.0-6.fc23
 
-libcurlpp 0.7.3-24
+curlpp.x86_64                                     0.7.3-24.fc23
 
 -------------------------------------------------
 
