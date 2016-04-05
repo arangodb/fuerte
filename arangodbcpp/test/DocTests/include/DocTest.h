@@ -46,28 +46,47 @@ class DocTest : public testing::Test {
  protected:
   void test1();
   void test2();
+  void test3();
+  static void test4();
+  void test5();
+  bool versionTest();
 
  private:
-  const DocTest::Connection::VPack makeDocument();
+  const DocTest::Connection::VPack makeDocument1();
+  const DocTest::Connection::VPack makeDocument2();
   void generalTest(const Connection::VPack (DocTest::*fn)(), uint64_t code);
   void checkResponse(const unsigned rWait, unsigned rNoWait,
                      Document::Options::Sync flg);
   bool checkKey(const arangodb::velocypack::Slice& resSlice);
-  void createTest(const Connection::VPack& doc, const Document::Options& opts);
-  void deleteTest(const Document::Options& opts);
-  void renameTest(const std::string& name);
+  bool createTest(const Connection::VPack& doc, const Document::Options& opts);
+  bool patchTest(const Connection::VPack& doc, const Document::Options& opts);
+  bool replaceTest(const Connection::VPack& doc, const Document::Options& opts);
+  bool getTest(const Document::Options& opts);
+  bool deleteTest(const Document::Options& opts);
+  void replaceTest(const std::string& name);
   std::string headTest(const Document::Options& opts);
+  bool checkError(const arangodb::velocypack::Slice& resSlice);
   const Connection::VPack createDatabase();
   const Connection::VPack deleteDatabase();
   const Connection::VPack createCollection();
   const Connection::VPack deleteCollection();
   const Connection::VPack truncateCollection();
-  const Connection::VPack addDocument(
+  const Connection::VPack serverVer();
+  const Connection::VPack createDoc(
+      const Connection::VPack& doc,
+      const Document::Options& opts = Document::Options{});
+  const Connection::VPack patchDoc(
+      const Connection::VPack& doc,
+      const Document::Options& opts = Document::Options{});
+  const Connection::VPack createDoc(
+      const Document::Options& opts = Document::Options{});
+  const Connection::VPack replaceDoc(
       const Connection::VPack& doc,
       const Document::Options& opts = Document::Options{});
   const Connection::VPack docHead(const Document::Options& opts,
                                   bool bSort = false);
   const Connection::VPack deleteDoc(const Document::Options& opts);
+  const Connection::VPack getDoc(const Document::Options& opts);
 
   Server::SPtr _pSrv;
   Database::SPtr _pDb;

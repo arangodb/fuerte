@@ -24,7 +24,27 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include "TestApp.h"
 
+#include <arangodbcpp/Connection.h>
+#include <iostream>
+
+void Test() {
+  typedef arangodb::dbinterface::Connection Connection;
+  std::string url{"http+tcp://localhost:8529"};
+  Connection::fixProtocol(url);
+  std::cout << url << std::endl;
+  url = "localhost:8529";
+  Connection::fixProtocol(url);
+  std::cout << url << std::endl;
+  url = "http+ssl://localhost:8529";
+  Connection::fixProtocol(url);
+  std::cout << url << std::endl;
+  url = "hTTp+sSl://localhost:8529";
+  Connection::fixProtocol(url);
+  std::cout << url << std::endl;
+}
+
 int main(const int argc, char* argv[]) {
+  Test();
   TestApp app{argc, argv};
   return app.run();
 }

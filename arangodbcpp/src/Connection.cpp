@@ -23,6 +23,7 @@
 /// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
 #include <cstring>
+#include <algorithm>
 #include <velocypack/Builder.h>
 #include <velocypack/Slice.h>
 #include <velocypack/Parser.h>
@@ -37,6 +38,53 @@
 namespace arangodb {
 
 namespace dbinterface {
+
+//
+// Flags an error has occured and transfers the error message
+// to the default write buffer
+//
+void Connection::errFound(const std::string& inp, const Mode err) {
+  std::ostringstream os;
+  char old = '\0';
+  os << "{ \"errorMessage\":\"";
+  // Escape double quotes in the message
+  for (char chr : inp) {
+    if (old != '\\' && chr == '"') {
+      os << "\\\"";
+      old = '\0';
+      continue;
+    }
+    os << chr;
+    old = chr;
+  }
+  os << "\"}";
+  setBuffer(os.str());
+  reset(err);
+}
+
+void Connection::fixProtocol(std::string& url) {
+  typedef std::string::size_type size_type;
+  std::string sep{'/', '/'};
+  size_type len = url.find(sep);
+  if (len == std::string::npos) {
+    if (!url.empty()) {
+      url.insert(0, "http://");
+    }
+    return;
+  }
+  std::string prot = url.substr(0, len);
+  std::transform(prot.begin(), prot.end(), prot.begin(), ::tolower);
+  url = url.substr(len);
+  if (prot == "http+ssl:") {
+    url = "https:" + url;
+    return;
+  }
+  if (prot == "https:") {
+    url = prot + url;
+    return;
+  }
+  url = "http:" + url;
+}
 
 std::string Connection::json(const VPack& v, bool bSort) {
   using arangodb::velocypack::Slice;
@@ -237,7 +285,7 @@ void Connection::httpResponse() {
   {
     // Create a JSon response
     std::ostringstream os;
-    os << "{\"result\":true,\"error\":false,\"code\":\"" << res << "\"}";
+    os << "{\"result\":true,\"error\":false,\"code\":" << res << "}";
     setBuffer(os.str());
   }
 }

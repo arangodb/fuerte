@@ -132,7 +132,6 @@ bool checkError(const arangodb::velocypack::Slice& resSlice) {
   if (slice.type() != ValueType::String) {
     return false;
   }
-  ADD_FAILURE() << TestApp::string(slice);
   return true;
 }
 
@@ -142,13 +141,16 @@ bool checkResult(const arangodb::velocypack::Slice& resSlice) {
   do {
     Slice slice = resSlice.get("error");
     if (slice.type() != ValueType::Bool) {
+      unrecognisedError();
       break;
     }
-    EXPECT_EQ(false, slice.getBool());
-    slice = resSlice.get("code");
-    if (slice.type() == ValueType::UInt) {
-      EXPECT_EQ(200, slice.getUInt());
-      return true;
+    if (slice.getBool() == false) {
+      slice = resSlice.get("code");
+      if (slice.type() == ValueType::UInt) {
+        EXPECT_EQ(200, slice.getUInt());
+        return true;
+      }
+      unrecognisedError();
     }
   } while (false);
   return false;

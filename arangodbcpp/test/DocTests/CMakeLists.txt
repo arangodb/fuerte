@@ -2,6 +2,12 @@ project(DocTests)
 
 cmake_minimum_required(VERSION 2.6)
 
+set(ARANGODBCPP_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include" "${ARANGODBCPP_PATH}/include" )
+
+find_library(arangodbcppLib NAMES arangodbcpp PATHS "${ARANGODBCPP_PATH}/build/src" "${ARANGODBCPP_PATH}/src")
+
 #
 # Need to make sure these options work with other than gcc compiler
 #

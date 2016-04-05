@@ -36,7 +36,6 @@ namespace {
 void usage() {
   using std::cout;
   using std::endl;
-
   cout << "ColTests [Host url] [Host port] [GTEST options....]" << endl;
   cout << endl << "e.g BasicTests localhost" << endl;
 }
@@ -52,7 +51,6 @@ TestApp::TestApp(int argc, char* argv[]) : _argc(argc), _argv(argv) {}
 
 void TestApp::init() {
   _url = std::string{_argv[1]};
-
   {
     std::istringstream is{_argv[2]};
     is >> _port;

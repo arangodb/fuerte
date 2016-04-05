@@ -37,9 +37,18 @@ inline void httpRun(DocTest::Connection& con) {
     con.run();
   } while (con.isRunning());
 }
+
+namespace attrib {
+const std::string code{"code"};
+const std::string error{"error"};
+const std::string errMsg{"errorMessage"};
+const std::string key{"_key"};
+const std::string etag{"Etag"};
+const std::string server{"Server"};
+}
 }
 
-const DocTest::Connection::VPack DocTest::makeDocument() {
+const DocTest::Connection::VPack DocTest::makeDocument1() {
   using velocypack::ValueType;
   using velocypack::Value;
   using velocypack::Options;
@@ -51,7 +60,7 @@ const DocTest::Connection::VPack DocTest::makeDocument() {
   builder(Value(ValueType::Object));
   {
     const std::string& key = *_pDoc;
-    builder("_key", Value(key));
+    builder(attrib::key, Value(key));
   }
   builder("House No", Value(12))("Male", Value(true));
   // Build an array
@@ -60,6 +69,30 @@ const DocTest::Connection::VPack DocTest::makeDocument() {
       .close();
   // Finish the object
   builder("Name", Value("Gustav")).close();
+  return builder.steal();
+}
+
+const DocTest::Connection::VPack DocTest::makeDocument2() {
+  using velocypack::ValueType;
+  using velocypack::Value;
+  using velocypack::Options;
+  using velocypack::Builder;
+  using velocypack::ValuePair;
+  using std::string;
+  Builder builder;
+  // Start building an object
+  builder(Value(ValueType::Object));
+  {
+    const std::string& key = *_pDoc;
+    builder(attrib::key, Value(key));
+  }
+  builder("Planet No", Value(3))("Name", Value("Blue"));
+  // Build an array
+  builder("Planets", Value(ValueType::Array))(Value(3))(Value("Mercury"))(
+      Value("Venus"))(Value("Earth"))(Value(2))
+      .close();
+  // Finish the object
+  builder("Star", Value("Sun")).close();
   return builder.steal();
 }
 
@@ -73,7 +106,9 @@ DocTest::DocTest()
   createCollection();
 }
 
-DocTest::~DocTest() { deleteDatabase(); }
+DocTest::~DocTest() {
+  deleteDatabase();
+}
 
 //-------- Document interfaces ----------------------
 
@@ -84,9 +119,37 @@ const DocTest::Connection::VPack DocTest::docHead(const Document::Options& opts,
   return Document::httpHead(bSort, _pCon);
 }
 
-const DocTest::Connection::VPack DocTest::addDocument(
+const DocTest::Connection::VPack DocTest::getDoc(
+    const Document::Options& opts) {
+  _pDoc->httpGet(_pCol, _pCon, opts);
+  httpRun(*_pCon);
+  return Document::httpGet(false, _pCon);
+}
+
+const DocTest::Connection::VPack DocTest::replaceDoc(
+    const Connection::VPack& doc, const Document::Options& opts) {
+  _pDoc->httpReplace(_pCol, _pCon, doc, opts);
+  httpRun(*_pCon);
+  return Document::httpReplace(false, _pCon);
+}
+
+const DocTest::Connection::VPack DocTest::createDoc(
     const Connection::VPack& doc, const Document::Options& opts) {
   _pDoc->httpCreate(_pCol, _pCon, doc, opts);
+  httpRun(*_pCon);
+  return Document::httpCreate(false, _pCon);
+}
+
+const DocTest::Connection::VPack DocTest::patchDoc(
+    const Connection::VPack& doc, const Document::Options& opts) {
+  _pDoc->httpPatch(_pCol, _pCon, doc, opts);
+  httpRun(*_pCon);
+  return Document::httpPatch(false, _pCon);
+}
+
+const DocTest::Connection::VPack DocTest::createDoc(
+    const Document::Options& opts) {
+  _pDoc->httpCreate(_pCol, _pCon, opts);
   httpRun(*_pCon);
   return Document::httpCreate(false, _pCon);
 }
@@ -109,8 +172,7 @@ const DocTest::Connection::VPack DocTest::createDatabase() {
 }
 
 const DocTest::Connection::VPack DocTest::deleteDatabase() {
-  Database& db = *_pDb;
-  db.httpDelete(_pCon);
+  _pDb->httpDelete(_pCon);
   httpRun(*_pCon);
   return Database::httpCreate(false, _pCon);
 }
@@ -139,65 +201,56 @@ const DocTest::Connection::VPack DocTest::truncateCollection() {
 
 //-----------------------------------------------------
 
+//-------- Server interfaces ----------------------
+
+const DocTest::Connection::VPack DocTest::serverVer() {
+  _pSrv->httpVersion(_pCon, false);
+  httpRun(*_pCon);
+  return Server::httpVersion(false, _pCon);
+}
+
+//-------------------------------------------------
+
 namespace {
 
-void unrecognisedError() { ADD_FAILURE() << std::string{"Unrecognised error"}; }
+void attribNotFound(const std::string& attrib) {
+  ADD_FAILURE() << attrib << " attribute not found";
+}
+}
 
-#if 0
-
-bool checkKey(const arangodb::velocypack::Slice &resSlice, const std::string &name)
-{
+bool DocTest::checkError(const velocypack::Slice& resSlice) {
   typedef velocypack::Slice Slice;
   typedef velocypack::ValueType ValueType;
-  Slice slice = resSlice.get("_key");
-  if (slice.type() != ValueType::String)
-  {
+  Slice slice = resSlice.get(attrib::error);
+  if (slice.type() != ValueType::Bool) {
+    attribNotFound(attrib::error);
+    return true;
+  }
+  if (slice.getBool() == false) {
     return false;
   }
-  EXPECT_EQ(name,TestApp::string(slice));
+  do {
+    slice = resSlice.get(attrib::errMsg);
+    if (slice.type() != ValueType::String) {
+      attribNotFound(attrib::errMsg);
+      break;
+    }
+    slice = resSlice.get(attrib::code);
+    if (slice.type() != ValueType::UInt) {
+      attribNotFound(attrib::code);
+      break;
+    }
+    EXPECT_EQ(_pCon->httpResponseCode(), slice.getUInt());
+  } while (false);
   return true;
 }
-
-#endif
-
-bool checkError(const arangodb::velocypack::Slice& resSlice) {
-  typedef velocypack::Slice Slice;
-  typedef velocypack::ValueType ValueType;
-  Slice slice = resSlice.get("error");
-  if (slice.type() != ValueType::Bool) {
-    unrecognisedError();
-    return true;
-  }
-  if (slice.getBool() == true) {
-    slice = resSlice.get("errorMessage");
-    if (slice.type() != ValueType::String) {
-      unrecognisedError();
-      return false;
-    }
-    std::ostringstream msg{TestApp::string(slice)};
-    msg << std::endl;
-    slice = resSlice.get("code");
-    if (slice.type() != ValueType::UInt) {
-      unrecognisedError();
-      return false;
-    }
-    msg << "Return code : " << slice.getUInt();
-    ADD_FAILURE() << msg.str();
-    return true;
-  }
-  return false;
-}
-}
-
-void DocTest::renameTest(const std::string&  // name
-                         ) {}
 
 bool DocTest::checkKey(const arangodb::velocypack::Slice& resSlice) {
   typedef velocypack::Slice Slice;
   typedef velocypack::ValueType ValueType;
-  Slice slice = resSlice.get("_key");
+  Slice slice = resSlice.get(attrib::key);
   if (slice.type() != ValueType::String) {
-    unrecognisedError();
+    attribNotFound(attrib::key);
     return false;
   }
   {
@@ -224,94 +277,244 @@ void DocTest::checkResponse(const unsigned rWait, unsigned rNoWait,
   }
 }
 
+bool DocTest::versionTest() {
+  typedef velocypack::Slice Slice;
+  typedef velocypack::ValueType ValueType;
+  const Connection::VPack res = serverVer();
+  Slice resSlice{res->data()};
+  Slice slice = resSlice.get(attrib::errMsg);
+  if (slice.type() == ValueType::String) {
+    ADD_FAILURE() << TestApp::string(slice);
+    return false;
+  }
+  return true;
+}
+
 std::string DocTest::headTest(const Document::Options& opts) {
   typedef velocypack::Slice Slice;
   typedef velocypack::ValueType ValueType;
   const Connection::VPack res = docHead(opts);
   Slice resSlice{res->data()};
-  Slice slice = resSlice.get("Server");
-  SCOPED_TRACE("Test");
-  std::string ret;
+  Slice slice = resSlice.get(attrib::server);
+  SCOPED_TRACE("headTest");
+  enum { DocNotFound = 404 };
   do {
     if (slice.type() != ValueType::String) {
-      unrecognisedError();
+      attribNotFound(attrib::server);
       break;
     }
-    EXPECT_EQ("ArangoDB", ret);
-    slice = resSlice.get("Etag");
-    if (slice.type() != ValueType::String) {
-      unrecognisedError();
-      break;
+    EXPECT_EQ("ArangoDB", TestApp::string(slice));
+    slice = resSlice.get(attrib::etag);
+    if (slice.type() == ValueType::String) {
+      return TestApp::string(slice);
     }
-    ret = TestApp::string(slice);
+    EXPECT_EQ(DocNotFound, _pCon->httpResponseCode());
   } while (false);
-  return ret;
+  return std::string();
 }
 
-void DocTest::deleteTest(const Document::Options& opts) {
+bool DocTest::getTest(const Document::Options& opts) {
+  typedef velocypack::Slice Slice;
+  typedef velocypack::ValueType ValueType;
+  const Connection::VPack res = getDoc(opts);
+  Slice resSlice{res->data()};
+  SCOPED_TRACE("getTest");
+  enum : uint16_t { RevMatch = 412, DocNotFound = 404, RevNoMatch = 304 };
+  switch (_pCon->httpResponseCode()) {
+    case RevNoMatch: {
+      Slice slice = resSlice.get(attrib::code);
+      if (slice.type() != ValueType::UInt) {
+        attribNotFound(attrib::code);
+        break;
+      }
+      EXPECT_EQ(RevNoMatch, slice.getUInt());
+      slice = resSlice.get(attrib::error);
+      if (slice.type() != ValueType::Bool) {
+        attribNotFound(attrib::error);
+        break;
+      }
+      EXPECT_EQ(false, slice.getBool());
+      break;
+    }
+    case RevMatch: {
+      checkKey(resSlice);
+      // Deliberately drop through
+    }
+    case DocNotFound: {
+      checkError(resSlice);
+      break;
+    }
+    default: {
+      checkKey(resSlice);
+      return true;
+    }
+  }
+  return false;
+}
+
+bool DocTest::deleteTest(const Document::Options& opts) {
   typedef Document::Options::Sync Sync;
   typedef velocypack::Slice Slice;
   const Connection::VPack res = deleteDoc(opts);
   Slice resSlice{res->data()};
   SCOPED_TRACE("deleteTest");
-  enum : uint16_t { WaitSuccess = 200, NoWaitSuccess = 202, RevResponse = 412 };
+  enum : uint16_t { WaitSuccess = 200, NoWaitSuccess = 202, RevMatch = 412 };
   do {
-    if (_pCon->httpResponseCode() == RevResponse) {
-      checkKey(resSlice);
-      break;
-    }
     if (checkError(resSlice)) {
+      if (_pCon->httpResponseCode() == RevMatch) {
+        checkKey(resSlice);
+      }
       break;
     }
     if (checkKey(resSlice)) {
       checkResponse(WaitSuccess, NoWaitSuccess, opts.flag<Sync>());
+      return true;
     }
   } while (false);
+  return false;
 }
 
-void DocTest::createTest(const Connection::VPack& doc,
-                         const Document::Options& opts) {
+bool DocTest::replaceTest(const Connection::VPack& doc,
+                          const Document::Options& opts) {
   typedef Document::Options::Sync Sync;
   typedef velocypack::Slice Slice;
-  const Connection::VPack res = addDocument(doc, opts);
+  typedef velocypack::ValueType ValueType;
+  const Connection::VPack res = replaceDoc(doc, opts);
   Slice resSlice{res->data()};
-  SCOPED_TRACE("createTest");
+  SCOPED_TRACE("replaceTest");
   enum : uint16_t { WaitSuccess = 201, NoWaitSuccess = 202 };
   do {
     if (checkError(resSlice)) {
       break;
     }
-
-    if (checkKey(resSlice)) {
+    Slice slice = resSlice.get(attrib::key);
+    if (slice.type() == ValueType::String) {
+      *_pDoc = TestApp::string(slice);
       checkResponse(WaitSuccess, NoWaitSuccess, opts.flag<Sync>());
+      return true;
     }
+    attribNotFound(attrib::key);
   } while (false);
+  return false;
+}
+
+bool DocTest::createTest(const Connection::VPack& doc,
+                         const Document::Options& opts) {
+  typedef Document::Options::Sync Sync;
+  typedef velocypack::Slice Slice;
+  typedef velocypack::ValueType ValueType;
+  const Connection::VPack res = createDoc(doc, opts);
+  Slice resSlice{res->data()};
+  SCOPED_TRACE("createTest");
+  enum : uint16_t { WaitSuccess = 201, NoWaitSuccess = 202 };
+  do {
+    if (checkError(resSlice)) {
+      return false;
+    }
+    Slice slice = resSlice.get(attrib::key);
+    if (slice.type() == ValueType::String) {
+      *_pDoc = TestApp::string(slice);
+      checkResponse(WaitSuccess, NoWaitSuccess, opts.flag<Sync>());
+      break;
+    }
+    attribNotFound(attrib::key);
+    return false;
+  } while (false);
+  return true;
+}
+
+bool DocTest::patchTest(const Connection::VPack& doc,
+                        const Document::Options& opts) {
+  typedef Document::Options::Sync Sync;
+  typedef velocypack::Slice Slice;
+  typedef velocypack::ValueType ValueType;
+  const Connection::VPack res = patchDoc(doc, opts);
+  Slice resSlice{res->data()};
+  SCOPED_TRACE("patchTest");
+  enum : uint16_t { WaitSuccess = 201, NoWaitSuccess = 202 };
+  do {
+    if (checkError(resSlice)) {
+      return false;
+    }
+    Slice slice = resSlice.get(attrib::key);
+    if (slice.type() == ValueType::String) {
+      *_pDoc = TestApp::string(slice);
+      checkResponse(WaitSuccess, NoWaitSuccess, opts.flag<Sync>());
+      break;
+    }
+    attribNotFound(attrib::key);
+    return false;
+  } while (false);
+  return true;
 }
 
 void DocTest::test1() {
   typedef Document::Options Options;
   typedef Options::Sync Sync;
   typedef Options::Run Run;
+  typedef Options::Rev Rev;
   typedef Options::CreateCol CreateCol;
   typedef Connection::VPack VPack;
   SCOPED_TRACE("test1");
-  VPack doc1 = makeDocument();
-  Options opts{"12345678", Sync::Wait, Run::Sync};
-  createTest(doc1, opts);
-  deleteTest(opts);
+  VPack docData = makeDocument1();
+  Options opts{"1234", Sync::Wait};
+  EXPECT_EQ(true, createTest(docData, opts));
+  EXPECT_EQ(true, deleteTest(opts));
   deleteCollection();
   opts.setFlags(Sync::NoWait, Run::Async, CreateCol::Yes);
-  createTest(doc1, opts);
-  deleteTest(opts);
+  EXPECT_EQ(true, createTest(docData, opts));
+  opts.setFlags(Rev::Match);
+  EXPECT_EQ(false, deleteTest(opts));
+  truncateCollection();
 }
 
-void DocTest::test2() { SCOPED_TRACE("test2"); }
+void DocTest::test2() {
+  typedef Document::Options Options;
+  typedef Options::Rev Rev;
+  typedef Options::Sync Sync;
+  typedef Connection::VPack VPack;
+  SCOPED_TRACE("test2");
+  VPack doc1 = makeDocument1();
+  Options opts{"1234", Rev::Match};
+  createDoc(doc1, opts);
+  EXPECT_EQ(false, getTest(opts));
+  opts.setFlags(Rev::NoMatch, Sync::Wait);
+  EXPECT_EQ(true, getTest(opts));
+  opts = headTest(opts);
+  EXPECT_EQ(false, getTest(opts));
+  headTest(opts);
+  opts.setFlags(Rev::Match, Sync::NoWait);
+  EXPECT_EQ(true, getTest(opts));
+  headTest(opts);
+  EXPECT_EQ(true, deleteTest(opts));  // Should pass as rev matches
+}
 
-TEST_F(DocTest, test2) { test2(); }
+void DocTest::test3() {
+  typedef Document::Options Options;
+  typedef Options::Rev Rev;
+  typedef Options::Sync Sync;
+  typedef Connection::VPack VPack;
+  SCOPED_TRACE("test3");
+  Document& doc = *_pDoc;
+  VPack doc1 = makeDocument1();
+  doc = std::string{"otherDoc"};
+  VPack doc2 = makeDocument2();
+  Options opts{"1234"};
+  createDoc(opts);  // Creates an empty document
+  opts.setFlags(Sync::Wait);
+  EXPECT_EQ(true, replaceTest(doc1, opts));
+  opts.setFlags(Sync::NoWait);
+  EXPECT_EQ(true, replaceTest(doc2, opts));
+  opts.setFlags(Rev::Match);
+  EXPECT_EQ(false, replaceTest(doc1, opts));
+  opts.resetAllFlags();
+  opts = headTest(opts);
+  opts.setFlags(Rev::Match);
+  EXPECT_EQ(true, replaceTest(doc1, opts));
+  truncateCollection();
+}
 
-TEST_F(DocTest, test1) { test1(); }
-
-TEST(DocOptsTest, test3) {
+void DocTest::test4() {
   typedef DocTest::Document::Options Options;
   typedef Options::Rev Rev;
   typedef Options::Merge Merge;
@@ -320,6 +523,7 @@ TEST(DocOptsTest, test3) {
   typedef Options::Run Run;
   typedef Options::Merge Merge;
   typedef Options::Policy Policy;
+  SCOPED_TRACE("test4");
   Options opts{"1234",         Rev::Match,          Rev::NoMatch,
                Run::Async,     Run::Sync,           Merge::No,
                Merge::Yes,     CreateColType::Edge, CreateColType::Document,
@@ -331,4 +535,39 @@ TEST(DocOptsTest, test3) {
   EXPECT_EQ(CreateColType::Document, opts.flag<CreateColType>());
   EXPECT_EQ(CreateCol::No, opts.flag<CreateCol>());
   EXPECT_EQ(Policy::Last, opts.flag<Policy>());
+}
+
+void DocTest::test5() {
+  typedef Document::Options Options;
+  // typedef Options::Rev Rev;
+  typedef Options::Sync Sync;
+  typedef Options::Merge Merge;
+  typedef Connection::VPack VPack;
+  SCOPED_TRACE("test5");
+  Document& doc = *_pDoc;
+  doc = "NewDoc";
+  VPack doc1 = makeDocument1();
+  doc = "otherDoc";
+  VPack doc2 = makeDocument2();
+  Options opts{"1234", Sync::Wait};
+  EXPECT_EQ(true, createTest(doc1, opts));
+  getDoc(opts);
+  EXPECT_EQ(true, patchTest(doc2, opts));
+  getDoc(opts);
+  opts.setFlags(Sync::NoWait, Merge::No);
+  EXPECT_EQ(true, createTest(doc2, opts));
+  getDoc(opts);
+  EXPECT_EQ(true, patchTest(doc1, opts));
+  getDoc(opts);
+  truncateCollection();
+}
+
+TEST_F(DocTest, DocTests) {
+  if (versionTest()) {
+    test1();
+    test2();
+    test3();
+    test4();
+    test5();
+  }
 }

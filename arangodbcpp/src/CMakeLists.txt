@@ -20,7 +20,4 @@ add_library(
 		${arangodbcppSRCS}
 )
 
-target_link_libraries(
-		arangodbcpp
-		${arangodbcppLIBS}
-)
+install(TARGETS arangodbcpp DESTINATION lib)

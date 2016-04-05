@@ -37,7 +37,6 @@ namespace {
 void usage() {
   using std::cout;
   using std::endl;
-
   cout << "BasicTests [Host url] [Host port] [db version] [Test options....]"
        << endl;
   cout << endl << "e.g BasicTests localhost 8529 2.8.2" << endl;
@@ -54,7 +53,6 @@ TestApp::TestApp(int argc, char* argv[]) : _argc(argc), _argv(argv) {}
 
 void TestApp::init() {
   _url = std::string{_argv[1]};
-
   {
     std::istringstream is{_argv[2]};
     is >> _port;
