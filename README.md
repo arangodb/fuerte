@@ -14,9 +14,9 @@ Build requirements
 
 The following development packages need to be installed
 
-    cURL                      https://github.com/curl/curl
-    cURLpp                  https://github.com/jpbarrette/curlpp
-    GTEST                   https://github.com/google/googletest/tree/master/googletest
+    cURL                   https://github.com/curl/curl
+    cURLpp                 https://github.com/jpbarrette/curlpp
+    GTEST                  https://github.com/google/googletest/tree/master/googletest
     VelocyPack             https://github.com/arangodb/velocypack
     
 Building every thing
@@ -29,11 +29,17 @@ Because the test programs require the arangodbcpp library this requires 4 steps
 3 Create make file for  the arangodbcpp library and test programs
 4 Build the arangodbcpp library and test programs
 
-from  ~/arangodbcpp run the following commands
+from  the home directory run the following commands
 
-    cmake ./
-    make
-    cmake ./
+    mkdir build
+    cd build
+    cmake ..
     make
 
-If no errors have occurred everything should now be built
+After the library has been build, you can generate the tests programs by
+rerunning cmake / make
+
+    cmake ..
+    make
+
+If no errors have occurred everything should now be built.
