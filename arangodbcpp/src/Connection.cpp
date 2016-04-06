@@ -75,12 +75,8 @@ void Connection::fixProtocol(std::string& url) {
   std::string prot = url.substr(0, len);
   std::transform(prot.begin(), prot.end(), prot.begin(), ::tolower);
   url = url.substr(len);
-  if (prot == "http+ssl:") {
+  if (prot == "http+ssl:" || prot == "https:") {
     url = "https:" + url;
-    return;
-  }
-  if (prot == "https:") {
-    url = prot + url;
     return;
   }
   url = "http:" + url;
@@ -98,23 +94,6 @@ std::string Connection::json(const VPack& v, bool bSort) {
   opts.sortAttributeNames = bSort;
   Dumper::dump(slice, &sink, &opts);
   return tmp;
-}
-
-//
-//	Get string attribute if available
-//
-std::string Connection::strValue(const VPack res, std::string attrib) {
-  using arangodb::velocypack::Slice;
-  using arangodb::velocypack::ValueType;
-  using arangodb::velocypack::ValueLength;
-  Slice slice{res->data()};
-  slice = slice.get(attrib);
-  if (slice.type() == ValueType::String) {
-    ValueLength len = slice.getStringLength();
-    const char* pData = slice.getString(len);
-    return std::string(pData, len);
-  }
-  return std::string{};
 }
 
 void Connection::setPostField(const VPack data) {

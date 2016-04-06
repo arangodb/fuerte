@@ -1,6 +1,6 @@
 project(ColTests)
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.1)
 
 set(ARANGODBCPP_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 
@@ -20,6 +20,6 @@ if (arangodbcppLib)
 
 else (arangodbcppLib)
 
-  message("ColTests will not be made")
+  message("arangodbcpp library not found, ColTests will not be made")
 
 endif (arangodbcppLib)

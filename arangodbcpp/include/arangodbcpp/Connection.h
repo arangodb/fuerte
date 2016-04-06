@@ -85,7 +85,6 @@ class Connection {
   bool bufEmpty() const;
 
   static std::string json(const VPack& v, bool bSort = false);
-  static std::string strValue(const VPack res, std::string attrib);
   static void fixProtocol(std::string& url);
 
  private:

@@ -1,11 +1,10 @@
 # -*- mode: CMAKE; -*-
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.1)
 
-#project(fuerte)
+project(fuerte)
  
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
-#set(CMAKE_BINARY_DIR "${CMAKE_SOURCE_DIR}/build")
   
 option(Coverage "Build with coverage" OFF)
 option(Maintainer "Build maintainer tools" OFF)
@@ -25,7 +24,7 @@ set(FUERTE_VERSION "0.0.1" CACHE path "Fuerte version")
 
 set(FUERTE_DISPLAY_NAME "Fuerte")
 
-set(FUERTE_FRIENDLY_STRING "Fuerte - A light VelocyPack interface to arangoDB ")
+set(FUERTE_FRIENDLY_STRING "Fuerte - A light C++ VelocyPack interface to arangoDB ")
 
   if(Coverage)
     set(BASE_COMPILER_OPTIONS "${BASE_COMPILER_OPTIONS} -fprofile-arcs -ftest-coverage")
