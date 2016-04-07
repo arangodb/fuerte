@@ -7,7 +7,7 @@ set(DocTestsSRCS
 set(DocTestsLIBS
         ${arangodbcppLib}
         gtest
-        velocypack
+        ${velocypackLib}
         curl
         curlpp
         )
@@ -19,3 +19,9 @@ add_executable(DocTests
 target_link_libraries(DocTests
     ${DocTestsLIBS}
 )
+
+if (configBuild)
+
+add_dependencies(DocTests arangodbcpp)
+
+endif (configBuild)

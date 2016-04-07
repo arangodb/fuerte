@@ -1,11 +1,28 @@
 project(arangodbcpp)
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.1)
 
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
+if (NOT velocypackLib)
 
-set(BASE_COMPILER_OPTIONS "-std=c++11 -Wall -Wextra")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${BASE_COMPILER_OPTIONS}")
+find_library(velocypackLib NAMES velocypack PATHS "${CMAKE_INSTALL_PREFIX}/bin")
+
+endif (NOT velocypackLib)
+
+if (velocypackLib)
+
+if (NOT configBuild)
+
+include("../Settings.CMake")
+
+endif (NOT configBuild)
+
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_INSTALL_PREFIX}/include")
 
 add_subdirectory(src)
 add_subdirectory(include)
+
+else (velocypackLib)
+
+message("velocypack library not installed")
+
+endif (velocypackLib)

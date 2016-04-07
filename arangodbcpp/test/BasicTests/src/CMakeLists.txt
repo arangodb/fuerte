@@ -9,7 +9,7 @@ set(BasicTestsSRCS
 set(BasicTestsLIBS
         ${arangodbcppLib}
         gtest
-        velocypack
+        ${velocypackLib}
         curl
         curlpp
         )
@@ -21,3 +21,9 @@ add_executable(BasicTests
 target_link_libraries(BasicTests
 		${BasicTestsLIBS}
 )
+
+if (configBuild)
+
+add_dependencies(BasicTests arangodbcpp)
+
+endif (configBuild)

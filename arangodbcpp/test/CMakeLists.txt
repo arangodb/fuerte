@@ -1,4 +1,7 @@
+set(TestApps BasicTests ColTests DocTests)
 
-add_subdirectory(BasicTests) 
-add_subdirectory(ColTests) 
-add_subdirectory(DocTests) 
+foreach(app ${TestApps})
+
+add_subdirectory(${app})
+
+endforeach()

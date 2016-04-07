@@ -9,7 +9,7 @@ set(arangodbcppSRCS
 	)
 
 set(arangodbcppLIBS
-		velocypack
+    ${velocypackLib}
 		curl
 		curlpp
 		)

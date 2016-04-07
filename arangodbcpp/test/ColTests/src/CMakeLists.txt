@@ -7,7 +7,7 @@ set(ColTestsSRCS
 set(ColTestsLIBS
         ${arangodbcppLib}
         gtest
-        velocypack
+        ${velocypackLib}
         curl
         curlpp
         )
@@ -19,3 +19,9 @@ add_executable(ColTests
 target_link_libraries(ColTests
 		${ColTestsLIBS}
 )
+
+if (configBuild)
+
+add_dependencies(ColTests arangodbcpp)
+
+endif (configBuild)
