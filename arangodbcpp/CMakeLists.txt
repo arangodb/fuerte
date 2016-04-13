@@ -34,6 +34,8 @@ else (errorMessage)
 
   include("../Settings.CMake")
 
+  set(arangodbcppPath "${CMAKE_CURRENT_SOURCE_DIR}")
+
   include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_INSTALL_PREFIX}/include")
 
   set(PROJECT_VERSION_MAJOR 0)
