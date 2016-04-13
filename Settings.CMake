@@ -1,5 +1,9 @@
 # -*- mode: CMAKE; -*-
 
+if (NOT SETTINGS_CMAKE)
+
+set(SETTINGS_CMAKE true)
+
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
   
 option(Coverage "Build with coverage" OFF)
@@ -82,3 +86,5 @@ else()
   set(CMAKE_CXX_FLAGS_RELEASE        "${CMAKE_CXX_FLAGS_RELEASE} ${BASE_COMPILER_OPTIONS} -O3 -fomit-frame-pointer")
   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${BASE_COMPILER_OPTIONS} -O3 -g")
 endif()
+
+endif (NOT SETTINGS_CMAKE)

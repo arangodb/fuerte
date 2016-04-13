@@ -39,7 +39,11 @@
 .kdev4/
 
 # build directories
+build/
 arangodbcpp/build/
+arangodbcpp/test/build/
 arangodbcpp/test/BasicTests/build/
 arangodbcpp/test/ColTests/build/
 arangodbcpp/test/DocTests/build/
+arangodbcpp/Examples/build/
+arangodbcpp/Examples/FuerteBench/build/

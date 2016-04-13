@@ -1,27 +1,25 @@
-set(DocTestsSRCS
-  main.cpp
-  TestApp.cpp
-  DocTest.cpp
-	)
+if (CMAKE_PROJECT_NAME)
 
-set(DocTestsLIBS
-        ${arangodbcppLib}
-        gtest
-        ${velocypackLib}
-        curl
-        curlpp
-        )
+  set(DocTestsSRCS
+    main.cpp
+    TestApp.cpp
+    DocTest.cpp
+    )
 
-add_executable(DocTests
-  ${DocTestsSRCS}
-)
+  set(DocTestsLIBS
+          arangodbcpp
+          gtest
+          velocypack
+          curl
+          curlpp
+          )
 
-target_link_libraries(DocTests
-    ${DocTestsLIBS}
-)
+  add_executable(DocTests
+    ${DocTestsSRCS}
+  )
 
-if (configBuild)
+  target_link_libraries(DocTests
+      ${DocTestsLIBS}
+  )
 
-add_dependencies(DocTests arangodbcpp)
-
-endif (configBuild)
+endif (CMAKE_PROJECT_NAME)

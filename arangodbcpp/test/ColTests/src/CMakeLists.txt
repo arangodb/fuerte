@@ -1,27 +1,25 @@
-set(ColTestsSRCS
-  main.cpp
-  TestApp.cpp
-  ColTest.cpp
-	)
+if (CMAKE_PROJECT_NAME)
 
-set(ColTestsLIBS
-        ${arangodbcppLib}
-        gtest
-        ${velocypackLib}
-        curl
-        curlpp
-        )
+  set(ColTestsSRCS
+    main.cpp
+    TestApp.cpp
+    ColTest.cpp
+    )
 
-add_executable(ColTests
-	${ColTestsSRCS}
-)
+  set(ColTestsLIBS
+          arangodbcpp
+          gtest
+          velocypack
+          curl
+          curlpp
+          )
 
-target_link_libraries(ColTests
-		${ColTestsLIBS}
-)
+  add_executable(ColTests
+    ${ColTestsSRCS}
+  )
 
-if (configBuild)
+  target_link_libraries(ColTests
+      ${ColTestsLIBS}
+  )
 
-add_dependencies(ColTests arangodbcpp)
-
-endif (configBuild)
+endif (CMAKE_PROJECT_NAME)

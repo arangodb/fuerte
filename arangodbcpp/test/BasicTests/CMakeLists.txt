@@ -1,43 +1,45 @@
-project(BasicTests)
+if (NOT DEFINED CMAKE_PROJECT_NAME)
 
-cmake_minimum_required(VERSION 3.1)
+  cmake_minimum_required(VERSION 3.1)
 
-if (NOT velocypackLib)
+  project(BasicTests)
 
-find_library(velocypackLib NAMES velocypack PATHS "${CMAKE_INSTALL_PREFIX}/bin")
+  set(arangodbcppPath "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 
-endif (NOT velocypackLib)
+  find_library(arangodbcppLib NAMES arangodbcpp PATHS
+    "${arangodbcppPath}/build/src"
+    "${arangodbcppPath}/src"
+    "${CMAKE_INSTALL_PREFIX}/lib")
 
-if (velocypackLib)
+  if (NOT arangodbcppLib)
 
-if (NOT configBuild)
+    set(errorMessage "arangodbcpp library not built")
 
-include("../../../Settings.CMake")
+  endif (NOT arangodbcppLib)
 
-endif (NOT configBuild)
+  if (NOT errorMessage)
 
-set(ARANGODBCPP_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+    find_library(gtestcppLib NAMES gtest)
 
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include" "${ARANGODBCPP_PATH}/include" "${CMAKE_INSTALL_PREFIX}/include")
+    if (NOT gtestcppLib)
 
-if (NOT arangodbcppLib)
+      set(errorMessage "Google gtest library not installed")
 
-find_library(arangodbcppLib NAMES arangodbcpp PATHS "${ARANGODBCPP_PATH}/build/src" "${ARANGODBCPP_PATH}/src" "${CMAKE_INSTALL_PREFIX}/lib")
+    endif (NOT gtestcppLib)
 
-endif (NOT arangodbcppLib)
+  endif (NOT errorMessage)
 
-if (arangodbcppLib)
+  include("../../../Settings.CMake")
 
-add_subdirectory(src)
+endif (NOT DEFINED CMAKE_PROJECT_NAME)
 
-else (arangodbcppLib)
+if (errorMessage)
 
-message("arangodbcpp library not built/installed")
+  message("${errorMessage}")
 
-endif (arangodbcppLib)
+else (errorMessage)
 
-else (velocypackLib)
+  include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include" "${arangodbcppPath}/include")
+  add_subdirectory(src)
 
-message("velocypack library not installed")
-
-endif (velocypackLib)
+endif (errorMessage)

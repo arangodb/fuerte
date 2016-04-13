@@ -22,7 +22,6 @@
 /// @author John Bufton
 /// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
-#include <cstring>
 #include <algorithm>
 #include <velocypack/Builder.h>
 #include <velocypack/Slice.h>
@@ -51,7 +50,6 @@ void Connection::errFound(const std::string& inp, const Mode err) {
   for (char chr : inp) {
     if (old != '\\' && chr == '"') {
       os << "\\\"";
-      old = '\0';
       continue;
     }
     os << chr;

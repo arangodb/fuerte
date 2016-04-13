@@ -106,9 +106,7 @@ DocTest::DocTest()
   createCollection();
 }
 
-DocTest::~DocTest() {
-  deleteDatabase();
-}
+DocTest::~DocTest() { deleteDatabase(); }
 
 //-------- Document interfaces ----------------------
 
