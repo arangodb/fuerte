@@ -23,45 +23,47 @@
 /// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
 /*
-I'll supply a list of ID as file "ids.csv" on ID per line, example
+  I'll supply a list of ID as file "ids.csv" on ID per line, example
 
-P1
-P2
-P12437
+  P1
+  P2
+  P12437
 
-The program should be started as
+  The program should be started as
 
-single-read -f ids.csv -p n -l m -c collection -d database
+  single-read -f ids.csv -p n -l m -c collection -d database
 
-where ids.csv is a file like above, "n" is a number "the concurrency", "m" is a
-number "the loop", "collection" is the name of the collection and database is
-the name of the database.
+  where ids.csv is a file like above, "n" is a number "the concurrency", "m" is
+  a
+  number "the loop", "collection" is the name of the collection and database is
+  the name of the database.
 
-The program should
+  The program should
 
-- read in the ID
-- split the IDs into "n" equally sized buckets (almost the last one might be
-smaller)
-- start n threads
-- each thread should connection to ArangoDB and read the documents from its
-bucket from the collection named "collection" (it is an error if the collection
-does not exist and the program should exit)
-- each thread should repeat the read process "m" times
-- if all threads have finished, the program should report
--- the number of successful reads
--- the number of unsuccessful reads
--- the total wallclock time spend
--- the number of requests per seconds in total
--- the number of requests per seconds for each thread
--- the average time per request
--- the minimum time per request
--- the maximum time per request
+  - read in the ID
+  - split the IDs into "n" equally sized buckets (almost the last one might be
+  smaller)
+  - start n threads
+  - each thread should connection to ArangoDB and read the documents from its
+  bucket from the collection named "collection" (it is an error if the
+  collection
+  does not exist and the program should exit)
+  - each thread should repeat the read process "m" times
+  - if all threads have finished, the program should report
+  -- the number of successful reads
+  -- the number of unsuccessful reads
+  -- the total wallclock time spend
+  -- the number of requests per seconds in total
+  -- the number of requests per seconds for each thread
+  -- the average time per request
+  -- the minimum time per request
+  -- the maximum time per request
 
-FUTURE
+  FUTURE
 
-FuerteBench should take a connection string, something like
-http+tcp://127.0.0.1:8529
-or similar
+  FuerteBench should take a connection string, something like
+  http+tcp://127.0.0.1:8529
+  or similar
 */
 #include "FuerteBench.h"
 

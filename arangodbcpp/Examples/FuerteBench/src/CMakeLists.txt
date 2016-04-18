@@ -7,10 +7,10 @@ if (CMAKE_PROJECT_NAME)
     )
 
   set(FuerteBenchLIBS
+    ${arangodbcppLib}
+    ${CMAKE_THREAD_LIBS_INIT}
     curl
     curlpp
-    "${CMAKE_THREAD_LIBS_INIT}"
-    arangodbcpp
     velocypack
     )
 

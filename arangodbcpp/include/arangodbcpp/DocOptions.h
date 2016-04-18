@@ -121,6 +121,7 @@ class DocOptions {
   explicit DocOptions(DocOptions&& inp);
   explicit DocOptions(const std::string& inp);
   explicit DocOptions(std::string&& inp);
+  virtual ~DocOptions();
   template <typename T, typename... Args>
   explicit DocOptions(const std::string& tag, T flag, Args... args);
   template <typename T, typename... Args>
@@ -150,6 +151,8 @@ inline DocOptions::DocOptions(const std::string& inp) : _eTag(inp), _flgs(0) {}
 inline DocOptions::DocOptions(std::string&& inp) : _eTag(inp), _flgs(0) {}
 
 inline DocOptions::DocOptions() : _eTag("12345678"), _flgs(0) {}
+
+inline DocOptions::~DocOptions() {}
 
 template <typename T>
 void DocOptions::addFlags(T flag) {

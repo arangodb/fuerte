@@ -15,6 +15,7 @@ class Cursor {
 
   Cursor(const Database::SPtr& inp);
   Cursor() = delete;
+  virtual ~Cursor();
 
   void httpCreate(const Connection::SPtr& pCon, const std::string query,
                   uint16_t batSize = 0, const bool bAsync = false);
@@ -70,6 +71,8 @@ class Cursor {
 
   Database::SPtr _database;
 };
+
+inline Cursor::~Cursor() {}
 
 inline Cursor::Cursor(const Database::SPtr& inp) : _database(inp) {}
 

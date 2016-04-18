@@ -34,12 +34,12 @@ namespace dbinterface {
 
 uint16_t Server::_inst = 0;
 
-Server::Server(std::string url, uint16_t port) {
+Server::Server(std::string url, uint16_t port, const bool bSecure) {
   if (!_inst) {
     curlpp::initialize();
   }
   ++_inst;
-  setHostUrl(url, port);
+  setHostUrl(url, port, bSecure);
 }
 
 Server::~Server() {
@@ -52,9 +52,14 @@ Server::~Server() {
 //
 //	Enables the user to set the host url
 //
-void Server::setHostUrl(std::string url, uint16_t port) {
+void Server::setHostUrl(const std::string url, const uint16_t port,
+                        const bool bSecure) {
   std::ostringstream os;
-  os << "http://" << url << ":" << port;
+  os << "http";
+  if (bSecure) {
+    os << 's';
+  }
+  os << "://" << url << ":" << port;
   _host = os.str();
 }
 

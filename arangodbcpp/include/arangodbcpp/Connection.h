@@ -51,7 +51,7 @@ class Connection {
   typedef std::list<std::string> HttpHeaderList;
   typedef char ErrBuf[CURL_ERROR_SIZE];
   Connection();
-  ~Connection();
+  virtual ~Connection();
   void setUrl(const std::string& inp);
   void setUrl(std::string&& inp);
   void setErrBuf(char* inp);

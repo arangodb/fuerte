@@ -41,6 +41,7 @@ Functionality implemented
     Database creation and deletion
     Collection creation and deletion for a specified database
     Document creation empty, deletion, and get for a specific database collection
+    AQL functionality
 
 -------------------------------------------------
 

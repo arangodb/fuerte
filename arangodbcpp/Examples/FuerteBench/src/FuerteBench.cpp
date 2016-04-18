@@ -46,6 +46,20 @@ const OptArray optStrs = {
     "-d"  // Name of the database
 };
 
+const std::string help{
+    "Usage : FuerteBench [-f File-name] [-d Database-name] [-c "
+    "Collection-name] "
+    "[-p Number-of-threads] [-m number-of-iterations]\n\n"
+    "Bencbmarks the arangodbcpp library by reading multiple Documents from "
+    "an ArangoDB database using multiple threads\n\n"
+    "The file is a list of the Document names, (1 per line), to be read\n"
+    "The default number of threads is 1, and will never exceed the number of "
+    "documents "
+    "to be read\n"
+    "The default number of iterations is 1\n\n"
+    "The File-name, Database-name and Collection-name are required for the "
+    "test\n"};
+
 enum : uint16_t {
   Opt_FileName,
   Opt_Threads,
@@ -66,13 +80,7 @@ uint16_t getNumber(const char* inp) {
 }
 
 FuerteBench::FuerteBench(int argc, const char* argv[])
-    : _argc(argc),
-      _argv(argv),
-      _loops(1),
-      _threads(1),
-      _dbName{"internal"},
-      _colName{"Test"},
-      _fileName{"ids.csv"} {}
+    : _argc(argc), _argv(argv), _loops(1), _threads(1) {}
 
 bool FuerteBench::getDocNames() {
   static std::string wspc{" \t\r\n\f\v"};
@@ -127,9 +135,18 @@ void FuerteBench::processCmdLine() {
   }
 }
 
-bool FuerteBench::collectionExists() const {
+std::string FuerteBench::collectionExists() const {
   BucketReadTest test{_dbName, _colName};
-  return test.collectionExists();
+  if (!test.serverExists()) {
+    return std::string{"Cannot connect to Server"};
+  }
+  if (!test.databaseExists()) {
+    return std::string{"Cannot find the Database : "} + _dbName;
+  }
+  if (!test.collectionExists()) {
+    return std::string{"Cannot find the Collection : "} + _colName;
+  }
+  return std::string{};
 }
 
 void FuerteBench::createTestObjs() {
@@ -160,21 +177,28 @@ void FuerteBench::createTestObjs() {
 }
 
 bool FuerteBench::start() {
+  using std::cout;
+  using std::endl;
   namespace chrono = std::chrono;
   using system_clock = chrono::system_clock;
   processCmdLine();
-  if (!collectionExists()) {
-    std::cout << "Collection not found" << std::endl;
-    std::cout << "Collection : " << _colName << std::endl;
-    std::cout << "Database   : " << _dbName << std::endl;
+  if (_fileName.empty() || _colName.empty() || _dbName.empty()) {
+    cout << help << std::flush;
     return false;
   }
+  {
+    std::string err = collectionExists();
+    if (!err.empty()) {
+      cout << err << endl;
+      return false;
+    }
+  }
   if (!getDocNames()) {
-    std::cout << _fileName << " file not found" << std::endl;
+    cout << _fileName << " file not found" << endl;
     return false;
   }
   if (_docNames.empty()) {
-    std::cout << "No documents listed" << std::endl;
+    cout << "No documents listed" << endl;
     return false;
   }
   createTestObjs();
@@ -191,13 +215,14 @@ bool FuerteBench::start() {
   }
   _usecs =
       chrono::duration_cast<chrono::microseconds>(system_clock::now() - now);
-
   return true;
 }
 
 void FuerteBench::outputReport() const {
   typedef std::vector<BucketReadTest::ReadCount> ReadCounts;
   typedef std::vector<std::chrono::microseconds> Durations;
+  using std::cout;
+  using std::endl;
   ReadCounts readCounts;
   ReadCounts missCounts;
   Durations timesTaken;
@@ -216,13 +241,12 @@ void FuerteBench::outputReport() const {
     missCounts.push_back(reads);
     missCount += reads;
   }
-  std::cout << "All threads" << std::endl;
-  std::cout << "Successful reads   : " << readCount - missCount << std::endl;
-  std::cout << "Unsuccessful reads : " << missCount << std::endl;
-  std::cout << "Duration (usecs)   : " << _usecs.count() << std::endl;
-  std::cout << "Reads/sec          : " << (readCount * 1e6f / _usecs.count())
-            << std::endl
-            << std::endl;
+  cout << "All threads" << endl;
+  cout << "Successful reads   : " << readCount - missCount << endl;
+  cout << "Unsuccessful reads : " << missCount << endl;
+  cout << "Duration (usecs)   : " << _usecs.count() << endl;
+  cout << "Reads/sec          : " << (readCount * 1e6f / _usecs.count()) << endl
+       << endl;
   ReadCounts::const_iterator iRead = readCounts.cbegin();
   ReadCounts::const_iterator iMiss = missCounts.cbegin();
   Durations::const_iterator iDuration = timesTaken.begin();
@@ -231,13 +255,13 @@ void FuerteBench::outputReport() const {
     readCount = *iRead;
     missCount = *iMiss;
     timeTaken = *iDuration;
-    std::cout << "Thread : " << nThread << std::endl;
-    std::cout << "Successful reads   : " << readCount - missCount << std::endl;
-    std::cout << "Unsuccessful reads : " << missCount << std::endl;
-    std::cout << "Duration (usecs)   : " << timeTaken.count() << std::endl;
-    std::cout << "Reads/sec          : "
-              << (readCount * 1e6f / timeTaken.count()) << std::endl
-              << std::endl;
+    cout << "Thread : " << nThread << endl;
+    cout << "Successful reads   : " << readCount - missCount << endl;
+    cout << "Unsuccessful reads : " << missCount << endl;
+    cout << "Duration (usecs)   : " << timeTaken.count() << endl;
+    cout << "Reads/sec          : " << (readCount * 1e6f / timeTaken.count())
+         << endl
+         << endl;
     ++iMiss;
     ++iDuration;
     ++nThread;

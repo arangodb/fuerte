@@ -124,6 +124,23 @@ void Collection::httpCreate(const Connection::SPtr& pCon, const Options opts) {
 }
 
 //
+// Configure to create an empty Collection using the configured
+// Database and Collection name
+//
+void Collection::httpCollections(const Connection::SPtr& pCon,
+                                 const Options opts) {
+  std::string url = httpApi();
+  Connection& conn = pCon->reset();
+  if (opts.flagged(Options::ExcludeSystem::True)) {
+    url += "?excludeSystem";
+  }
+  conn.setUrl(url);
+  conn.setGetReq();
+  conn.setBuffer();
+  conn.setSync(opts.flagged(Options::Run::Async));
+}
+
+//
 // Configure to delete a Collection using the configured Database
 // and Collection name
 //

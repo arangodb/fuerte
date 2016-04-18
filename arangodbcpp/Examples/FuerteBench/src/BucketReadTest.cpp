@@ -53,6 +53,22 @@ bool BucketReadTest::collectionExists() {
   return con.httpResponseCode() == ReadSuccess;
 }
 
+bool BucketReadTest::databaseExists() {
+  enum : long { ReadSuccess = 200 };
+  Connection& con = *_pCon;
+  _pCol->httpCollections(_pCon);
+  con.run();
+  return con.httpResponseCode() == ReadSuccess;
+}
+
+bool BucketReadTest::serverExists() {
+  enum : long { ReadSuccess = 200 };
+  Connection& con = *_pCon;
+  _pSrv->httpVersion(_pCon);
+  con.run();
+  return con.httpResponseCode() == ReadSuccess;
+}
+
 void BucketReadTest::operator()(std::atomic_bool& bWait, LoopCount loops) {
   namespace chrono = std::chrono;
   using system_clock = chrono::system_clock;

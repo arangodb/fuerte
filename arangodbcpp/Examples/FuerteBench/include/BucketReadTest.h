@@ -48,6 +48,8 @@ class BucketReadTest {
   DocNames::const_iterator setDocs(DocNames::const_iterator iFirst,
                                    DocNames::size_type n);
   bool collectionExists();
+  bool databaseExists();
+  bool serverExists();
   void operator()(std::atomic_bool& bWait, LoopCount loops);
   void isolate();
   bool isIsolated() const;

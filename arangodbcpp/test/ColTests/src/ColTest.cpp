@@ -68,10 +68,16 @@ const ColTest::Connection::VPack ColTest::truncateCollection() {
   return Collection::httpTruncate(false, _pCon);
 }
 
-const ColTest::Connection::VPack ColTest::collectionCount() {
+const ColTest::Connection::VPack ColTest::docCount() {
   _pCol->httpCount(_pCon);
   _pCon->run();
   return Collection::httpCount(false, _pCon);
+}
+
+const ColTest::Connection::VPack ColTest::collections() {
+  _pCol->httpCollections(_pCon);
+  _pCon->run();
+  return Collection::httpCollections(false, _pCon);
 }
 
 const ColTest::Connection::VPack ColTest::collectionProps() {
@@ -161,7 +167,7 @@ void ColTest::countTest(const uint16_t cnt) {
   typedef velocypack::Slice Slice;
   typedef velocypack::ValueType ValueType;
   SCOPED_TRACE("Count");
-  const Connection::VPack res = collectionCount();
+  const Connection::VPack res = docCount();
   const Slice resSlice = Slice{res->data()};
   if (checkError(resSlice)) {
     return;

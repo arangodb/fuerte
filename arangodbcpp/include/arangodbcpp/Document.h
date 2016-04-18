@@ -41,7 +41,7 @@ class Document {
   typedef std::shared_ptr<Document> SPtr;
   Document(const std::string& name);
   Document(std::string&& name = "NewDoc");
-  ~Document();
+  virtual ~Document();
   void httpCreate(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
                   const Options& opts = Options{});
   static void httpCreate(const Collection::SPtr& pCol,

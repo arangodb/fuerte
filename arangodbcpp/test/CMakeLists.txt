@@ -7,6 +7,8 @@ if (NOT CMAKE_PROJECT_NAME)
   set(arangodbcppPath "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
   find_library(arangodbcppLib NAMES arangodbcpp PATHS
+    "${arangodbcppPath}/../build/arangodbcpp/src"
+    "${arangodbcppPath}/../arangodbcpp/src"
     "${arangodbcppPath}/build/src"
     "${arangodbcppPath}/src"
     "${CMAKE_INSTALL_PREFIX}/lib")
@@ -18,6 +20,10 @@ if (NOT CMAKE_PROJECT_NAME)
   endif (NOT arangodbcppLib)
 
   include("../../Settings.CMake")
+
+  include_directories(
+    "${arangodbcppPath}/include"
+    "${CMAKE_INSTALL_PREFIX}/include")
 
 endif (NOT CMAKE_PROJECT_NAME)
 
@@ -39,7 +45,7 @@ if (errorMessage)
 
 else (errorMessage)
 
-  set(TestApps BasicTests ColTests DocTests)
+  set(TestApps BasicTests ColTests DocTests AqlTests)
 
   foreach(app ${TestApps})
 

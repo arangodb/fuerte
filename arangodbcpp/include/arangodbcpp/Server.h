@@ -40,17 +40,19 @@ class Database;
 class Server {
  public:
   typedef std::shared_ptr<Server> SPtr;
-  explicit Server(std::string url = {"localhost"}, uint16_t port = 8529);
-  ~Server();
-  void httpVersion(Connection::SPtr conn, bool bAsync);
+  explicit Server(std::string url = {"localhost"}, uint16_t port = 8529,
+                  const bool bSecure = false);
+  virtual ~Server();
+  void httpVersion(Connection::SPtr conn, bool bAsync = false);
   static Connection::VPack httpVersion(bool bSort, Connection::SPtr conn);
-  void httpCurrentDb(Connection::SPtr conn, bool bAsync);
+  void httpCurrentDb(Connection::SPtr conn, bool bAsync = false);
   static Connection::VPack httpCurrentDb(bool bSort, Connection::SPtr conn);
-  void httpUserDbs(Connection::SPtr conn, bool bAsync);
+  void httpUserDbs(Connection::SPtr conn, bool bAsync = false);
   static Connection::VPack httpUserDbs(bool bSort, Connection::SPtr conn);
-  void httpExistingDbs(Connection::SPtr conn, bool bAsync);
+  void httpExistingDbs(Connection::SPtr conn, bool bAsync = false);
   static Connection::VPack httpExistingDbs(bool bSort, Connection::SPtr conn);
-  void setHostUrl(std::string url, uint16_t port);
+  void setHostUrl(const std::string url, const uint16_t port,
+                  const bool bSecure = false);
   const std::string& hostUrl() const;
 
  private:

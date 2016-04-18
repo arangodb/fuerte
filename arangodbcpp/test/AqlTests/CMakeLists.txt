@@ -2,7 +2,7 @@ if (NOT DEFINED CMAKE_PROJECT_NAME)
 
   cmake_minimum_required(VERSION 3.1)
 
-  project(DocTests)
+  project(AqlTests)
 
   set(arangodbcppPath "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 

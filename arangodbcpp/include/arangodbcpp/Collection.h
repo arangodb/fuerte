@@ -54,6 +54,12 @@ class Collection {
     };
     enum class Revs : Flags { Reset = 0, No = 0, Yes = No + 8, Mask = 8 };
     enum class Data : Flags { Reset = 0, No = 0, Yes = No + 16, Mask = 16 };
+    enum class ExcludeSystem {
+      Reset = 0,
+      False = 0,
+      True = False + 32,
+      Mask = 32
+    };
 
    private:
     Flags _flgs;
@@ -69,6 +75,7 @@ class Collection {
     explicit Options(T val);
     template <typename T, typename... Args>
     explicit Options(T val, Args... args);
+    virtual ~Options();
     template <typename T>
     Options& setFlags(T val);
     template <typename T, typename... Args>
@@ -85,7 +92,7 @@ class Collection {
                       const std::string& id);
   explicit Collection(const std::shared_ptr<Database>& db,
                       std::string&& id = "new-collection");
-  ~Collection();
+  virtual ~Collection();
 
   static void httpCreate(const Database::SPtr& pDb,
                          const Connection::SPtr& pCon,
@@ -98,6 +105,11 @@ class Collection {
   void httpDocs(const Connection::SPtr& pCon, const Options opts = Options());
   static Connection::VPack httpDocs(const bool bSort,
                                     const Connection::SPtr& pCon);
+
+  void httpCollections(const Connection::SPtr& pCon,
+                       const Options opts = Options());
+  static Connection::VPack httpCollections(const bool bSort,
+                                           const Connection::SPtr& pCon);
 
   void httpDelete(const Connection::SPtr& pCon, const Options opts = Options());
   static Connection::VPack httpDelete(const bool bSort,
@@ -171,6 +183,8 @@ inline void Collection::Options::addFlags(T flag, Args... args) {
 
 inline Collection::Options::Options() : _flgs(0) {}
 
+inline Collection::Options::~Options() {}
+
 template <typename T>
 inline Collection::Options& Collection::Options::setFlags(T val) {
   if (T::Mask == T::Mask) {
@@ -234,6 +248,11 @@ inline const std::string Collection::id() const { return _name; }
 
 inline Connection::VPack Collection::httpCreate(const bool bSort,
                                                 const Connection::SPtr& pCon) {
+  return pCon->fromJSon(bSort);
+}
+
+inline Connection::VPack Collection::httpCollections(
+    const bool bSort, const Connection::SPtr& pCon) {
   return pCon->fromJSon(bSort);
 }
 

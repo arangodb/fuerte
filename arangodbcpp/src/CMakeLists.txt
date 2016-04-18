@@ -11,8 +11,8 @@ set(arangodbcppSRCS
 
 set(arangodbcppLIBS
     ${velocypackLib}
-		curl
-		curlpp
+    ${curlLib}
+    ${curlppLib}
 		)
 
 add_library(

@@ -44,15 +44,18 @@ class Database {
   Database() = delete;
   explicit Database(const ServerPtr& srv, const std::string& name);
   explicit Database(const ServerPtr& srv, std::string&& name = "_system");
-  ~Database();
-  void httpCreate(const ServerPtr& server, const Connection::SPtr& p,
-                  const Connection::VPack& data, const bool bAsync);
+  virtual ~Database();
+  void httpCreate(const Connection::SPtr& p, const Connection::VPack& data,
+                  const bool bAsync);
   void httpCreate(const Connection::SPtr& conn, const bool bAsync = false);
   static Connection::VPack httpCreate(const bool bSort,
                                       const Connection::SPtr& conn);
   void httpDelete(const Connection::SPtr& conn, const bool bAsync = false);
   static Connection::VPack httpDelete(const bool bSort,
                                       const Connection::SPtr& conn);
+  void httpInfo(const Connection::SPtr& conn, const bool bAsync = false);
+  static Connection::VPack httpInfo(const bool bSort,
+                                    const Connection::SPtr& conn);
   std::string databaseUrl() const;
   bool hasValidHost() const;
   Database& operator=(const std::string&);
@@ -87,6 +90,11 @@ inline Connection::VPack Database::httpCreate(const bool bSort,
 
 inline Connection::VPack Database::httpDelete(const bool bSort,
                                               const Connection::SPtr& conn) {
+  return conn->fromJSon(bSort);
+}
+
+inline Connection::VPack Database::httpInfo(const bool bSort,
+                                            const Connection::SPtr& conn) {
   return conn->fromJSon(bSort);
 }
 

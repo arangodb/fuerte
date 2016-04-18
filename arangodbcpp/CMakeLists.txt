@@ -6,7 +6,7 @@ if (NOT CMAKE_PROJECT_NAME)
 
 endif (NOT CMAKE_PROJECT_NAME)
 
-find_library(velocypackLib NAMES velocypack PATHS "${CMAKE_INSTALL_PREFIX}/bin")
+find_library(velocypackLib NAMES velocypack PATHS "${CMAKE_INSTALL_PREFIX}/lib")
 
 if (NOT velocypackLib)
 
@@ -16,11 +16,23 @@ endif (NOT velocypackLib)
 
 if (NOT errorMessage)
 
-  find_library(curlLib NAMES curl curlpp)
+  find_library(curlLib NAMES curl PATHS "${CMAKE_INSTALL_PREFIX}/lib")
 
   if (NOT curlLib)
 
-    set(errorMessage "curl/curlpp library not installed")
+    set(errorMessage "curl library not installed")
+
+  endif (NOT curlLib)
+
+endif (NOT errorMessage)
+
+if (NOT errorMessage)
+
+  find_library(curlppLib NAMES curlpp PATHS "${CMAKE_INSTALL_PREFIX}/lib")
+
+  if (NOT curlLib)
+
+    set(errorMessage "curlpp library not installed")
 
   endif (NOT curlLib)
 
@@ -34,7 +46,7 @@ else (errorMessage)
 
   include("../Settings.CMake")
 
-  set(arangodbcppPath "${CMAKE_CURRENT_SOURCE_DIR}")
+  set(arangodbcppLib arangodbcpp)
 
   include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_INSTALL_PREFIX}/include")
 

@@ -7,6 +7,8 @@ if (NOT DEFINED CMAKE_PROJECT_NAME)
   set(arangodbcppPath "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 
   find_library(arangodbcppLib NAMES arangodbcpp PATHS
+    "${arangodbcppPath}/../build/arangodbcpp/src"
+    "${arangodbcppPath}/../arangodbcpp/src"
     "${arangodbcppPath}/build/src"
     "${arangodbcppPath}/src"
     "${CMAKE_INSTALL_PREFIX}/lib")
@@ -31,6 +33,10 @@ if (NOT DEFINED CMAKE_PROJECT_NAME)
 
   include("../../../Settings.CMake")
 
+  include_directories(
+    "${arangodbcppPath}/include"
+    "${CMAKE_INSTALL_PREFIX}/include")
+
 endif (NOT DEFINED CMAKE_PROJECT_NAME)
 
 if (errorMessage)
@@ -39,7 +45,7 @@ if (errorMessage)
 
 else (errorMessage)
 
-  include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include" "${arangodbcppPath}/include")
+  include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
   add_subdirectory(src)
 
 endif (errorMessage)

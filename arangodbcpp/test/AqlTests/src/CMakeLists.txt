@@ -1,13 +1,12 @@
 if (CMAKE_PROJECT_NAME)
 
-  set(BasicTestsSRCS
+  set(AqlTestsSRCS
     main.cpp
     TestApp.cpp
-    SrvTest.cpp
-    DbTest.cpp
+    AqlTest.cpp
     )
 
-  set(BasicTestsLIBS
+  set(AqlTestsLIBS
           ${arangodbcppLib}
           gtest
           velocypack
@@ -15,12 +14,12 @@ if (CMAKE_PROJECT_NAME)
           curlpp
           )
 
-  add_executable(BasicTests
-    ${BasicTestsSRCS}
+  add_executable(AqlTests
+    ${AqlTestsSRCS}
   )
 
-  target_link_libraries(BasicTests
-      ${BasicTestsLIBS}
+  target_link_libraries(AqlTests
+      ${AqlTestsLIBS}
   )
 
 endif (CMAKE_PROJECT_NAME)

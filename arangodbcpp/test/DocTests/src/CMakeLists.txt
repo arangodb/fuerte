@@ -7,12 +7,12 @@ if (CMAKE_PROJECT_NAME)
     )
 
   set(DocTestsLIBS
-          arangodbcpp
-          gtest
-          velocypack
-          curl
-          curlpp
-          )
+    ${arangodbcppLib}
+    gtest
+    velocypack
+    curl
+    curlpp
+    )
 
   add_executable(DocTests
     ${DocTestsSRCS}

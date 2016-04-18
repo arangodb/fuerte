@@ -46,7 +46,7 @@ class FuerteBench {
   void processCmdLine();
   bool getDocNames();
   void createTestObjs();
-  bool collectionExists() const;
+  std::string collectionExists() const;
 
   int _argc;
   const char** _argv;

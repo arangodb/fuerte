@@ -49,13 +49,10 @@ std::string Database::databaseUrl() const {
 //
 // Configure to create a Database using the VPack configuration data
 //
-void Database::httpCreate(const Server::SPtr& server, const Connection::SPtr& p,
+void Database::httpCreate(const Connection::SPtr& p,
                           const Connection::VPack& data, const bool bAsync) {
-  std::string val{server->hostUrl() + httpDbApi};
+  std::string val{_server->hostUrl() + httpDbApi};
   Connection& conn = p->reset();
-  Connection::HttpHeaderList headers;
-  conn.setJsonContent(headers);
-  conn.setHeaderOpts(headers);
   conn.setUrl(val);
   conn.setPostReq();
   conn.setPostField(Connection::json(data));
@@ -69,13 +66,22 @@ void Database::httpCreate(const Server::SPtr& server, const Connection::SPtr& p,
 void Database::httpCreate(const Connection::SPtr& p, const bool bAsync) {
   std::string val{_server->hostUrl() + httpDbApi};
   Connection& conn = p->reset();
-  Connection::HttpHeaderList headers;
-  conn.setJsonContent(headers);
-  conn.setHeaderOpts(headers);
   conn.setUrl(val);
-  val = "{ \"name\":\"" + _name + "\" }";
-  conn.setPostReq();
+  val = "{ \"name\" : \"" + _name + "\" }";
   conn.setPostField(val);
+  conn.setPostReq();
+  conn.setBuffer();
+  conn.setSync(bAsync);
+}
+
+//
+// Configure to get info on the current Database
+//
+void Database::httpInfo(const Connection::SPtr& p, const bool bAsync) {
+  std::string url{_server->hostUrl() + httpDbApi + "/current"};
+  Connection& conn = p->reset();
+  conn.setUrl(url);
+  conn.setGetReq();
   conn.setBuffer();
   conn.setSync(bAsync);
 }

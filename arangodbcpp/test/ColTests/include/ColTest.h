@@ -48,6 +48,7 @@ class ColTest : public testing::Test {
  private:
   void generalTest(const Connection::VPack (ColTest::*fn)(), uint64_t code);
   void createTest();
+  void collectionsTest();
   void deleteTest();
   void renameTest(const std::string& name);
   void aboutTest();
@@ -62,7 +63,8 @@ class ColTest : public testing::Test {
   const Connection::VPack createCollection();
   const Connection::VPack deleteCollection();
   const Connection::VPack truncateCollection();
-  const Connection::VPack collectionCount();
+  const Connection::VPack docCount();
+  const Connection::VPack collections();
   const Connection::VPack collectionProps();
   const Connection::VPack aboutCollection();
   const Connection::VPack renameCollection(const std::string& name);
@@ -77,6 +79,10 @@ class ColTest : public testing::Test {
 
 inline void ColTest::createTest() {
   commonTest(&ColTest::createCollection, "Create");
+}
+
+inline void ColTest::collectionsTest() {
+  commonTest(&ColTest::collections, "Collections");
 }
 
 inline void ColTest::aboutTest() {
