@@ -9,9 +9,9 @@ if (CMAKE_PROJECT_NAME)
   set(FuerteBenchLIBS
     ${arangodbcppLib}
     ${CMAKE_THREAD_LIBS_INIT}
-    curl
-    curlpp
-    velocypack
+    ${curlLib}
+    ${curlppLib}
+    ${velocypackLib}
     )
 
   add_executable(FuerteBench
