@@ -1,6 +1,4 @@
 ////////////////////////////////////////////////////////////////////////////////
-/// @brief C++ Library to interface to Arangodb.
-///
 /// DISCLAIMER
 ///
 /// Copyright 2016 ArangoDB GmbH, Cologne, Germany
@@ -20,10 +18,11 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author John Bufton
-/// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
+
 #ifndef FUERTE_COLLECTION_H
-#define FUERTE_COLLECTION_H
+#define FUERTE_COLLECTION_H 1
+
 #include <velocypack/Builder.h>
 
 #include "arangodbcpp/Database.h"
@@ -276,10 +275,9 @@ inline Connection::VPack Collection::httpDocs(const bool bSort,
   return pCon->fromJSon(bSort);
 }
 
-//
 // Configure to get document count in a Collection using the configured
 // Database and Collection name
-//
+
 inline void Collection::httpCount(const Connection::SPtr& pCon,
                                   const Options opts) {
   httpInfo(pCon, opts, "/count");
@@ -332,4 +330,4 @@ inline Connection::VPack Collection::httpRevId(const bool bSort,
 }
 }
 
-#endif  // FUERTE_COLLECTION_H
+#endif

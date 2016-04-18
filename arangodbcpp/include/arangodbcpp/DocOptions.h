@@ -1,6 +1,4 @@
 ////////////////////////////////////////////////////////////////////////////////
-/// @brief C++ Library to interface to Arangodb.
-///
 /// DISCLAIMER
 ///
 /// Copyright 2015 ArangoDB GmbH, Cologne, Germany
@@ -20,10 +18,10 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author John Bufton
-/// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
+
 #ifndef FUERTE_DOCOPTIONS_H
-#define FUERTE_DOCOPTIONS_H
+#define FUERTE_DOCOPTIONS_H 1
 
 #include <string>
 
@@ -217,4 +215,4 @@ inline bool DocOptions::flagged(T inp) const {
 }
 }
 
-#endif  // FUERTE_DOCOPTIONS_H
+#endif

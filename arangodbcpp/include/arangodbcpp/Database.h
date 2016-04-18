@@ -1,6 +1,4 @@
 ////////////////////////////////////////////////////////////////////////////////
-/// @brief C++ Library to interface to Arangodb.
-///
 /// DISCLAIMER
 ///
 /// Copyright 2016 ArangoDB GmbH, Cologne, Germany
@@ -20,10 +18,10 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author John Bufton
-/// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
+
 #ifndef FUERTE_DATABASE_H
-#define FUERTE_DATABASE_H
+#define FUERTE_DATABASE_H 1
 
 #include <memory>
 
@@ -102,4 +100,4 @@ inline bool Database::hasValidHost() const { return _server.get() != nullptr; }
 }
 }
 
-#endif  // FUERTE_DATABASE_H
+#endif

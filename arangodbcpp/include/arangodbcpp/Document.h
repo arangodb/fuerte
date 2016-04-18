@@ -1,6 +1,4 @@
 ////////////////////////////////////////////////////////////////////////////////
-/// @brief C++ Library to interface to Arangodb.
-///
 /// DISCLAIMER
 ///
 /// Copyright 2015 ArangoDB GmbH, Cologne, Germany
@@ -20,10 +18,10 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author John Bufton
-/// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
+
 #ifndef FUERTE_DOCUMENT_H
-#define FUERTE_DOCUMENT_H
+#define FUERTE_DOCUMENT_H 1
 
 #include <velocypack/Builder.h>
 
@@ -162,4 +160,4 @@ inline Document& Document::operator=(std::string&& inp) {
 }
 }
 
-#endif  // FUERTE_DOCUMENT_H
+#endif

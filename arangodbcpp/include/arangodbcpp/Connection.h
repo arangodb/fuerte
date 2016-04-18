@@ -1,6 +1,4 @@
 ////////////////////////////////////////////////////////////////////////////////
-/// @brief C++ Library to interface to Arangodb.
-///
 /// DISCLAIMER
 ///
 /// Copyright 2016 ArangoDB GmbH, Cologne, Germany
@@ -20,10 +18,10 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author John Bufton
-/// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
+
 #ifndef FUERTE_CONNECTION_H
-#define FUERTE_CONNECTION_H
+#define FUERTE_CONNECTION_H 1
 
 #include <memory>
 #include <vector>
@@ -158,11 +156,10 @@ inline void Connection::setPatchReq() { setCustomReq("PATCH"); }
 
 inline void Connection::setPutReq() { setCustomReq("PUT"); }
 
-//
 // Converts the contents of the default write buffer to a string
 //
 // This will usually be either JSon or an error message
-//
+
 inline const std::string Connection::bufString() const {
   return std::string(_buf.data(), _buf.size());
 }
@@ -217,4 +214,4 @@ inline void Connection::setOpt(const T& inp) {
 }
 }
 
-#endif  // FUERTE_CONNECTION_H
+#endif

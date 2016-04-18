@@ -1,6 +1,4 @@
 ////////////////////////////////////////////////////////////////////////////////
-/// @brief C++ Library to interface to Arangodb.
-///
 /// DISCLAIMER
 ///
 /// Copyright 2016 ArangoDB GmbH, Cologne, Germany
@@ -20,10 +18,10 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author John Bufton
-/// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
+
 #ifndef FUERTE_VERSION_H
-#define FUERTE_VERSION_H
+#define FUERTE_VERSION_H 1
 
 #include <string>
 
@@ -63,4 +61,4 @@ inline std::string Version::appName() { return _appName; }
 }
 }
 
-#endif  // FUERTE_VERSION_H
+#endif
