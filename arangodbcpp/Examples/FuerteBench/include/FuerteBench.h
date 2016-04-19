@@ -52,6 +52,7 @@ class FuerteBench {
   const char** _argv;
   LoopCount _loops;
   ThreadCount _threads;
+  std::string _hostName;
   std::string _dbName;
   std::string _colName;
   std::string _fileName;

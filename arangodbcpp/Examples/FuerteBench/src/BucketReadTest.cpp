@@ -27,14 +27,19 @@
 #include "BucketReadTest.h"
 #include "FuerteBench.h"
 
-BucketReadTest::BucketReadTest(const std::string& dbName,
+BucketReadTest::BucketReadTest(const std::string& hostName,
+                               const std::string& dbName,
                                const std::string& colName)
     : _pSrv{std::make_shared<Server>(FuerteBench::hostUrl(),
                                      FuerteBench::hostPort())},
       _pDb{std::make_shared<Database>(_pSrv, dbName)},
       _pCol{std::make_shared<Collection>(_pDb, colName)},
       _pDoc{std::make_shared<Document>("MyDoc")},
-      _pCon{std::make_shared<Connection>()} {}
+      _pCon{std::make_shared<Connection>()} {
+  if (!hostName.empty()) {
+    _pSrv->setHostUrl(hostName);
+  }
+}
 
 void BucketReadTest::isolate() {
   _pDoc = std::make_shared<Document>("MyDoc");

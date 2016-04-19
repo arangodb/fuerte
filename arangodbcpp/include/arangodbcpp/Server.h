@@ -50,6 +50,7 @@ class Server {
   static Connection::VPack httpExistingDbs(bool bSort, Connection::SPtr conn);
   void setHostUrl(const std::string url, const uint16_t port,
                   const bool bSecure = false);
+  void setHostUrl(const std::string url);
   const std::string& hostUrl() const;
 
  private:

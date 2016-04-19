@@ -33,8 +33,8 @@
 #include "FuerteBench.h"
 
 namespace {
-typedef std::array<std::string, 5> OptArray;
-const OptArray optStrs = {
+typedef std::array<std::string, 6> OptArray;
+const OptArray optStrs = {{
     "-f"  // File containing list of documents to load
     ,
     "-p"  // Number of threads
@@ -44,18 +44,19 @@ const OptArray optStrs = {
     "-c"  // Name of the collection
     ,
     "-d"  // Name of the database
-};
+    ,
+    "-h"  // Host address e.g http://localhost:8529
+}};
 
 const std::string help{
     "Usage : FuerteBench [-f File-name] [-d Database-name] [-c "
-    "Collection-name] "
+    "Collection-name] [-h Host-url] "
     "[-p Number-of-threads] [-m number-of-iterations]\n\n"
     "Bencbmarks the arangodbcpp library by reading multiple Documents from "
     "an ArangoDB database using multiple threads\n\n"
     "The file is a list of the Document names, (1 per line), to be read\n"
     "The default number of threads is 1, and will never exceed the number of "
-    "documents "
-    "to be read\n"
+    "documents to be read\n"
     "The default number of iterations is 1\n\n"
     "The File-name, Database-name and Collection-name are required for the "
     "test\n"};
@@ -65,7 +66,8 @@ enum : uint16_t {
   Opt_Threads,
   Opt_Iterations,
   Opt_ColName,
-  Opt_DbName
+  Opt_DbName,
+  Opt_HostName
 };
 
 uint16_t getNumber(const char* inp) {
@@ -114,6 +116,10 @@ void FuerteBench::processCmdLine() {
         _fileName = _argv[++idx];
         break;
       }
+      case Opt_HostName: {
+        _hostName = _argv[++idx];
+        break;
+      }
       case Opt_DbName: {
         _dbName = _argv[++idx];
         break;
@@ -136,7 +142,7 @@ void FuerteBench::processCmdLine() {
 }
 
 std::string FuerteBench::collectionExists() const {
-  BucketReadTest test{_dbName, _colName};
+  BucketReadTest test{_hostName, _dbName, _colName};
   if (!test.serverExists()) {
     return std::string{"Cannot connect to Server"};
   }
@@ -150,7 +156,7 @@ std::string FuerteBench::collectionExists() const {
 }
 
 void FuerteBench::createTestObjs() {
-  BucketReadTest test{_dbName, _colName};
+  BucketReadTest test{_hostName, _dbName, _colName};
   _tests.clear();
   const DocNames::size_type sz = _docNames.size();
   if (_threads > sz) {

@@ -30,11 +30,11 @@ if (NOT errorMessage)
 
   find_library(curlppLib NAMES curlpp PATHS "${CMAKE_INSTALL_PREFIX}/lib")
 
-  if (NOT curlLib)
+  if (NOT curlppLib)
 
     set(errorMessage "curlpp library not installed")
 
-  endif (NOT curlLib)
+  endif (NOT curlppLib)
 
 endif (NOT errorMessage)
 

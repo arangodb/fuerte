@@ -64,6 +64,11 @@ void Server::setHostUrl(const std::string url, const uint16_t port,
 }
 
 //
+//	Enables the user to set the host url
+//
+void Server::setHostUrl(const std::string url) { _host = url; }
+
+//
 //	Configure to request the Arangodb version
 //
 void Server::httpVersion(Connection::SPtr p, bool bAsync) {

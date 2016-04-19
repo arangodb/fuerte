@@ -44,7 +44,8 @@ class BucketReadTest {
   typedef uint32_t ReadCount;
   typedef uint16_t LoopCount;
   BucketReadTest() = delete;
-  BucketReadTest(const std::string& dbName, const std::string& colName);
+  BucketReadTest(const std::string& hostName, const std::string& dbName,
+                 const std::string& colName);
   DocNames::const_iterator setDocs(DocNames::const_iterator iFirst,
                                    DocNames::size_type n);
   bool collectionExists();
