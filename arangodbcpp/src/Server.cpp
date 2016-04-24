@@ -73,10 +73,6 @@ void Server::setHostUrl(const std::string url) { _host = url; }
 void Server::httpVersion(Connection::SPtr p, bool bAsync) {
   Connection& conn = p->reset();
   std::string url{_host + "/_api/version"};
-//+ Added for debug +
- std::cout << "url : " << url << std::endl;
- std::cout << "len : " << url.length() << std::endl;
- //+++++++++++++++++++
   conn.setUrl(url);
   conn.setBuffer();
   conn.setSync(bAsync);
