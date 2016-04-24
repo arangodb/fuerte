@@ -1,3 +1,5 @@
+# -*- mode: CMAKE; -*-
+
 set(TestApps
   BasicTests
   ColTests

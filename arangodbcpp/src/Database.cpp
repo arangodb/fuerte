@@ -1,6 +1,4 @@
 ////////////////////////////////////////////////////////////////////////////////
-/// @brief C++ Library to interface to Arangodb.
-///
 /// DISCLAIMER
 ///
 /// Copyright 2016 ArangoDB GmbH, Cologne, Germany
@@ -20,12 +18,13 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author John Bufton
-/// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
+
+#include "arangodbcpp/Database.h"
+
 #include <sstream>
 
 #include "arangodbcpp/Server.h"
-#include "arangodbcpp/Database.h"
 
 namespace arangodb {
 
@@ -40,7 +39,7 @@ Database::Database(const Server::SPtr& srv, std::string&& name)
     : _server{srv}, _name(name) {}
 
 //
-//	Get the core database url
+//      Get the core database url
 //
 std::string Database::databaseUrl() const {
   return _server->hostUrl() + "/_db/" + _name;

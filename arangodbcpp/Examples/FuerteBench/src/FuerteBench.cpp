@@ -1,6 +1,4 @@
 ////////////////////////////////////////////////////////////////////////////////
-/// @brief C++ Library to interface to Arangodb.
-///
 /// DISCLAIMER
 ///
 /// Copyright 2016 ArangoDB GmbH, Cologne, Germany
@@ -20,8 +18,10 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author John Bufton
-/// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
+
+#include "FuerteBench.h"
+
 #include <iostream>
 #include <sstream>
 #include <array>
@@ -29,8 +29,6 @@
 #include <fstream>
 #include <utility>
 #include <thread>
-
-#include "FuerteBench.h"
 
 namespace {
 typedef std::array<std::string, 6> OptArray;

@@ -1,6 +1,4 @@
 ////////////////////////////////////////////////////////////////////////////////
-/// @brief C++ Library to interface to Arangodb.
-///
 /// DISCLAIMER
 ///
 /// Copyright 2016 ArangoDB GmbH, Cologne, Germany
@@ -20,8 +18,10 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author John Bufton
-/// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
+
+#include "arangodbcpp/Connection.h"
+
 #include <algorithm>
 #include <velocypack/Builder.h>
 #include <velocypack/Slice.h>
@@ -31,8 +31,6 @@
 #include <velocypack/Value.h>
 
 #include <curlpp/Infos.hpp>
-
-#include "arangodbcpp/Connection.h"
 
 namespace arangodb {
 
@@ -282,8 +280,8 @@ void Connection::setBuffer(size_t (*f)(char* p, size_t sz, size_t m)) {
 }
 
 //
-//	Curlpp callback function that receives the data returned
-//	from the operation performed into the default write buffer
+//      Curlpp callback function that receives the data returned
+//      from the operation performed into the default write buffer
 //
 size_t Connection::WriteMemoryCallback(char* ptr, size_t size, size_t nmemb) {
   size_t realsize = size * nmemb;

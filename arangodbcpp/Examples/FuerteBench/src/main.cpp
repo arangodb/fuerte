@@ -1,6 +1,4 @@
 ////////////////////////////////////////////////////////////////////////////////
-/// @brief C++ Library to interface to Arangodb.
-///
 /// DISCLAIMER
 ///
 /// Copyright 2016 ArangoDB GmbH, Cologne, Germany
@@ -20,8 +18,10 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author John Bufton
-/// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
+
+#include "FuerteBench.h"
+
 /*
   I'll supply a list of ID as file "ids.csv" on ID per line, example
 
@@ -65,7 +65,6 @@
   http+tcp://127.0.0.1:8529
   or similar
 */
-#include "FuerteBench.h"
 
 int main(int argc, const char* argv[]) {
   FuerteBench app{argc, argv};

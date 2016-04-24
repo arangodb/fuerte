@@ -1,6 +1,4 @@
 ////////////////////////////////////////////////////////////////////////////////
-/// @brief C++ Library to interface to Arangodb.
-///
 /// DISCLAIMER
 ///
 /// Copyright 2016 ArangoDB GmbH, Cologne, Germany
@@ -20,12 +18,13 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author John Bufton
-/// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
+
+#include "arangodbcpp/Server.h"
+
 #include <curlpp/cURLpp.hpp>
 #include <sstream>
 
-#include "arangodbcpp/Server.h"
 #include "arangodbcpp/Database.h"
 
 namespace arangodb {
@@ -50,7 +49,7 @@ Server::~Server() {
 }
 
 //
-//	Enables the user to set the host url
+//      Enables the user to set the host url
 //
 void Server::setHostUrl(const std::string url, const uint16_t port,
                         const bool bSecure) {
@@ -64,12 +63,12 @@ void Server::setHostUrl(const std::string url, const uint16_t port,
 }
 
 //
-//	Enables the user to set the host url
+//      Enables the user to set the host url
 //
 void Server::setHostUrl(const std::string url) { _host = url; }
 
 //
-//	Configure to request the Arangodb version
+//      Configure to request the Arangodb version
 //
 void Server::httpVersion(Connection::SPtr p, bool bAsync) {
   Connection& conn = p->reset();
@@ -84,7 +83,7 @@ void Server::httpVersion(Connection::SPtr p, bool bAsync) {
 }
 
 //
-//	Configure to request the current default Database
+//      Configure to request the current default Database
 //
 void Server::httpCurrentDb(Connection::SPtr p, bool bAsync) {
   Connection& conn = p->reset();
@@ -95,7 +94,7 @@ void Server::httpCurrentDb(Connection::SPtr p, bool bAsync) {
 }
 
 //
-//	Configure to request the user Databases available
+//      Configure to request the user Databases available
 //
 void Server::httpUserDbs(Connection::SPtr p, bool bAsync) {
   Connection& conn = p->reset();
@@ -107,7 +106,7 @@ void Server::httpUserDbs(Connection::SPtr p, bool bAsync) {
 }
 
 //
-//	Configure to request the Databases available
+//      Configure to request the Databases available
 //
 void Server::httpExistingDbs(Connection::SPtr p, bool bAsync) {
   Connection& conn = p->reset();
