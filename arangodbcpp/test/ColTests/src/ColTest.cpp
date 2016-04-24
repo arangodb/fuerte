@@ -153,7 +153,7 @@ bool checkResult(const arangodb::velocypack::Slice& resSlice) {
     if (slice.getBool() == false) {
       slice = resSlice.get("code");
       if (slice.type() == ValueType::UInt) {
-        EXPECT_EQ(200, slice.getUInt());
+        EXPECT_EQ((unsigned int) 200, slice.getUInt());
         return true;
       }
       unrecognisedError();

@@ -36,7 +36,7 @@ uint16_t Server::_inst = 0;
 
 Server::Server(std::string url, uint16_t port, const bool bSecure) {
   if (!_inst) {
-    curlpp::initialize();
+    // curlpp::initialize();
   }
   ++_inst;
   setHostUrl(url, port, bSecure);
@@ -45,7 +45,7 @@ Server::Server(std::string url, uint16_t port, const bool bSecure) {
 Server::~Server() {
   --_inst;
   if (!_inst) {
-    curlpp::terminate();
+    //curlpp::terminate();
   }
 }
 
@@ -74,6 +74,10 @@ void Server::setHostUrl(const std::string url) { _host = url; }
 void Server::httpVersion(Connection::SPtr p, bool bAsync) {
   Connection& conn = p->reset();
   std::string url{_host + "/_api/version"};
+//+ Added for debug +
+ std::cout << "url : " << url << std::endl;
+ std::cout << "len : " << url.length() << std::endl;
+ //+++++++++++++++++++
   conn.setUrl(url);
   conn.setBuffer();
   conn.setSync(bAsync);

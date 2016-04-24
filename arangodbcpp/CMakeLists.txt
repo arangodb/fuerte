@@ -1,54 +1,39 @@
-if (NOT CMAKE_PROJECT_NAME)
+# -*- mode: CMAKE; -*-
 
-  cmake_minimum_required(VERSION 3.1)
+project(arangodbcpp)
 
-  project(arangodbcpp)
+# velocypack
 
-endif (NOT CMAKE_PROJECT_NAME)
-
-find_library(velocypackLib NAMES velocypack PATHS "${CMAKE_INSTALL_PREFIX}/lib")
+find_library(velocypackLib
+  NAMES velocypack
+  PATHS "${CMAKE_INSTALL_PREFIX}/lib"
+)
 
 if (NOT velocypackLib)
+  message(FATAL_ERROR "velocypack library not installed")
+endif ()
 
-  set(errorMessage "velocypack library not installed")
+# curl
 
-endif (NOT velocypackLib)
+find_library(curlLib
+  NAMES curl
+  PATHS "${CMAKE_INSTALL_PREFIX}/lib"
+)
 
-if (NOT errorMessage)
+if (NOT curlLib)
+  message(FATAL_ERROR "curl library not installed")
+endif ()
 
-  find_library(curlLib NAMES curl PATHS "${CMAKE_INSTALL_PREFIX}/lib")
-
-  if (NOT curlLib)
-
-    set(errorMessage "curl library not installed")
-
-  endif (NOT curlLib)
-
-endif (NOT errorMessage)
-
-if (NOT errorMessage)
-
-  find_library(curlppLib NAMES curlpp PATHS "${CMAKE_INSTALL_PREFIX}/lib")
-
-  if (NOT curlppLib)
-
-    set(errorMessage "curlpp library not installed")
-
-  endif (NOT curlppLib)
-
-endif (NOT errorMessage)
-
-if (errorMessage)
-
-  message("${errorMessage}")
-
-else (errorMessage)
-
-  include("../Settings.CMake")
+include("../Settings.CMake")
 
   set(arangodbcppLib arangodbcpp)
 
-  include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_INSTALL_PREFIX}/include")
+  include_directories(
+    ${LIBCURLPP_INCLUDE_DIR}
+    ${CMAKE_SOURCE_DIR}/3rdParty/googletest/googletest/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_INSTALL_PREFIX}/include
+  )
 
   set(PROJECT_VERSION_MAJOR 0)
   set(PROJECT_VERSION_MINOR 1)
@@ -74,5 +59,3 @@ else (errorMessage)
   add_subdirectory(include)
   add_subdirectory(test)
   add_subdirectory(Examples)
-
-endif (errorMessage)

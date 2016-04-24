@@ -1,25 +1,19 @@
-if (CMAKE_PROJECT_NAME)
+# -*- mode: CMAKE; -*-
 
-  set(DocTestsSRCS
-    main.cpp
-    TestApp.cpp
-    DocTest.cpp
-    )
+set(DocTestsSRCS
+  main.cpp
+  TestApp.cpp
+  DocTest.cpp
+)
 
-  set(DocTestsLIBS
-    ${arangodbcppLib}
-    gtest
-    velocypack
-    curl
-    curlpp
-    )
+add_executable(DocTests
+  ${DocTestsSRCS}
+)
 
-  add_executable(DocTests
-    ${DocTestsSRCS}
-  )
-
-  target_link_libraries(DocTests
-      ${DocTestsLIBS}
-  )
-
-endif (CMAKE_PROJECT_NAME)
+target_link_libraries(DocTests
+  ${arangodbcppLib}
+  gtest
+  ${velocypackLib}
+  ${curlLib}
+  ${LIBCURLPP_LIBS}
+)

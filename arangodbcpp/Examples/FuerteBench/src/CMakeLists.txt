@@ -10,7 +10,7 @@ if (CMAKE_PROJECT_NAME)
     ${arangodbcppLib}
     ${CMAKE_THREAD_LIBS_INIT}
     ${curlLib}
-    ${curlppLib}
+    ${LIBCURLPP_LIBS}
     ${velocypackLib}
     )
 

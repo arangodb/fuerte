@@ -238,7 +238,7 @@ bool DocTest::checkError(const velocypack::Slice& resSlice) {
       attribNotFound(attrib::code);
       break;
     }
-    EXPECT_EQ(_pCon->httpResponseCode(), slice.getUInt());
+    EXPECT_EQ((unsigned int) _pCon->httpResponseCode(), slice.getUInt());
   } while (false);
   return true;
 }

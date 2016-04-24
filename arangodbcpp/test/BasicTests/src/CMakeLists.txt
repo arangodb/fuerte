@@ -1,26 +1,20 @@
-if (CMAKE_PROJECT_NAME)
+# -*- mode: CMAKE; -*-
 
-  set(BasicTestsSRCS
-    main.cpp
-    TestApp.cpp
-    SrvTest.cpp
-    DbTest.cpp
-    )
+set(BasicTestsSRCS
+  main.cpp
+  TestApp.cpp
+  SrvTest.cpp
+  DbTest.cpp
+)
 
-  set(BasicTestsLIBS
-          ${arangodbcppLib}
-          gtest
-          velocypack
-          curl
-          curlpp
-          )
+add_executable(BasicTests
+  ${BasicTestsSRCS}
+)
 
-  add_executable(BasicTests
-    ${BasicTestsSRCS}
-  )
-
-  target_link_libraries(BasicTests
-      ${BasicTestsLIBS}
-  )
-
-endif (CMAKE_PROJECT_NAME)
+target_link_libraries(BasicTests
+  ${arangodbcppLib}
+  gtest
+  ${velocypackLib}
+  ${curlLib}
+  ${LIBCURLPP_LIBS}
+)

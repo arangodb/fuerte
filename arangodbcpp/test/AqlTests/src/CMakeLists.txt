@@ -1,25 +1,19 @@
-if (CMAKE_PROJECT_NAME)
+# -*- mode: CMAKE; -*-
 
-  set(AqlTestsSRCS
-    main.cpp
-    TestApp.cpp
-    AqlTest.cpp
-    )
+set(AqlTestsSRCS
+  main.cpp
+  TestApp.cpp
+  AqlTest.cpp
+)
 
-  set(AqlTestsLIBS
-          ${arangodbcppLib}
-          gtest
-          velocypack
-          curl
-          curlpp
-          )
+add_executable(AqlTests
+  ${AqlTestsSRCS}
+)
 
-  add_executable(AqlTests
-    ${AqlTestsSRCS}
-  )
-
-  target_link_libraries(AqlTests
-      ${AqlTestsLIBS}
-  )
-
-endif (CMAKE_PROJECT_NAME)
+target_link_libraries(AqlTests
+  ${arangodbcppLib}
+  gtest
+  ${velocypackLib}
+  ${curlLib}
+  ${LIBCURLPP_LIBS}
+)

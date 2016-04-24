@@ -71,6 +71,9 @@ bool BucketReadTest::serverExists() {
   Connection& con = *_pCon;
   _pSrv->httpVersion(_pCon);
   con.run();
+  std::cout << "httpEffectiveUrl " << con.httpEffectiveUrl() << "\n";
+  std::cout << "bufString " << con.bufString() << "\n";
+  std::cout << "http response code " << con.httpResponseCode() << "\n";
   return con.httpResponseCode() == ReadSuccess;
 }
 
