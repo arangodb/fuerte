@@ -2,5 +2,4 @@
 
 AqlTest::AqlTest()
 {
-
 }

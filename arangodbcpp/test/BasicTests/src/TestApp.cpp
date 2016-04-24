@@ -1,6 +1,4 @@
 ////////////////////////////////////////////////////////////////////////////////
-/// @brief C++ Library to interface to Arangodb tests.
-///
 /// DISCLAIMER
 ///
 /// Copyright 2016 ArangoDB GmbH, Cologne, Germany
@@ -20,13 +18,13 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author John Bufton
-/// @author Copyright 2016, ArangoDB GmbH, Cologne, Germany
 ////////////////////////////////////////////////////////////////////////////////
+
+#include "TestApp.h"
+
 #include <iostream>
 #include <sstream>
 #include <velocypack/Slice.h>
-
-#include "TestApp.h"
 
 std::string TestApp::_ver = "2.8.2";
 std::string TestApp::_url = "localhost";
