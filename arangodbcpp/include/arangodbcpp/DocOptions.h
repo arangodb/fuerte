@@ -43,53 +43,32 @@ class DocOptions {
     Mask = 3
   };
 
-  enum class Policy : Flags {
-    Reset = 0,
-    Error = Reset,
-    Last = Error + 4,
-    Mask = 4
-  };
-
   enum class Sync : Flags {
     Reset = 0,
-    Wait = Reset + 8,
-    NoWait = Wait + 8,
-    Mask = 0x18
-  };
-
-  enum class CreateCol : Flags {
-    Reset = 0,
-    No = Reset,
-    Yes = No + 0x20,
-    Mask = 0x20
+    Wait = Reset + 4,
+    NoWait = Wait + 4,
+    Mask = 0xc
   };
 
   enum class Merge : Flags {
     Reset = 0,
     Yes = Reset,
-    No = Yes + 0x40,
-    Mask = 0x40
+    No = Yes + 0x10,
+    Mask = 0x10
   };
 
   enum class Run : Flags {
     Reset = 0,
     Sync = Reset,
-    Async = Sync + 0x80,
-    Mask = 0x80
+    Async = Sync + 0x20,
+    Mask = 0x20
   };
 
   enum class RemoveNull : Flags {
     Reset = 0,
     No = Reset,
-    Yes = No + 0x100,
-    Mask = 0x100
-  };
-
-  enum class CreateColType : Flags {
-    Reset = 0,
-    Document = Reset,
-    Edge = Document + 0x200,
-    Mask = 0x200
+    Yes = No + 0x40,
+    Mask = 0x40
   };
 
   DocOptions& resetAllFlags();

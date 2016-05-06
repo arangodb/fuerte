@@ -78,6 +78,17 @@ void Connection::fixProtocol(std::string& url) {
   url = "http:" + url;
 }
 
+void Connection::setUrl(const std::string& inp) {
+  std::string url = inp;
+  fixProtocol(url);
+  setOpt(curlpp::options::Url(url));
+}
+
+void Connection::setUrl(std::string&& inp) {
+  fixProtocol(inp);
+  setOpt(curlpp::options::Url(inp));
+}
+
 std::string Connection::json(const VPack& v, bool bSort) {
   using arangodb::velocypack::Slice;
   using arangodb::velocypack::Dumper;
@@ -177,6 +188,11 @@ void Connection::run() {
   if (_buf.empty()) {
     httpResponse();
   }
+}
+
+Connection& Connection::reset() {
+  reset(Mode::Clear);
+  return *this;
 }
 
 //
@@ -293,6 +309,14 @@ size_t Connection::WriteMemoryCallback(char* ptr, size_t size, size_t nmemb) {
   return realsize;
 }
 
+Connection::VPack Connection::fromVPData() const {
+  VPack buf{std::make_shared<VBuffer>(_buf.size())};
+  if (!_buf.empty()) {
+    buf->append(&_buf[0], _buf.size());
+  }
+  return buf;
+}
+
 //
 // Converts JSon held in the default write buffer
 // to a shared velocypack buffer
@@ -309,10 +333,19 @@ Connection::VPack Connection::fromJSon(const bool bSorted) const {
     std::shared_ptr<Builder> vp{parser.steal()};
     return vp->buffer();
   }
-  return VPack{new VBuffer()};
+  return VPack{};
 }
 
-Connection::Connection() {}
+void Connection::httpProtocol(Connection::HttpHeaderList& hdrs) {
+  if (_prot == Protocol::VPackJSon || _prot == Protocol::VPack) {
+    hdrs.push_back("Accept: application/x-velocypack");
+  }
+  if (_prot == Protocol::JSonVPack || _prot == Protocol::VPack) {
+    hdrs.push_back("content-type: application/x-velocypack");
+  }
+}
+
+Connection::Connection() : _prot(Protocol::JSon) {}
 
 Connection::~Connection() {}
 }

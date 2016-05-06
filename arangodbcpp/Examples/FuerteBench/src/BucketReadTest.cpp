@@ -40,6 +40,11 @@ BucketReadTest::BucketReadTest(const std::string& hostName,
   }
 }
 
+//
+// Ensure the Connection and Document objects are unique
+//
+// This is required to avoid thread conflicts
+//
 void BucketReadTest::isolate() {
   _pDoc = std::make_shared<Document>("MyDoc");
   _pCon = std::make_shared<Connection>();
@@ -92,7 +97,7 @@ void BucketReadTest::operator()(std::atomic_bool& bWait, LoopCount loops) {
       doc = name;
       doc.httpGet(_pCol, _pCon);
       con.run();
-      Document::httpGet(false, _pCon);
+      (*_docGet)(false, _pCon);
       if (con.httpResponseCode() != ReadSuccess) {
         ++_misses;
       }

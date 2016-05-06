@@ -42,6 +42,17 @@ namespace dbinterface {
 //
 class Connection {
  public:
+  enum class Protocol : uint8_t {
+    JSon = 0  // JSon <-> JSon
+    ,
+    VPackJSon  // VPack <-> Json
+    ,
+    JSonVPack  // JSon <-> VPack
+    ,
+    VPack  // VPack <-> Vpack
+    ,
+    VStream  // VelocyStream
+  };
   enum class QueryPrefix : uint8_t { First = '?', Next = '&' };
   typedef std::shared_ptr<Connection> SPtr;
   typedef arangodb::velocypack::Buffer<uint8_t> VBuffer;
@@ -50,6 +61,8 @@ class Connection {
   typedef char ErrBuf[CURL_ERROR_SIZE];
   Connection();
   virtual ~Connection();
+  Connection& operator=(const Protocol in);
+  void httpProtocol(Connection::HttpHeaderList& hdrs);
   void setUrl(const std::string& inp);
   void setUrl(std::string&& inp);
   void setErrBuf(char* inp);
@@ -74,6 +87,7 @@ class Connection {
   std::string httpEffectiveUrl();
 
   const std::string bufString() const;
+  VPack fromVPData() const;
   VPack fromJSon(const bool bSorted = true) const;
   void setSync(const bool bAsync = false);
   void run();
@@ -109,12 +123,18 @@ class Connection {
   curlpp::Multi _async;
   ChrBuf _buf;
   Mode _mode;
+  Protocol _prot;
 };
 
 template <typename T>
 inline void Connection::setBuffer(T* p, size_t (T::*f)(char*, size_t, size_t)) {
   curlpp::types::WriteFunctionFunctor functor(p, f);
   setOpt(curlpp::options::WriteFunction(functor));
+}
+
+inline Connection& Connection::operator=(const Protocol inp) {
+  _prot = inp;
+  return *this;
 }
 
 inline bool Connection::bufEmpty() const { return _buf.empty(); }
@@ -170,11 +190,6 @@ inline void Connection::setBuffer(const std::string& inp) {
   memcpy(_buf.data(), inp.data(), len);
 }
 
-inline Connection& Connection::reset() {
-  reset(Mode::Clear);
-  return *this;
-}
-
 inline void Connection::setErrBuf(char* inp) {
   setOpt(cURLpp::options::ErrorBuffer(inp));
 }
@@ -197,14 +212,6 @@ inline bool Connection::isRunning() const {
 
 inline void Connection::setHeaderOpts(const HttpHeaderList& inp) {
   setOpt(curlpp::options::HttpHeader(inp));
-}
-
-inline void Connection::setUrl(const std::string& inp) {
-  setOpt(curlpp::options::Url(inp));
-}
-
-inline void Connection::setUrl(std::string&& inp) {
-  setOpt(curlpp::options::Url(inp));
 }
 
 template <typename T>

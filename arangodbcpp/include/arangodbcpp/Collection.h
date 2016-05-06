@@ -150,6 +150,7 @@ class Collection {
                                      const Connection::SPtr& pCon);
 
   std::string docColUrl() const;
+  std::string refColUrl() const;
   std::string refDocUrl(const std::string& key) const;
   bool hasValidHost() const;
   Collection& operator=(const std::string&);

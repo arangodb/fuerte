@@ -31,7 +31,7 @@
 #include <thread>
 
 namespace {
-typedef std::array<std::string, 6> OptArray;
+typedef std::array<std::string, 7> OptArray;
 const OptArray optStrs = {{
     "-f"  // File containing list of documents to load
     ,
@@ -44,12 +44,15 @@ const OptArray optStrs = {{
     "-d"  // Name of the database
     ,
     "-h"  // Host address e.g http://localhost:8529
+    ,
+    "-r"  // ArangoDB to return VPack
 }};
 
 const std::string help{
     "Usage : FuerteBench [-f File-name] [-d Database-name] [-c "
     "Collection-name] [-h Host-url] "
-    "[-p Number-of-threads] [-m number-of-iterations]\n\n"
+    "[-p Number-of-threads] [-m number-of-iterations] [-r]\n\n"
+    "-r Requests documents returned as VPack objects\n\n"
     "Bencbmarks the arangodbcpp library by reading multiple Documents from "
     "an ArangoDB database using multiple threads\n\n"
     "The file is a list of the Document names, (1 per line), to be read\n"
@@ -65,7 +68,8 @@ enum : uint16_t {
   Opt_Iterations,
   Opt_ColName,
   Opt_DbName,
-  Opt_HostName
+  Opt_HostName,
+  Opt_RetVPack
 };
 
 uint16_t getNumber(const char* inp) {
@@ -104,33 +108,55 @@ bool FuerteBench::getDocNames() {
 }
 
 void FuerteBench::processCmdLine() {
-  int idx = 1;
-  for (; idx + 1 < _argc; ++idx) {
+  _prot = Protocol::JSon;
+  for (int idx = 1; idx < _argc; ++idx) {
     const std::string opt{_argv[idx]};
     OptArray::const_iterator iOpt =
         std::find(optStrs.begin(), optStrs.end(), opt);
     switch (iOpt - optStrs.begin()) {
+      case Opt_RetVPack: {
+        _prot = Protocol::VPackJSon;
+        break;
+      }
       case Opt_FileName: {
+        if (idx + 1 == _argc) {
+          break;
+        }
         _fileName = _argv[++idx];
         break;
       }
       case Opt_HostName: {
+        if (idx + 1 == _argc) {
+          break;
+        }
         _hostName = _argv[++idx];
         break;
       }
       case Opt_DbName: {
+        if (idx + 1 == _argc) {
+          break;
+        }
         _dbName = _argv[++idx];
         break;
       }
       case Opt_ColName: {
+        if (idx + 1 == _argc) {
+          break;
+        }
         _colName = _argv[++idx];
         break;
       }
       case Opt_Threads: {
+        if (idx + 1 == _argc) {
+          break;
+        }
         _threads = getNumber(_argv[++idx]);
         break;
       }
       case Opt_Iterations: {
+        if (idx + 1 == _argc) {
+          break;
+        }
         _loops = getNumber(_argv[++idx]);
         break;
       }
@@ -167,14 +193,14 @@ void FuerteBench::createTestObjs() {
   if (extra) {
     ++bucket;
     do {
-      iFirst = test.setDocs(iFirst, bucket);
+      iFirst = test.setDocs(iFirst, bucket, _prot);
       _tests.push_back(test);
       test.isolate();
     } while (--extra);
     --bucket;
   }
   do {
-    iFirst = test.setDocs(iFirst, bucket);
+    iFirst = test.setDocs(iFirst, bucket, _prot);
     _tests.push_back(test);
     test.isolate();
   } while (iFirst != iEnd);
@@ -245,11 +271,11 @@ void FuerteBench::outputReport() const {
     missCounts.push_back(reads);
     missCount += reads;
   }
-  cout << "All threads" << endl;
-  cout << "Successful reads   : " << readCount - missCount << endl;
-  cout << "Unsuccessful reads : " << missCount << endl;
-  cout << "Duration (usecs)   : " << _usecs.count() << endl;
-  cout << "Reads/sec          : " << (readCount * 1e6f / _usecs.count()) << endl
+  cout << "All threads" << endl
+       << "Successful reads   : " << readCount - missCount << endl
+       << "Unsuccessful reads : " << missCount << endl
+       << "Duration (usecs)   : " << _usecs.count() << endl
+       << "Reads/sec          : " << (readCount * 1e6f / _usecs.count()) << endl
        << endl;
   ReadCounts::const_iterator iRead = readCounts.cbegin();
   ReadCounts::const_iterator iMiss = missCounts.cbegin();
@@ -259,11 +285,11 @@ void FuerteBench::outputReport() const {
     readCount = *iRead;
     missCount = *iMiss;
     timeTaken = *iDuration;
-    cout << "Thread : " << nThread << endl;
-    cout << "Successful reads   : " << readCount - missCount << endl;
-    cout << "Unsuccessful reads : " << missCount << endl;
-    cout << "Duration (usecs)   : " << timeTaken.count() << endl;
-    cout << "Reads/sec          : " << (readCount * 1e6f / timeTaken.count())
+    cout << "Thread : " << nThread << endl
+         << "Successful reads   : " << readCount - missCount << endl
+         << "Unsuccessful reads : " << missCount << endl
+         << "Duration (usecs)   : " << timeTaken.count() << endl
+         << "Reads/sec          : " << (readCount * 1e6f / timeTaken.count())
          << endl
          << endl;
     ++iMiss;

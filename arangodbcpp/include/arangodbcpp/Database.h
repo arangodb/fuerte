@@ -48,9 +48,13 @@ class Database {
   void httpCreate(const Connection::SPtr& conn, const bool bAsync = false);
   static Connection::VPack httpCreate(const bool bSort,
                                       const Connection::SPtr& conn);
+  static Connection::VPack vppCreate(const bool bSort,
+                                     const Connection::SPtr& conn);
   void httpDelete(const Connection::SPtr& conn, const bool bAsync = false);
   static Connection::VPack httpDelete(const bool bSort,
                                       const Connection::SPtr& conn);
+  static Connection::VPack vppDelete(const bool bSort,
+                                     const Connection::SPtr& conn);
   void httpInfo(const Connection::SPtr& conn, const bool bAsync = false);
   static Connection::VPack httpInfo(const bool bSort,
                                     const Connection::SPtr& conn);
@@ -86,9 +90,19 @@ inline Connection::VPack Database::httpCreate(const bool bSort,
   return conn->fromJSon(bSort);
 }
 
+inline Connection::VPack Database::vppCreate(const bool,
+                                             const Connection::SPtr& conn) {
+  return conn->fromVPData();
+}
+
 inline Connection::VPack Database::httpDelete(const bool bSort,
                                               const Connection::SPtr& conn) {
   return conn->fromJSon(bSort);
+}
+
+inline Connection::VPack Database::vppDelete(const bool,
+                                             const Connection::SPtr& conn) {
+  return conn->fromVPData();
 }
 
 inline Connection::VPack Database::httpInfo(const bool bSort,

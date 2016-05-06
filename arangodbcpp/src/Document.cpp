@@ -57,39 +57,6 @@ Connection::QueryPrefix Document::httpSyncQuery(
   return Connection::QueryPrefix::Next;
 }
 
-//
-// Note : default policy is error so not needed
-//
-Connection::QueryPrefix Document::httpPolicyQuery(
-    std::string& url, const Options& opts,
-    const Connection::QueryPrefix prefix) {
-  if (opts.flagged(Options::Policy::Last)) {
-    url += prefix + "policy=last";
-    return Connection::QueryPrefix::Next;
-  }
-  return prefix;
-}
-
-Connection::QueryPrefix Document::httpCreateQuery(
-    std::string& url, const Options& opts,
-    const Connection::QueryPrefix prefix) {
-  if (opts.flagged(Options::CreateCol::Yes)) {
-    url += prefix + "createCollection=true";
-    return Connection::QueryPrefix::Next;
-  }
-  return prefix;
-}
-
-Connection::QueryPrefix Document::httpCreateTypeQuery(
-    std::string& url, const Options& opts,
-    const Connection::QueryPrefix prefix) {
-  if (opts.flagged(Options::CreateColType::Edge)) {
-    url += prefix + "createCollectionType=edge";
-    return Connection::QueryPrefix::Next;
-  }
-  return prefix;
-}
-
 Connection::QueryPrefix Document::httpMergeQuery(
     std::string& url, const Options& opts,
     const Connection::QueryPrefix prefix) {
@@ -118,9 +85,10 @@ void Document::httpCreate(const Collection::SPtr& pCol,
                           const Connection::SPtr& pCon, const std::string json,
                           const Options& opts) {
   Connection& conn = *pCon;
-  std::string url{pCol->docColUrl()};
-  httpSyncQuery(url, opts);
-  httpCreateQuery(url, opts);
+  // std::string url{pCol->docColUrl()};
+  // httpSyncQuery(url, opts);
+  std::string url{pCol->refColUrl()};
+  httpSyncQuery(url, opts, Connection::QueryPrefix::First);
   conn.reset();
   conn.setUrl(url);
   conn.setPostField(json);
@@ -137,51 +105,43 @@ void Document::httpCreate(const Collection::SPtr& pCol,
 void Document::httpDelete(const Collection::SPtr& pCol,
                           const Connection::SPtr& pCon, const Options& opts) {
   typedef Connection::QueryPrefix QueryPrefix;
-  Connection& conn = *pCon;
+  Connection& conn = pCon->reset();
   std::string url = pCol->refDocUrl(_key);
-  QueryPrefix pre = httpSyncQuery(url, opts, QueryPrefix::First);
-  pre = httpRevQuery(url, opts, pre);
-  httpPolicyQuery(url, opts, pre);
-  conn.reset();
+  httpSyncQuery(url, opts, QueryPrefix::First);
+  {
+    Connection::HttpHeaderList hdrs;
+    httpRevMatch(hdrs, opts);
+    if (!hdrs.empty()) {
+      conn.setHeaderOpts(hdrs);
+    }
+  }
   conn.setUrl(url);
   conn.setDeleteReq();
   conn.setBuffer();
   conn.setSync(opts.flagged(Options::Run::Async));
 }
 
-Connection::QueryPrefix Document::httpRevQuery(
-    std::string& url, const Options& opts,
-    const Connection::QueryPrefix prefix) {
-  const std::string rev = opts;
-  if (!rev.empty()) {
-    if (opts.flagged(Options::Rev::Match)) {
-      url += prefix + "rev=" + rev;
-      return Connection::QueryPrefix::Next;
-    }
+void Document::httpRevMatch(Connection::HttpHeaderList& hdrs,
+                            const Options& opts) {
+  const std::string& rev = opts;
+  if (!rev.empty() && opts.flagged(Options::Rev::Match)) {
+    std::string opt{"If-Match:\"" + rev + '"'};
+    hdrs.push_back(opt);
   }
-  return prefix;
 }
 
-void Document::httpMatchHeader(Connection& conn, const Options& opts) {
+void Document::httpMatchHeader(Connection::HttpHeaderList& hdrs,
+                               const Options& opts) {
   typedef Options::Rev Rev;
   const std::string& rev = opts;
-  std::string opt;
-  if (!rev.empty()) {
-    switch (opts.flag<Rev>()) {
-      default: { return; }
-      case Rev::Match: {
-        opt = "If";
-        break;
-      }
-      case Rev::NoMatch: {
-        opt = "If-None";
-        break;
-      }
+  const Rev revOpt = opts.flag<Rev>();
+  if (!rev.empty() && revOpt != Rev::Reset) {
+    std::string opt{"If"};
+    if (revOpt == Rev::NoMatch) {
+      opt += "-None";
     }
-    opt += "-Match:\"";
-    opt += rev;
-    opt += '\"';
-    conn.setHeaderOpts(Connection::HttpHeaderList{{opt}});
+    opt += "-Match:\"" + rev + '"';
+    hdrs.push_back(opt);
   }
 }
 
@@ -195,10 +155,15 @@ void Document::httpMatchHeader(Connection& conn, const Options& opts) {
 void Document::httpGet(const Collection::SPtr& pCol,
                        const Connection::SPtr& pCon, const Options& opts) {
   Connection& conn = pCon->reset();
-  httpMatchHeader(conn, opts);
+  Connection::HttpHeaderList headers;
+  conn.httpProtocol(headers);
+  httpMatchHeader(headers, opts);
   conn.setUrl(pCol->refDocUrl(_key));
   conn.setGetReq();
   conn.setBuffer();
+  if (!headers.empty()) {
+    conn.setHeaderOpts(headers);
+  }
   conn.setSync(opts.flagged(Options::Run::Async));
 }
 
@@ -213,9 +178,14 @@ void Document::httpReplace(const Collection::SPtr& pCol,
   typedef Connection::QueryPrefix QueryPrefix;
   Connection& conn = pCon->reset();
   std::string url = pCol->refDocUrl(_key);
-  QueryPrefix pre = httpSyncQuery(url, opts, QueryPrefix::First);
-  pre = httpPolicyQuery(url, opts, pre);
-  httpRevQuery(url, opts, pre);
+  httpSyncQuery(url, opts, QueryPrefix::First);
+  {
+    Connection::HttpHeaderList hdrs;
+    httpRevMatch(hdrs, opts);
+    if (!hdrs.empty()) {
+      conn.setHeaderOpts(hdrs);
+    }
+  }
   conn.setUrl(url);
   conn.setPostField(Connection::json(data, false));
   conn.setPutReq();
@@ -234,8 +204,13 @@ void Document::httpPatch(const Collection::SPtr& pCol,
   std::string url{pCol->refDocUrl(_key)};
   Prefix pre = httpSyncQuery(url, opts, Prefix::First);
   pre = httpMergeQuery(url, opts, pre);
-  pre = httpRevQuery(url, opts, pre);
-  pre = httpPolicyQuery(url, opts, pre);
+  {
+    Connection::HttpHeaderList hdrs;
+    httpRevMatch(hdrs, opts);
+    if (!hdrs.empty()) {
+      conn.setHeaderOpts(hdrs);
+    }
+  }
   httpKeepNullQuery(url, opts, pre);
   conn.setPatchReq();
   conn.setUrl(url);
@@ -300,10 +275,15 @@ void Document::httpHead(const Collection::SPtr& pCol,
                         const Connection::SPtr& pCon, const Options& opts) {
   Connection& conn = pCon->reset();
   std::string url = pCol->refDocUrl(_key);
-  httpMatchHeader(*pCon, opts);
+  Connection::HttpHeaderList headers;
+  conn.httpProtocol(headers);
+  httpMatchHeader(headers, opts);
   conn.setHeadReq();
   conn.setUrl(url);
   conn.setBuffer();
+  if (!headers.empty()) {
+    conn.setHeaderOpts(headers);
+  }
   conn.setSync(opts.flagged(Options::Run::Async));
 }
 }

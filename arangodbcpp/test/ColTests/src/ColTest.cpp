@@ -102,7 +102,7 @@ const ColTest::Connection::VPack ColTest::addDocument(const std::string& name) {
   typedef arangodb::dbinterface::Document Document;
   typedef Document::Options Options;
   Document::SPtr pDoc = std::make_shared<Document>(name);
-  pDoc->httpCreate(_pCol, _pCon, Options{"", Options::CreateCol::Yes});
+  pDoc->httpCreate(_pCol, _pCon, Options{});
   _pCon->run();
   return Document::httpCreate(false, _pCon);
 }

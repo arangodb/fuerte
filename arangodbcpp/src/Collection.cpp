@@ -51,6 +51,10 @@ std::string Collection::docColUrl() const {
   return _database->databaseUrl() + httpDocApi + "?collection=" + _name;
 }
 
+std::string Collection::refColUrl() const {
+  return std::string{_database->databaseUrl() + httpDocApi + '/' + _name};
+}
+
 //
 // Creates the base url required to get and delete a Document
 //

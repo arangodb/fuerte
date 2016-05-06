@@ -56,6 +56,8 @@ class Document {
                const Options& opts = Options{});
   static Connection::VPack httpGet(const bool bSort,
                                    const Connection::SPtr& pCon);
+  static Connection::VPack vppGet(const bool bSort,
+                                  const Connection::SPtr& pCon);
   void httpHead(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
                 const Options& opts = Options{});
   static Connection::VPack httpHead(const bool bSort,
@@ -79,31 +81,24 @@ class Document {
   static void httpCreate(const Collection::SPtr& pCol,
                          const Connection::SPtr& pCon, const std::string json,
                          const Options& opts);
-  static Connection::QueryPrefix httpCreateQuery(
-      std::string& url, const Options& opts,
-      const Connection::QueryPrefix = Connection::QueryPrefix::Next);
   static Connection::QueryPrefix httpSyncQuery(
       std::string& url, const Options& opts,
       const Connection::QueryPrefix = Connection::QueryPrefix::Next);
   static Connection::QueryPrefix httpMergeQuery(
       std::string& url, const Options& opts,
       const Connection::QueryPrefix = Connection::QueryPrefix::Next);
-  static Connection::QueryPrefix httpPolicyQuery(
+  /*static Connection::QueryPrefix httpPolicyQuery(
       std::string& url, const Options& opts,
-      const Connection::QueryPrefix = Connection::QueryPrefix::Next);
-  static Connection::QueryPrefix httpRevQuery(
-      std::string& url, const Options& opt,
-      const Connection::QueryPrefix = Connection::QueryPrefix::Next);
+      const Connection::QueryPrefix = Connection::QueryPrefix::Next);*/
 
   static Connection::QueryPrefix httpKeepNullQuery(
       std::string& url, const Options& optds,
       const Connection::QueryPrefix = Connection::QueryPrefix::Next);
 
-  Connection::QueryPrefix httpCreateTypeQuery(
-      std::string& url, const Options& opts,
-      const Connection::QueryPrefix prefix);
-
-  static void httpMatchHeader(Connection& conn, const Options& opts);
+  static void httpRevMatch(Connection::HttpHeaderList& hdrs,
+                           const Options& opts);
+  static void httpMatchHeader(Connection::HttpHeaderList& hdrs,
+                              const Options& opts);
 
   std::string _key;
 };
@@ -134,6 +129,11 @@ inline Connection::VPack Document::httpDelete(const bool bSort,
 inline Connection::VPack Document::httpGet(const bool bSort,
                                            const Connection::SPtr& pCon) {
   return pCon->fromJSon(bSort);
+}
+
+inline Connection::VPack Document::vppGet(const bool,
+                                          const Connection::SPtr& pCon) {
+  return pCon->fromVPData();
 }
 
 inline Connection::VPack Document::httpPatch(const bool bSort,

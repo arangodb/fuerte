@@ -36,6 +36,7 @@ class BucketReadTest {
   typedef arangodb::dbinterface::Connection Connection;
   typedef arangodb::dbinterface::Collection Collection;
   typedef arangodb::dbinterface::Document Document;
+  typedef Connection::Protocol Protocol;
 
  public:
   typedef std::vector<std::string> DocNames;
@@ -45,7 +46,8 @@ class BucketReadTest {
   BucketReadTest(const std::string& hostName, const std::string& dbName,
                  const std::string& colName);
   DocNames::const_iterator setDocs(DocNames::const_iterator iFirst,
-                                   DocNames::size_type n);
+                                   DocNames::size_type n,
+                                   Connection::Protocol prot);
   bool collectionExists();
   bool databaseExists();
   bool serverExists();
@@ -58,6 +60,7 @@ class BucketReadTest {
   DocNames::difference_type noDocs() const;
 
  private:
+  Connection::VPack (*_docGet)(const bool, const Connection::SPtr&);
   Server::SPtr _pSrv;
   Database::SPtr _pDb;
   Collection::SPtr _pCol;
@@ -68,6 +71,7 @@ class BucketReadTest {
   std::chrono::microseconds _usecs;
   ReadCount _misses;
   ReadCount _reads;
+  Protocol _protocol;
 };
 
 inline BucketReadTest::DocNames::difference_type BucketReadTest::noDocs()
@@ -88,9 +92,15 @@ inline std::chrono::microseconds BucketReadTest::duration() const {
 }
 
 inline BucketReadTest::DocNames::const_iterator BucketReadTest::setDocs(
-    DocNames::const_iterator iFirst, DocNames::size_type n) {
+    DocNames::const_iterator iFirst, DocNames::size_type n,
+    Connection::Protocol prot) {
+  _docGet = Document::httpGet;
   _iFirst = iFirst;
   _iEnd = iFirst + n;
+  *_pCon = prot;
+  if (prot == Connection::Protocol::VPackJSon) {
+    _docGet = Document::vppGet;
+  }
   return _iEnd;
 }
 

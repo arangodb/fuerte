@@ -44,7 +44,7 @@ Server::Server(std::string url, uint16_t port, const bool bSecure) {
 Server::~Server() {
   --_inst;
   if (!_inst) {
-    //curlpp::terminate();
+    // curlpp::terminate();
   }
 }
 
