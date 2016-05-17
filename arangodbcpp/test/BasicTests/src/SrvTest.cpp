@@ -29,14 +29,14 @@
 namespace velocypack = arangodb::velocypack;
 
 SrvTest::SrvTest()
-    : _pSrv{std::make_shared<Server>(TestApp::hostUrl(), TestApp::hostPort())},
+    : _pSrv{std::make_shared<Server>(TestApp::hostUrl())},
       _pCon{std::make_shared<Connection>()} {}
 
 const SrvTest::Connection::VPack SrvTest::getDbVersion() {
   Server& srv = *_pSrv;
-  srv.httpVersion(_pCon, false);
+  srv.version(_pCon);
   _pCon->run();
-  return srv.httpVersion(false, _pCon);
+  return _pCon->result(false);
 }
 
 TEST_F(SrvTest, version) {

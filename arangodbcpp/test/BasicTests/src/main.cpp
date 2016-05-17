@@ -24,38 +24,7 @@
 
 #include <iostream>
 
-template <unsigned type>
-class RefSPtr {
- public:
-  enum class Type1 : uint8_t { Val1, Val2, Val3, Val4, Val5 };
-  enum class Type2 : uint8_t { Val1, Val2, Val3, Val4, Val5 };
-  struct alignas(1) Opts {
-    uint8_t v1 : 3;
-    uint8_t v2 : 3;
-  };
-  typedef arangodb::dbinterface::Connection Connection;
-  RefSPtr(const Connection::SPtr& inp) : _ptr(inp) {}
-  RefSPtr() = delete;
-  Connection* operator->() const { return _ptr.operator->(); }
-  Connection& operator*() const { return *_ptr; }
-
- private:
-  const Connection::SPtr& _ptr;
-};
-
-typedef RefSPtr<1> SPtrOut;
-typedef RefSPtr<2> SPtrIn;
-
-void Info1(SPtrOut&& inp) { std::cout << "Ver 1 : " << &*inp << std::endl; }
-
-void Info2(SPtrIn&& inp) { std::cout << "Ver 2 : " << &*inp << std::endl; }
-
 int main(const int argc, char* argv[]) {
-  typedef SPtrOut::Connection Connection;
-  Connection::SPtr pConn = std::make_shared<Connection>();
-  Info1(pConn);
-  Info2(pConn);
-  std::cout << "Opts size : " << sizeof(SPtrIn::Opts) << std::endl;
   TestApp app{argc, argv};
   return app.run();
 }

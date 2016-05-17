@@ -43,32 +43,23 @@ std::string httpDocApi{"/_api/document"};
 std::string httpColApi{"/_api/collection"};
 }
 
-//
-// Creates the base url required for selecting this collection
-// for various Document operations
-//
-std::string Collection::docColUrl() const {
-  return _database->databaseUrl() + httpDocApi + "?collection=" + _name;
-}
-
-std::string Collection::refColUrl() const {
-  return std::string{_database->databaseUrl() + httpDocApi + '/' + _name};
+Connection::Url Collection::refColUrl() const {
+  return _database->databaseUrl() + (httpDocApi + '/' + _name);
 }
 
 //
 // Creates the base url required to get and delete a Document
 //
-std::string Collection::refDocUrl(const std::string& key) const {
-  return std::string{_database->databaseUrl() + httpDocApi + '/' + _name + '/' +
-                     key};
+Connection::Url Collection::refDocUrl(const std::string& key) const {
+  return _database->databaseUrl() + (httpDocApi + '/' + _name + '/' + key);
 }
 
-const std::string Collection::httpApi() const {
+const Connection::Url Collection::httpApi() const {
   return _database->databaseUrl() + httpColApi;
 }
 
-const std::string Collection::httpApiName() const {
-  return _database->databaseUrl() + httpColApi + '/' + _name;
+const Connection::Url Collection::httpApiName() const {
+  return _database->databaseUrl() + (httpColApi + '/' + _name);
 }
 
 void Collection::addNameAttrib(arangodb::velocypack::Builder& builder) {
@@ -77,140 +68,133 @@ void Collection::addNameAttrib(arangodb::velocypack::Builder& builder) {
 
 bool Collection::hasValidHost() const { return _database->hasValidHost(); }
 
-void Collection::httpDocs(const Connection::SPtr& pCon, const Options opts) {
+//
+// Now configured for ArangoDB v3.0.x
+//
+void Collection::docs(const Connection::SPtr& pCon, const Options opts) {
   typedef Options::List List;
-  typedef Options::Run Run;
-  Connection& conn = pCon->reset();
-  std::string url{docColUrl()};
+  ConnectionBase& conn = pCon->reset();
+  Connection::Url url{_database->databaseUrl() + "/_api/simple/all-keys"};
+  std::string body{"{\"collection\":\"" + _name + '"'};
   switch (opts.flag<List>()) {
     case List::Id: {
-      url += "&type=id";
+      body += ",\"type\":\"id\"}";
       break;
     }
     case List::Key: {
-      url += "&type=key";
+      body += ",\"type\":\"key\"}";
       break;
     }
     case List::Path:
-    default:;
+    default: { body += '}'; }
   }
+  conn.setPutReq();
+  conn.setPostField(body);
   conn.setUrl(url);
   conn.setBuffer();
-  conn.setSync(opts.flagged(Run::Async));
 }
 
 //
 // Configure to create an empty Collection using the configured
 // Database.
 //
-void Collection::httpCreate(const Database::SPtr& pDb,
-                            const Connection::SPtr& pCon,
-                            const Connection::VPack& config,
-                            const Options opts) {
-  Connection& conn = pCon->reset();
+void Collection::create(const Database::SPtr& pDb, const Connection::SPtr& pCon,
+                        const Connection::VPack& config) {
+  ConnectionBase& conn = pCon->reset();
   conn.setUrl(pDb->databaseUrl() + httpColApi);
-  conn.setPostField(Connection::json(config, false));
+  conn.setPostField(config);
   conn.setBuffer();
-  conn.setSync(opts.flagged(Options::Run::Async));
 }
 
 //
 // Configure to create an empty Collection using the configured
 // Database and Collection name
 //
-void Collection::httpCreate(const Connection::SPtr& pCon, const Options opts) {
-  Connection& conn = pCon->reset();
+void Collection::create(const Connection::SPtr& pCon) {
+  ConnectionBase& conn = pCon->reset();
   conn.setUrl(httpApi());
   conn.setPostField("{ \"name\":\"" + _name + "\" }");
   conn.setBuffer();
-  conn.setSync(opts.flagged(Options::Run::Async));
 }
 
 //
 // Configure to create an empty Collection using the configured
 // Database and Collection name
 //
-void Collection::httpCollections(const Connection::SPtr& pCon,
-                                 const Options opts) {
-  std::string url = httpApi();
-  Connection& conn = pCon->reset();
+void Collection::collections(const Connection::SPtr& pCon, const Options opts) {
+  Connection::Url url = httpApi();
+  ConnectionBase& conn = pCon->reset();
   if (opts.flagged(Options::ExcludeSystem::True)) {
-    url += "?excludeSystem";
+    conn.addQuery(ConOption{"excludeSystem", "true"});
   }
   conn.setUrl(url);
   conn.setGetReq();
   conn.setBuffer();
-  conn.setSync(opts.flagged(Options::Run::Async));
 }
 
 //
 // Configure to delete a Collection using the configured Database
 // and Collection name
 //
-void Collection::httpDelete(const Connection::SPtr& pCon, const Options opts) {
-  Connection& conn = pCon->reset();
+void Collection::remove(const Connection::SPtr& pCon, const Options  // opts
+                        ) {
+  ConnectionBase& conn = pCon->reset();
   conn.setDeleteReq();
   conn.setUrl(httpApiName());
   conn.setBuffer();
-  conn.setSync(opts.flagged(Options::Run::Async));
 }
 
-void Collection::httpAbout(const Connection::SPtr& pCon, const Options opts) {
-  Connection& conn = pCon->reset();
+void Collection::about(const Connection::SPtr& pCon, const Options  // opts
+                       ) {
+  ConnectionBase& conn = pCon->reset();
   conn.setGetReq();
   conn.setUrl(httpApiName());
   conn.setBuffer();
-  conn.setSync(opts.flagged(Options::Run::Async));
 }
 
-void Collection::httpRename(const Connection::SPtr& pCon,
-                            const std::string& name, const Options opts) {
-  Connection& conn = pCon->reset();
+void Collection::rename(const Connection::SPtr& pCon, const std::string& name,
+                        const Options  // opts
+                        ) {
+  ConnectionBase& conn = pCon->reset();
   std::string data{"{ \"name\":\"" + name + "\" }"};
   conn.setPutReq();
   conn.setUrl(httpApiName() + "/rename");
   conn.setPostField(data);
   conn.setBuffer();
-  conn.setSync(opts.flagged(Options::Run::Async));
 }
 
 //
 // Configure to get info for a Collection using the configured
 // Database and Collection name
 //
-void Collection::httpInfo(const Connection::SPtr& pCon, const Options opts,
+void Collection::httpInfo(const Connection::SPtr& pCon, const Options  // opts
+                          ,
                           const std::string&& info) {
-  Connection& conn = pCon->reset();
+  ConnectionBase& conn = pCon->reset();
   conn.setUrl(httpApiName() + info);
   conn.setBuffer();
-  conn.setSync(opts.flagged(Options::Run::Async));
 }
 
-void Collection::httpChecksum(const Connection::SPtr& pCon,
-                              const Options opts) {
-  typedef Connection::QueryPrefix Prefix;
-  Connection& conn = pCon->reset();
-  std::string url = httpApiName() + "/checksum";
-  Prefix pre = Prefix::First;
+void Collection::checksum(const Connection::SPtr& pCon, const Options opts) {
+  ConnectionBase& conn = pCon->reset();
+  Connection::Url url = httpApiName() + "/checksum";
   if (opts.flagged(Options::Revs::Yes)) {
-    url += pre + "withRevisions=true";
-    pre = Prefix::Next;
+    conn.addQuery(ConOption("withRevisions", "true"));
   }
   if (opts.flagged(Options::Data::Yes)) {
-    url += pre + "withData=true";
+    conn.addQuery(ConOption("withData", "true"));
   }
   conn.setUrl(url);
   conn.setBuffer();
-  conn.setSync(opts.flagged(Options::Run::Async));
 }
 
-void Collection::httpTruncate(const Connection::SPtr& pCon,
-                              const Options opts) {
-  Connection& conn = pCon->reset();
+void Collection::truncate(const Connection::SPtr& pCon,
+                          const Options  // opts
+                          ) {
+  ConnectionBase& conn = pCon->reset();
   conn.setPutReq();
   conn.setUrl(httpApiName() + "/truncate");
   conn.setBuffer();
-  conn.setSync(opts.flagged(Options::Run::Async));
 }
 }
 }

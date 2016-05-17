@@ -20,11 +20,11 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "arangodbcpp/Server.h"
-
 #include <curlpp/cURLpp.hpp>
 #include <sstream>
+#include <algorithm>
 
+#include "arangodbcpp/Server.h"
 #include "arangodbcpp/Database.h"
 
 namespace arangodb {
@@ -33,83 +33,91 @@ namespace dbinterface {
 
 uint16_t Server::_inst = 0;
 
-Server::Server(std::string url, uint16_t port, const bool bSecure) {
+Server::Server(const std::string url) {
   if (!_inst) {
-    // curlpp::initialize();
+    curlpp::initialize();
   }
   ++_inst;
-  setHostUrl(url, port, bSecure);
+  setHostUrl(url);
 }
 
 Server::~Server() {
   --_inst;
   if (!_inst) {
-    // curlpp::terminate();
+    curlpp::terminate();
   }
 }
 
 //
 //      Enables the user to set the host url
 //
-void Server::setHostUrl(const std::string url, const uint16_t port,
-                        const bool bSecure) {
-  std::ostringstream os;
-  os << "http";
-  if (bSecure) {
-    os << 's';
+void Server::setHostUrl(const std::string url) {
+  typedef std::string::size_type size_type;
+  static std::string sep{'/', '/'};
+  size_type len = url.find(sep);
+  std::string res = url;
+  if (len == std::string::npos) {
+    if (!url.empty()) {
+      res = "http://" + url;
+    }
+    return;
   }
-  os << "://" << url << ":" << port;
-  _host = os.str();
+  std::string prot = url.substr(0, len);
+  std::transform(prot.begin(), prot.end(), prot.begin(), ::tolower);
+  res = url.substr(len);
+  if (prot == "http+ssl:" || prot == "https:") {
+    setSrvUrl("https:" + res);
+    return;
+  }
+  if (prot == "vstream+ssl:" || prot == "vstreams:") {
+    setSrvUrl("vstreams:" + res);
+    return;
+  }
+  if (prot == "vstream+tcp:" || prot == "vstream:") {
+    setSrvUrl("vstream:" + res);
+    return;
+  }
+  setSrvUrl("http:" + res);
 }
-
-//
-//      Enables the user to set the host url
-//
-void Server::setHostUrl(const std::string url) { _host = url; }
 
 //
 //      Configure to request the Arangodb version
 //
-void Server::httpVersion(Connection::SPtr p, bool bAsync) {
-  Connection& conn = p->reset();
-  std::string url{_host + "/_api/version"};
+void Server::version(Connection::SPtr p) {
+  ConnectionBase& conn = p->reset();
+  Connection::Url url{_host + "/_api/version"};
   conn.setUrl(url);
   conn.setBuffer();
-  conn.setSync(bAsync);
 }
 
 //
 //      Configure to request the current default Database
 //
-void Server::httpCurrentDb(Connection::SPtr p, bool bAsync) {
-  Connection& conn = p->reset();
-  std::string url{_host + "/_api/database/current"};
+void Server::currentDb(Connection::SPtr p) {
+  ConnectionBase& conn = p->reset();
+  Connection::Url url{_host + "/_api/database/current"};
   conn.setUrl(url);
   conn.setBuffer();
-  conn.setSync(bAsync);
 }
 
 //
 //      Configure to request the user Databases available
 //
-void Server::httpUserDbs(Connection::SPtr p, bool bAsync) {
-  Connection& conn = p->reset();
-  std::string url{_host + "/_api/database/user"};
-  conn.reset();
+void Server::userDbs(Connection::SPtr p) {
+  ConnectionBase& conn = p->reset();
+  Connection::Url url{_host + "/_api/database/user"};
   conn.setUrl(url);
   conn.setBuffer();
-  conn.setSync(bAsync);
 }
 
 //
 //      Configure to request the Databases available
 //
-void Server::httpExistingDbs(Connection::SPtr p, bool bAsync) {
-  Connection& conn = p->reset();
-  std::string url{_host + "/_api/database"};
+void Server::existingDbs(Connection::SPtr p) {
+  ConnectionBase& conn = p->reset();
+  Connection::Url url{_host + "/_api/database"};
   conn.setUrl(url);
   conn.setBuffer();
-  conn.setSync(bAsync);
 }
 }
 }

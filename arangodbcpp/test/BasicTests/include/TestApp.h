@@ -51,13 +51,10 @@ class TestApp {
 
   static std::string _ver;
   static std::string _url;
-  static uint16_t _port;
 };
 
 inline const std::string& TestApp::hostUrl() { return _url; }
 
 inline const std::string& TestApp::dbVersion() { return _ver; }
-
-inline uint16_t TestApp::hostPort() { return _port; }
 
 #endif  // TESTAPP_H

@@ -38,12 +38,6 @@ class Collection {
   class Options {
    public:
     typedef uint8_t Flags;
-    enum class Run : Flags {
-      Reset = 0,
-      Sync = Reset,
-      Async = Sync + 1,
-      Mask = 1
-    };
     enum class List : Flags {
       Reset = 0,
       Path = Reset,
@@ -51,11 +45,11 @@ class Collection {
       Key = Id + 2,
       Mask = 6
     };
-    enum class Revs : Flags { Reset = 0, No = 0, Yes = No + 8, Mask = 8 };
-    enum class Data : Flags { Reset = 0, No = 0, Yes = No + 16, Mask = 16 };
+    enum class Revs : Flags { Reset = 0, No = Reset, Yes = No + 8, Mask = 8 };
+    enum class Data : Flags { Reset = 0, No = Reset, Yes = No + 16, Mask = 16 };
     enum class ExcludeSystem {
       Reset = 0,
-      False = 0,
+      False = Reset,
       True = False + 32,
       Mask = 32
     };
@@ -81,6 +75,7 @@ class Collection {
     Options& setFlags(T val, Args... args);
     template <typename T>
     Options& resetFlags();
+
     template <typename T>
     const T flag() const;
     template <typename T>
@@ -93,65 +88,36 @@ class Collection {
                       std::string&& id = "new-collection");
   virtual ~Collection();
 
-  static void httpCreate(const Database::SPtr& pDb,
-                         const Connection::SPtr& pCon,
-                         const Connection::VPack& body,
-                         const Options opts = Options());
-  void httpCreate(const Connection::SPtr& pCon, const Options opts = Options());
-  static Connection::VPack httpCreate(const bool bSort,
-                                      const Connection::SPtr& pCon);
+  static void create(const Database::SPtr& pDb, const Connection::SPtr& pCon,
+                     const Connection::VPack& body);
+  void create(const Connection::SPtr& pCon);
 
-  void httpDocs(const Connection::SPtr& pCon, const Options opts = Options());
-  static Connection::VPack httpDocs(const bool bSort,
-                                    const Connection::SPtr& pCon);
+  void docs(const Connection::SPtr& pCon, const Options opts = Options());
 
-  void httpCollections(const Connection::SPtr& pCon,
-                       const Options opts = Options());
-  static Connection::VPack httpCollections(const bool bSort,
-                                           const Connection::SPtr& pCon);
+  void collections(const Connection::SPtr& pCon,
+                   const Options opts = Options());
 
-  void httpDelete(const Connection::SPtr& pCon, const Options opts = Options());
-  static Connection::VPack httpDelete(const bool bSort,
-                                      const Connection::SPtr& pCon);
+  void remove(const Connection::SPtr& pCon, const Options opts = Options());
 
-  void httpAbout(const Connection::SPtr& pCon, const Options opts = Options());
-  static Connection::VPack httpAbout(const bool bSort,
-                                     const Connection::SPtr& pCon);
+  void about(const Connection::SPtr& pCon, const Options opts = Options());
 
-  void httpTruncate(const Connection::SPtr& pCon,
-                    const Options opts = Options());
-  static Connection::VPack httpTruncate(const bool bSort,
-                                        const Connection::SPtr& pCon);
+  void truncate(const Connection::SPtr& pCon, const Options opts = Options());
 
-  void httpRename(const Connection::SPtr& pCon, const std::string& name,
-                  const Options opts = Options());
-  static Connection::VPack httpRename(const bool bSort,
-                                      const Connection::SPtr& pCon);
+  void rename(const Connection::SPtr& pCon, const std::string& name,
+              const Options opts = Options());
 
-  void httpCount(const Connection::SPtr& pCon, const Options opts = Options());
-  static Connection::VPack httpCount(const bool bSort,
-                                     const Connection::SPtr& pCon);
+  void count(const Connection::SPtr& pCon, const Options opts = Options());
 
-  void httpChecksum(const Connection::SPtr& pCon,
-                    const Options opts = Options());
-  static Connection::VPack httpChecksum(const bool bSort,
-                                        const Connection::SPtr& pCon);
+  void checksum(const Connection::SPtr& pCon, const Options opts = Options());
 
-  void httpStats(const Connection::SPtr& pCon, const Options opts = Options());
-  static Connection::VPack httpStats(const bool bSort,
-                                     const Connection::SPtr& pCon);
+  void stats(const Connection::SPtr& pCon, const Options opts = Options());
 
-  void httpProps(const Connection::SPtr& pCon, const Options opts = Options());
-  static Connection::VPack httpProps(const bool bSort,
-                                     const Connection::SPtr& pCon);
+  void properties(const Connection::SPtr& pCon, const Options opts = Options());
 
-  void httpRevId(const Connection::SPtr& pCon, const Options opts = Options());
-  static Connection::VPack httpRevId(const bool bSort,
-                                     const Connection::SPtr& pCon);
+  void revId(const Connection::SPtr& pCon, const Options opts = Options());
 
-  std::string docColUrl() const;
-  std::string refColUrl() const;
-  std::string refDocUrl(const std::string& key) const;
+  Connection::Url refColUrl() const;
+  Connection::Url refDocUrl(const std::string& key) const;
   bool hasValidHost() const;
   Collection& operator=(const std::string&);
   Collection& operator=(std::string&&);
@@ -162,8 +128,8 @@ class Collection {
  private:
   void httpInfo(const Connection::SPtr& pCon, const Options,
                 const std::string&& info);
-  const std::string httpApi() const;
-  const std::string httpApiName() const;
+  const Connection::Url httpApi() const;
+  const Connection::Url httpApiName() const;
 
   std::shared_ptr<Database> _database;
   std::string _name;
@@ -246,87 +212,27 @@ inline Collection& Collection::operator=(std::string&& inp) {
 
 inline const std::string Collection::id() const { return _name; }
 
-inline Connection::VPack Collection::httpCreate(const bool bSort,
-                                                const Connection::SPtr& pCon) {
-  return pCon->fromJSon(bSort);
-}
-
-inline Connection::VPack Collection::httpCollections(
-    const bool bSort, const Connection::SPtr& pCon) {
-  return pCon->fromJSon(bSort);
-}
-
-inline Connection::VPack Collection::httpDelete(const bool bSort,
-                                                const Connection::SPtr& pCon) {
-  return pCon->fromJSon(bSort);
-}
-
-inline Connection::VPack Collection::httpAbout(const bool bSort,
-                                               const Connection::SPtr& pCon) {
-  return pCon->fromJSon(bSort);
-}
-
-inline Connection::VPack Collection::httpTruncate(
-    bool bSort, const Connection::SPtr& pCon) {
-  return pCon->fromJSon(bSort);
-}
-
-inline Connection::VPack Collection::httpDocs(const bool bSort,
-                                              const Connection::SPtr& pCon) {
-  return pCon->fromJSon(bSort);
-}
-
 // Configure to get document count in a Collection using the configured
 // Database and Collection name
 
-inline void Collection::httpCount(const Connection::SPtr& pCon,
-                                  const Options opts) {
+inline void Collection::count(const Connection::SPtr& pCon,
+                              const Options opts) {
   httpInfo(pCon, opts, "/count");
 }
 
-inline Connection::VPack Collection::httpCount(const bool bSort,
-                                               const Connection::SPtr& pCon) {
-  return pCon->fromJSon(bSort);
-}
-
-inline Connection::VPack Collection::httpChecksum(
-    const bool bSort, const Connection::SPtr& pCon) {
-  return pCon->fromJSon(bSort);
-}
-
-inline void Collection::httpProps(const Connection::SPtr& pCon,
-                                  const Options opts) {
+inline void Collection::properties(const Connection::SPtr& pCon,
+                                   const Options opts) {
   httpInfo(pCon, opts, "/propeties");
 }
 
-inline Connection::VPack Collection::httpProps(const bool bSort,
-                                               const Connection::SPtr& pCon) {
-  return pCon->fromJSon(bSort);
-}
-
-inline void Collection::httpStats(const Connection::SPtr& pCon,
-                                  const Options opts) {
+inline void Collection::stats(const Connection::SPtr& pCon,
+                              const Options opts) {
   httpInfo(pCon, opts, "/figures");
 }
 
-inline Connection::VPack Collection::httpStats(const bool bSort,
-                                               const Connection::SPtr& pCon) {
-  return pCon->fromJSon(bSort);
-}
-
-inline Connection::VPack Collection::httpRename(const bool bSort,
-                                                const Connection::SPtr& pCon) {
-  return pCon->fromJSon(bSort);
-}
-
-inline void Collection::httpRevId(const Connection::SPtr& pCon,
-                                  const Options opts) {
+inline void Collection::revId(const Connection::SPtr& pCon,
+                              const Options opts) {
   httpInfo(pCon, opts, "/revision");
-}
-
-inline Connection::VPack Collection::httpRevId(const bool bSort,
-                                               const Connection::SPtr& pCon) {
-  return pCon->fromJSon(bSort);
 }
 }
 }

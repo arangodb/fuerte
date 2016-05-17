@@ -27,22 +27,22 @@
 namespace velocypack = arangodb::velocypack;
 
 DbTest::DbTest()
-    : _pSrv{std::make_shared<Server>(TestApp::hostUrl(), TestApp::hostPort())},
+    : _pSrv{std::make_shared<Server>(TestApp::hostUrl())},
       _pDb{std::make_shared<Database>(_pSrv, std::string{"Test"})},
       _pCon{std::make_shared<Connection>()} {}
 
 const DbTest::Connection::VPack DbTest::createDatabase() {
   Database& db = *_pDb;
-  db.httpCreate(_pCon);
+  db.create(_pCon);
   _pCon->run();
-  return db.httpCreate(false, _pCon);
+  return _pCon->result(false);
 }
 
 const DbTest::Connection::VPack DbTest::deleteDatabase() {
   Database& db = *_pDb;
-  db.httpDelete(_pCon);
+  db.remove(_pCon);
   _pCon->run();
-  return db.httpCreate(false, _pCon);
+  return _pCon->result(false);
 }
 
 void DbTest::generalTest(const Connection::VPack (DbTest::*fn)(),

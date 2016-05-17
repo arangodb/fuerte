@@ -39,62 +39,67 @@ void Document::addKeyAttrib(arangodb::velocypack::Builder& builder) {
   builder.add("_key", arangodb::velocypack::Value(_key));
 }
 
-Connection::QueryPrefix Document::httpSyncQuery(
-    std::string& url, const Options& opts,
-    const Connection::QueryPrefix prefix) {
+void Document::syncQuery(ConnectionBase& conn, const Options& opts) {
   typedef Options::Sync Sync;
   switch (opts.flag<Sync>()) {
     case Sync::NoWait: {
-      url += prefix + "waitForSync=false";
+      conn.addQuery(ConOption("waitForSync", "false"));
       break;
     }
     case Sync::Wait: {
-      url += prefix + "waitForSync=true";
+      conn.addQuery(ConOption("waitForSync", "true"));
       break;
     }
-    default: { return prefix; }
+    default:;
   }
-  return Connection::QueryPrefix::Next;
 }
 
-Connection::QueryPrefix Document::httpMergeQuery(
-    std::string& url, const Options& opts,
-    const Connection::QueryPrefix prefix) {
+void Document::mergeQuery(ConnectionBase& conn, const Options& opts) {
   if (opts.flagged(Options::Merge::No)) {
-    url += prefix + "mergeObjects=false";
-    return Connection::QueryPrefix::Next;
+    conn.addQuery(ConOption("mergeObjects", "false"));
   }
-  return prefix;
 }
 
-Connection::QueryPrefix Document::httpKeepNullQuery(
-    std::string& url, const Options& opts,
-    const Connection::QueryPrefix prefix) {
+void Document::keepNullQuery(ConnectionBase& conn, const Options& opts) {
   if (opts.flagged(Options::RemoveNull::Yes)) {
-    url += prefix + "KeepNull=false";
-    return Connection::QueryPrefix::Next;
+    conn.addQuery(ConOption{"KeepNull", "false"});
   }
-  return prefix;
 }
 
 //
 // Configure to create a new empty document with the location determined by the
 // pCol parameter
 //
-void Document::httpCreate(const Collection::SPtr& pCol,
-                          const Connection::SPtr& pCon, const std::string json,
-                          const Options& opts) {
-  Connection& conn = *pCon;
-  // std::string url{pCol->docColUrl()};
-  // httpSyncQuery(url, opts);
-  std::string url{pCol->refColUrl()};
-  httpSyncQuery(url, opts, Connection::QueryPrefix::First);
-  conn.reset();
-  conn.setUrl(url);
+void Document::create(const Collection::SPtr& pCol,
+                      const Connection::SPtr& pCon, const Options& opts) {
+  typedef Connection::Url Url;
+  ConnectionBase& conn = pCon->reset();
+  Url url{pCol->refColUrl()};
+  std::string json{"{\"_key\":\"" + _key + "\"}"};
+  { conn.setHeaderOpts(); }
+  {
+    syncQuery(conn, opts);
+    conn.setUrl(url);
+  }
   conn.setPostField(json);
   conn.setPostReq();
   conn.setBuffer();
-  conn.setSync(opts.flagged(Options::Run::Async));
+}
+
+void Document::create(const Collection::SPtr& pCol,
+                      const Connection::SPtr& pCon,
+                      const Connection::VPack data, const Options& opts) {
+  typedef Connection::Url Url;
+  ConnectionBase& conn = pCon->reset();
+  Url url{pCol->refColUrl()};
+  { conn.setHeaderOpts(); }
+  {
+    syncQuery(conn, opts);
+    conn.setUrl(url);
+  }
+  conn.setPostField(data);
+  conn.setPostReq();
+  conn.setBuffer();
 }
 
 //
@@ -102,46 +107,51 @@ void Document::httpCreate(const Collection::SPtr& pCol,
 // Database/Collection
 // location determined by the pCol parameter
 //
-void Document::httpDelete(const Collection::SPtr& pCol,
-                          const Connection::SPtr& pCon, const Options& opts) {
-  typedef Connection::QueryPrefix QueryPrefix;
-  Connection& conn = pCon->reset();
-  std::string url = pCol->refDocUrl(_key);
-  httpSyncQuery(url, opts, QueryPrefix::First);
+void Document::remove(const Collection::SPtr& pCol,
+                      const Connection::SPtr& pCon, const Options& opts) {
+  ConnectionBase& conn = pCon->reset();
+  Connection::Url url = pCol->refDocUrl(_key);
   {
-    Connection::HttpHeaderList hdrs;
-    httpRevMatch(hdrs, opts);
-    if (!hdrs.empty()) {
-      conn.setHeaderOpts(hdrs);
-    }
+    revMatch(conn, opts);
+    conn.setHeaderOpts();
   }
-  conn.setUrl(url);
+  {
+    syncQuery(conn, opts);
+    conn.setUrl(url);
+  }
   conn.setDeleteReq();
   conn.setBuffer();
-  conn.setSync(opts.flagged(Options::Run::Async));
 }
 
-void Document::httpRevMatch(Connection::HttpHeaderList& hdrs,
-                            const Options& opts) {
+void Document::revMatch(ConnectionBase& conn, const Options& opts) {
   const std::string& rev = opts;
   if (!rev.empty() && opts.flagged(Options::Rev::Match)) {
-    std::string opt{"If-Match:\"" + rev + '"'};
-    hdrs.push_back(opt);
+    ConOption opt{"If-Match", '"' + rev + '"'};
+    conn.addHeader(opt);
   }
 }
 
-void Document::httpMatchHeader(Connection::HttpHeaderList& hdrs,
-                               const Options& opts) {
+//
+//  Ensures Match _rev headers are mutually exclusive and require
+//  an ETag
+//
+void Document::matchHeader(ConnectionBase& conn, const Options& opts) {
   typedef Options::Rev Rev;
   const std::string& rev = opts;
-  const Rev revOpt = opts.flag<Rev>();
-  if (!rev.empty() && revOpt != Rev::Reset) {
-    std::string opt{"If"};
-    if (revOpt == Rev::NoMatch) {
-      opt += "-None";
+  if (!rev.empty()) {
+    switch (opts.flag<Rev>()) {
+      case Rev::NoMatch: {
+        ConOption opt{"If-None-Match", '"' + rev + '"'};
+        conn.addHeader(opt);
+        break;
+      }
+      case Rev::Match: {
+        ConOption opt{"If-Match", '"' + rev + '"'};
+        conn.addHeader(opt);
+        break;
+      }
+      default:;
     }
-    opt += "-Match:\"" + rev + '"';
-    hdrs.push_back(opt);
   }
 }
 
@@ -152,19 +162,14 @@ void Document::httpMatchHeader(Connection::HttpHeaderList& hdrs,
 // Location determined by the pCol parameter
 // DONE
 //
-void Document::httpGet(const Collection::SPtr& pCol,
-                       const Connection::SPtr& pCon, const Options& opts) {
-  Connection& conn = pCon->reset();
-  Connection::HttpHeaderList headers;
-  conn.httpProtocol(headers);
-  httpMatchHeader(headers, opts);
+void Document::get(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
+                   const Options& opts) {
+  ConnectionBase& conn = pCon->reset();
+  matchHeader(conn, opts);
   conn.setUrl(pCol->refDocUrl(_key));
   conn.setGetReq();
   conn.setBuffer();
-  if (!headers.empty()) {
-    conn.setHeaderOpts(headers);
-  }
-  conn.setSync(opts.flagged(Options::Run::Async));
+  conn.setHeaderOpts();
 }
 
 //
@@ -172,54 +177,47 @@ void Document::httpGet(const Collection::SPtr& pCol,
 //
 // All options implemented, match rev done as a query
 //
-void Document::httpReplace(const Collection::SPtr& pCol,
-                           const Connection::SPtr& pCon, Connection::VPack data,
-                           const Options& opts) {
-  typedef Connection::QueryPrefix QueryPrefix;
-  Connection& conn = pCon->reset();
-  std::string url = pCol->refDocUrl(_key);
-  httpSyncQuery(url, opts, QueryPrefix::First);
+void Document::replace(const Collection::SPtr& pCol,
+                       const Connection::SPtr& pCon, Connection::VPack data,
+                       const Options& opts) {
+  ConnectionBase& conn = pCon->reset();
+  Connection::Url url = pCol->refDocUrl(_key);
   {
-    Connection::HttpHeaderList hdrs;
-    httpRevMatch(hdrs, opts);
-    if (!hdrs.empty()) {
-      conn.setHeaderOpts(hdrs);
-    }
+    revMatch(conn, opts);
+    conn.setHeaderOpts();
   }
-  conn.setUrl(url);
-  conn.setPostField(Connection::json(data, false));
+  {
+    syncQuery(conn, opts);
+    conn.setUrl(url);
+  }
+  conn.setPostField(data);
   conn.setPutReq();
   conn.setBuffer();
-  conn.setSync(opts.flagged(Options::Run::Async));
 }
 
 //
 // DONE
 //
-void Document::httpPatch(const Collection::SPtr& pCol,
-                         const Connection::SPtr& pCon, Connection::VPack data,
-                         const Options& opts) {
-  typedef Connection::QueryPrefix Prefix;
-  Connection& conn = pCon->reset();
-  std::string url{pCol->refDocUrl(_key)};
-  Prefix pre = httpSyncQuery(url, opts, Prefix::First);
-  pre = httpMergeQuery(url, opts, pre);
+void Document::patch(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
+                     Connection::VPack data, const Options& opts) {
+  ConnectionBase& conn = pCon->reset();
+  Connection::Url url{pCol->refDocUrl(_key)};
   {
-    Connection::HttpHeaderList hdrs;
-    httpRevMatch(hdrs, opts);
-    if (!hdrs.empty()) {
-      conn.setHeaderOpts(hdrs);
-    }
+    revMatch(conn, opts);
+    conn.setHeaderOpts();
   }
-  httpKeepNullQuery(url, opts, pre);
+  {
+    syncQuery(conn, opts);
+    mergeQuery(conn, opts);
+    keepNullQuery(conn, opts);
+    conn.setUrl(url);
+  }
   conn.setPatchReq();
-  conn.setUrl(url);
-  conn.setPostField(Connection::json(data, false));
+  conn.setPostField(data);
   conn.setBuffer();
-  conn.setSync(opts.flagged(Options::Run::Async));
 }
 
-Connection::VPack Document::httpHead(bool bSort, const Connection::SPtr& pCon) {
+Connection::VPack Document::head(bool bSort, const Connection::SPtr& pCon) {
   namespace VTest = arangodb::velocypack;
   using VTest::ValueType;
   using VTest::Value;
@@ -271,20 +269,17 @@ Connection::VPack Document::httpHead(bool bSort, const Connection::SPtr& pCon) {
 //
 // DONE
 //
-void Document::httpHead(const Collection::SPtr& pCol,
-                        const Connection::SPtr& pCon, const Options& opts) {
-  Connection& conn = pCon->reset();
-  std::string url = pCol->refDocUrl(_key);
-  Connection::HttpHeaderList headers;
-  conn.httpProtocol(headers);
-  httpMatchHeader(headers, opts);
+void Document::head(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
+                    const Options& opts) {
+  ConnectionBase& conn = pCon->reset();
+  Connection::Url url = pCol->refDocUrl(_key);
+  {
+    matchHeader(conn, opts);
+    conn.setHeaderOpts();
+  }
   conn.setHeadReq();
   conn.setUrl(url);
   conn.setBuffer();
-  if (!headers.empty()) {
-    conn.setHeaderOpts(headers);
-  }
-  conn.setSync(opts.flagged(Options::Run::Async));
 }
 }
 }

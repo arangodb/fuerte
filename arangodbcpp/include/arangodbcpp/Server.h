@@ -37,48 +37,35 @@ class Database;
 class Server {
  public:
   typedef std::shared_ptr<Server> SPtr;
-  explicit Server(std::string url = {"localhost"}, uint16_t port = 8529,
-                  const bool bSecure = false);
+  explicit Server(std::string url = {"http://127.0.0.1:8529"});
   virtual ~Server();
-  void httpVersion(Connection::SPtr conn, bool bAsync = false);
-  static Connection::VPack httpVersion(bool bSort, Connection::SPtr conn);
-  void httpCurrentDb(Connection::SPtr conn, bool bAsync = false);
-  static Connection::VPack httpCurrentDb(bool bSort, Connection::SPtr conn);
-  void httpUserDbs(Connection::SPtr conn, bool bAsync = false);
-  static Connection::VPack httpUserDbs(bool bSort, Connection::SPtr conn);
-  void httpExistingDbs(Connection::SPtr conn, bool bAsync = false);
-  static Connection::VPack httpExistingDbs(bool bSort, Connection::SPtr conn);
-  void setHostUrl(const std::string url, const uint16_t port,
-                  const bool bSecure = false);
+  void version(Connection::SPtr conn);
+  void currentDb(Connection::SPtr conn);
+  void userDbs(Connection::SPtr conn);
+  void existingDbs(Connection::SPtr conn);
   void setHostUrl(const std::string url);
-  const std::string& hostUrl() const;
+  const Connection::Url& hostUrl() const;
 
  private:
+  void setSrvUrl(const std::string& url);
+
   static uint16_t _inst;
-  std::string _host;
+  Connection::Url _host;
 };
 
-inline Connection::VPack Server::httpVersion(bool bSort,
-                                             Connection::SPtr conn) {
-  return conn->fromJSon(bSort);
+#ifdef FUERTE_CONNECTIONURL
+
+inline void Server::setSrvUrl(const std::string& url) {
+  _host.setServerUrl(url);
 }
 
-inline Connection::VPack Server::httpUserDbs(bool bSort,
-                                             Connection::SPtr conn) {
-  return conn->fromJSon(bSort);
-}
+#else
 
-inline Connection::VPack Server::httpCurrentDb(bool bSort,
-                                               Connection::SPtr conn) {
-  return conn->fromJSon(bSort);
-}
+inline void Server::setSrvUrl(const std::string& url) { _host = url; }
 
-inline Connection::VPack Server::httpExistingDbs(bool bSort,
-                                                 Connection::SPtr conn) {
-  return conn->fromJSon(bSort);
-}
+#endif
 
-inline const std::string& Server::hostUrl() const { return _host; }
+inline const Connection::Url& Server::hostUrl() const { return _host; }
 }
 }
 

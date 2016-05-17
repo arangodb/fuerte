@@ -1,6 +1,7 @@
 # -*- mode: CMAKE; -*-
 
 set(arangodbcppSRCS
+  ConnectionUrl.cpp
   Connection.cpp
   Server.cpp
   Database.cpp

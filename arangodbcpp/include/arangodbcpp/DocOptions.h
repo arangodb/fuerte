@@ -57,12 +57,12 @@ class DocOptions {
     Mask = 0x10
   };
 
-  enum class Run : Flags {
+  /*enum class Run : Flags {
     Reset = 0,
     Sync = Reset,
     Async = Sync + 0x20,
     Mask = 0x20
-  };
+  };*/
 
   enum class RemoveNull : Flags {
     Reset = 0,

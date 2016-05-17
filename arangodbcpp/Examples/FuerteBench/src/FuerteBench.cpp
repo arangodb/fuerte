@@ -43,7 +43,7 @@ const OptArray optStrs = {{
     ,
     "-d"  // Name of the database
     ,
-    "-h"  // Host address e.g http://localhost:8529
+    "-h"  // Host address e.g http://127.0.0.1:8529
     ,
     "-r"  // ArangoDB to return VPack
 }};

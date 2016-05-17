@@ -40,36 +40,23 @@ class Document {
   Document(const std::string& name);
   Document(std::string&& name = "NewDoc");
   virtual ~Document();
-  void httpCreate(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
-                  const Options& opts = Options{});
-  static void httpCreate(const Collection::SPtr& pCol,
-                         const Connection::SPtr& pConn,
-                         const Connection::VPack data,
-                         const Options& opts = Options{});
-  static Connection::VPack httpCreate(const bool bSort,
-                                      const Connection::SPtr& pCon);
-  void httpDelete(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
-                  const Options& opts = Options{});
-  static Connection::VPack httpDelete(const bool bSort,
-                                      const Connection::SPtr& pCon);
-  void httpGet(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
-               const Options& opts = Options{});
-  static Connection::VPack httpGet(const bool bSort,
-                                   const Connection::SPtr& pCon);
-  static Connection::VPack vppGet(const bool bSort,
-                                  const Connection::SPtr& pCon);
-  void httpHead(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
-                const Options& opts = Options{});
-  static Connection::VPack httpHead(const bool bSort,
-                                    const Connection::SPtr& pCon);
-  void httpPatch(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
-                 Connection::VPack data, const Options& opts = Options{});
-  static Connection::VPack httpPatch(const bool bSort,
-                                     const Connection::SPtr& pCon);
-  void httpReplace(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
-                   Connection::VPack data, const Options& opts = Options{});
-  static Connection::VPack httpReplace(const bool bSort,
-                                       const Connection::SPtr& pCon);
+  void create(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
+              const Options& opts = Options{});
+  static void create(const Collection::SPtr& pCol,
+                     const Connection::SPtr& pConn,
+                     const Connection::VPack data,
+                     const Options& opts = Options{});
+  void remove(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
+              const Options& opts = Options{});
+  void get(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
+           const Options& opts = Options{});
+  void head(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
+            const Options& opts = Options{});
+  static Connection::VPack head(const bool bSort, const Connection::SPtr& pCon);
+  void patch(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
+             Connection::VPack data, const Options& opts = Options{});
+  void replace(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
+               Connection::VPack data, const Options& opts = Options{});
 
   void addKeyAttrib(arangodb::velocypack::Builder& builder);
 
@@ -78,73 +65,14 @@ class Document {
   operator const std::string&() const;
 
  private:
-  static void httpCreate(const Collection::SPtr& pCol,
-                         const Connection::SPtr& pCon, const std::string json,
-                         const Options& opts);
-  static Connection::QueryPrefix httpSyncQuery(
-      std::string& url, const Options& opts,
-      const Connection::QueryPrefix = Connection::QueryPrefix::Next);
-  static Connection::QueryPrefix httpMergeQuery(
-      std::string& url, const Options& opts,
-      const Connection::QueryPrefix = Connection::QueryPrefix::Next);
-  /*static Connection::QueryPrefix httpPolicyQuery(
-      std::string& url, const Options& opts,
-      const Connection::QueryPrefix = Connection::QueryPrefix::Next);*/
-
-  static Connection::QueryPrefix httpKeepNullQuery(
-      std::string& url, const Options& optds,
-      const Connection::QueryPrefix = Connection::QueryPrefix::Next);
-
-  static void httpRevMatch(Connection::HttpHeaderList& hdrs,
-                           const Options& opts);
-  static void httpMatchHeader(Connection::HttpHeaderList& hdrs,
-                              const Options& opts);
+  static void syncQuery(ConnectionBase& conn, const Options& opts);
+  static void mergeQuery(ConnectionBase& conn, const Options& opts);
+  static void keepNullQuery(ConnectionBase& conn, const Options& opts);
+  static void revMatch(ConnectionBase& conn, const Options& opts);
+  static void matchHeader(ConnectionBase& conn, const Options& opts);
 
   std::string _key;
 };
-
-inline Connection::VPack Document::httpCreate(const bool bSort,
-                                              const Connection::SPtr& pCon) {
-  return pCon->fromJSon(bSort);
-}
-
-inline void Document::httpCreate(const Collection::SPtr& pCol,
-                                 const Connection::SPtr& pCon,
-                                 const Connection::VPack data,
-                                 const Options& opts) {
-  httpCreate(pCol, pCon, Connection::json(data, false), opts);
-}
-
-inline void Document::httpCreate(const Collection::SPtr& pCol,
-                                 const Connection::SPtr& pCon,
-                                 const Options& opts) {
-  httpCreate(pCol, pCon, std::string{"{\"_key\":\"" + _key + "\"}"}, opts);
-}
-
-inline Connection::VPack Document::httpDelete(const bool bSort,
-                                              const Connection::SPtr& pCon) {
-  return pCon->fromJSon(bSort);
-}
-
-inline Connection::VPack Document::httpGet(const bool bSort,
-                                           const Connection::SPtr& pCon) {
-  return pCon->fromJSon(bSort);
-}
-
-inline Connection::VPack Document::vppGet(const bool,
-                                          const Connection::SPtr& pCon) {
-  return pCon->fromVPData();
-}
-
-inline Connection::VPack Document::httpPatch(const bool bSort,
-                                             const Connection::SPtr& pCon) {
-  return pCon->fromJSon(bSort);
-}
-
-inline Connection::VPack Document::httpReplace(const bool bSort,
-                                               const Connection::SPtr& pCon) {
-  return pCon->fromJSon(bSort);
-}
 
 inline Document::operator const std::string&() const { return _key; }
 

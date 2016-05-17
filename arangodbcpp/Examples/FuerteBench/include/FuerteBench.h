@@ -36,7 +36,6 @@ class FuerteBench {
   typedef std::vector<BucketReadTest> TestObjs;
   FuerteBench(int argc, const char* argv[]);
   static std::string hostUrl();
-  static uint16_t hostPort();
   bool start();
   void outputReport() const;
 
@@ -61,8 +60,6 @@ class FuerteBench {
   std::chrono::microseconds _usecs;
 };
 
-inline std::string FuerteBench::hostUrl() { return "localhost"; }
-
-inline uint16_t FuerteBench::hostPort() { return 8529; }
+inline std::string FuerteBench::hostUrl() { return "http://127.0.0.1:8529"; }
 
 #endif  // FUERTEBENCH_H

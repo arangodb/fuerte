@@ -23,14 +23,15 @@
 #ifndef FUERTE_CONNECTION_H
 #define FUERTE_CONNECTION_H 1
 
-#include <memory>
 #include <vector>
 #include <list>
-#include <velocypack/Buffer.h>
 #include <curlpp/Easy.hpp>
 #include <curlpp/Multi.hpp>
 #include <curlpp/Options.hpp>
 #include <curlpp/Infos.hpp>
+
+#include "ConOption.h"
+#include "ConnectionBase.h"
 
 namespace arangodb {
 
@@ -40,36 +41,34 @@ namespace dbinterface {
 //  Provide network connection to Arango database
 //  Hide the underlying use of cURL for implementation
 //
-class Connection {
+class Connection : public ConnectionBase {
  public:
   enum class Protocol : uint8_t {
-    JSon = 0  // JSon <-> JSon
-    ,
-    VPackJSon  // VPack <-> Json
-    ,
-    JSonVPack  // JSon <-> VPack
-    ,
-    VPack  // VPack <-> Vpack
-    ,
-    VStream  // VelocyStream
+    JSon = 0,   // JSon <=> JSon
+    VPackJSon,  // VPack <=> Json
+    JSonVPack,  // JSon <=> VPack
+    VPack,      // VPack <=> Vpack
+    VStream     // VelocyStream
   };
-  enum class QueryPrefix : uint8_t { First = '?', Next = '&' };
   typedef std::shared_ptr<Connection> SPtr;
-  typedef arangodb::velocypack::Buffer<uint8_t> VBuffer;
-  typedef std::shared_ptr<VBuffer> VPack;
-  typedef std::list<std::string> HttpHeaderList;
-  typedef char ErrBuf[CURL_ERROR_SIZE];
+  typedef std::list<std::string> HeaderList;
+  typedef std::string QueryList;
   Connection();
   virtual ~Connection();
   Connection& operator=(const Protocol in);
-  void httpProtocol(Connection::HttpHeaderList& hdrs);
-  void setUrl(const std::string& inp);
-  void setUrl(std::string&& inp);
+  void addHeader(const ConOption& inp);
+  void addQuery(const ConOption& inp);
+  void addHeader(ConOption&& inp);
+  void addQuery(ConOption&& inp);
+  void defaultContentType(Format inp);
+  void defaultAccept(Format inp);
+  void httpProtocol();
+  std::string httpUrl() const;
+  void setUrl(const Url& inp);
   void setErrBuf(char* inp);
   void setPostField(const std::string& inp);
   void setPostField(const VPack data);
-  void setJsonContent(HttpHeaderList& headers);
-  void setHeaderOpts(const HttpHeaderList& inp);
+  void setHeaderOpts();
   void setCustomReq(const std::string inp);
   void setPostReq();
   void setDeleteReq();
@@ -78,7 +77,7 @@ class Connection {
   void setPutReq();
   void setPatchReq();
   void setVerbose(const bool inp);
-  Connection& reset();
+  ConnectionBase& reset();
   template <typename T>
   void setBuffer(T* p, size_t (T::*f)(char* p, size_t sz, size_t m));
   void setBuffer(size_t (*f)(char* p, size_t sz, size_t m));
@@ -87,9 +86,10 @@ class Connection {
   std::string httpEffectiveUrl();
 
   const std::string bufString() const;
+  VPack result(const bool bSort) const;
   VPack fromVPData() const;
   VPack fromJSon(const bool bSorted = true) const;
-  void setSync(const bool bAsync = false);
+  void setAsynchronous(const bool bAsync = false);
   void run();
   void runAgain(bool bAsync);
   bool isError() const;
@@ -97,7 +97,7 @@ class Connection {
   bool bufEmpty() const;
 
   static std::string json(const VPack& v, bool bSort = false);
-  static void fixProtocol(std::string& url);
+  static VPack vpack(const uint8_t* data, std::size_t sz, bool bSort);
 
  private:
   enum class Mode : uint8_t {
@@ -119,6 +119,8 @@ class Connection {
   void httpResponse();
   void setBuffer(const std::string& inp);
 
+  HeaderList _headers;
+  QueryList _queries;
   curlpp::Easy _request;
   curlpp::Multi _async;
   ChrBuf _buf;
@@ -138,16 +140,6 @@ inline Connection& Connection::operator=(const Protocol inp) {
 }
 
 inline bool Connection::bufEmpty() const { return _buf.empty(); }
-
-inline std::string operator+(const Connection::QueryPrefix pre,
-                             const std::string& query) {
-  return static_cast<char>(pre) + query;
-}
-
-inline std::string operator+(const Connection::QueryPrefix pre,
-                             std::string&& query) {
-  return static_cast<char>(pre) + query;
-}
 
 inline long Connection::httpResponseCode() {
   return curlpp::infos::ResponseCode::get(_request);
@@ -184,12 +176,6 @@ inline const std::string Connection::bufString() const {
   return std::string(_buf.data(), _buf.size());
 }
 
-inline void Connection::setBuffer(const std::string& inp) {
-  size_t len = inp.length();
-  _buf.resize(len);
-  memcpy(_buf.data(), inp.data(), len);
-}
-
 inline void Connection::setErrBuf(char* inp) {
   setOpt(cURLpp::options::ErrorBuffer(inp));
 }
@@ -210,8 +196,11 @@ inline bool Connection::isRunning() const {
   return _mode == Mode::AsyncRun || _mode == Mode::SyncRun;
 }
 
-inline void Connection::setHeaderOpts(const HttpHeaderList& inp) {
-  setOpt(curlpp::options::HttpHeader(inp));
+inline void Connection::setHeaderOpts() {
+  httpProtocol();
+  if (!_headers.empty()) {
+    setOpt(curlpp::options::HttpHeader(_headers));
+  }
 }
 
 template <typename T>

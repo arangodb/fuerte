@@ -43,22 +43,12 @@ class Database {
   explicit Database(const ServerPtr& srv, const std::string& name);
   explicit Database(const ServerPtr& srv, std::string&& name = "_system");
   virtual ~Database();
-  void httpCreate(const Connection::SPtr& p, const Connection::VPack& data,
-                  const bool bAsync);
-  void httpCreate(const Connection::SPtr& conn, const bool bAsync = false);
-  static Connection::VPack httpCreate(const bool bSort,
-                                      const Connection::SPtr& conn);
-  static Connection::VPack vppCreate(const bool bSort,
-                                     const Connection::SPtr& conn);
-  void httpDelete(const Connection::SPtr& conn, const bool bAsync = false);
-  static Connection::VPack httpDelete(const bool bSort,
-                                      const Connection::SPtr& conn);
-  static Connection::VPack vppDelete(const bool bSort,
-                                     const Connection::SPtr& conn);
-  void httpInfo(const Connection::SPtr& conn, const bool bAsync = false);
-  static Connection::VPack httpInfo(const bool bSort,
-                                    const Connection::SPtr& conn);
-  std::string databaseUrl() const;
+  void create(const Connection::SPtr& p, const Connection::VPack& data,
+              const bool bAsync);
+  void create(const Connection::SPtr& conn, const bool bAsync = false);
+  void remove(const Connection::SPtr& conn, const bool bAsync = false);
+  void innfo(const Connection::SPtr& conn, const bool bAsync = false);
+  Connection::Url databaseUrl() const;
   bool hasValidHost() const;
   Database& operator=(const std::string&);
   Database& operator=(std::string&&);
@@ -83,31 +73,6 @@ inline Database& Database::operator=(const std::string& inp) {
 inline Database& Database::operator=(std::string&& inp) {
   _name = inp;
   return *this;
-}
-
-inline Connection::VPack Database::httpCreate(const bool bSort,
-                                              const Connection::SPtr& conn) {
-  return conn->fromJSon(bSort);
-}
-
-inline Connection::VPack Database::vppCreate(const bool,
-                                             const Connection::SPtr& conn) {
-  return conn->fromVPData();
-}
-
-inline Connection::VPack Database::httpDelete(const bool bSort,
-                                              const Connection::SPtr& conn) {
-  return conn->fromJSon(bSort);
-}
-
-inline Connection::VPack Database::vppDelete(const bool,
-                                             const Connection::SPtr& conn) {
-  return conn->fromVPData();
-}
-
-inline Connection::VPack Database::httpInfo(const bool bSort,
-                                            const Connection::SPtr& conn) {
-  return conn->fromJSon(bSort);
 }
 
 inline bool Database::hasValidHost() const { return _server.get() != nullptr; }

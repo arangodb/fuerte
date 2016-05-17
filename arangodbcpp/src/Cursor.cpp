@@ -14,74 +14,73 @@ std::ostream& operator<<(std::ostream& os, Cursor::CacheMode mode) {
   return os << ref[static_cast<uint8_t>(mode)];
 }
 
-std::string Cursor::httpAqlFnc() const {
-  return _database->databaseUrl() + "/_api/aqlfunction";
+Connection::Url Cursor::aqlFncUrl() const {
+  return _database->databaseUrl() + std::string{"/_api/aqlfunction"};
 }
 
-std::string Cursor::httpCursorUrl() const {
-  return _database->databaseUrl() + "/_api/cursor";
+Connection::Url Cursor::cursorUrl() const {
+  return _database->databaseUrl() + std::string{"/_api/cursor"};
 }
 
-std::string Cursor::httpCacheUrl() const {
-  return _database->databaseUrl() + "/_api/query-cache";
+Connection::Url Cursor::cacheUrl() const {
+  return _database->databaseUrl() + std::string{"/_api/query-cache"};
 }
 
-std::string Cursor::httpCachePropsUrl() const {
-  return httpCacheUrl() + "/properties";
+Connection::Url Cursor::cachePropsUrl() const {
+  return cacheUrl() + std::string{"/properties"};
 }
 
-void Cursor::httpSetCacheProps(const Connection::SPtr& pCon, CacheMode mode,
-                               uint16_t max, bool bAsync) {
+void Cursor::setCacheProps(const Connection::SPtr& pCon, CacheMode mode,
+                           uint16_t max, bool bAsync) {
   std::ostringstream os;
-  Connection& conn = pCon->reset();
+  ConnectionBase& conn = pCon->reset();
   os << "{\"mode\":\"" << mode << "\",\"maxResults\":" << max << ')';
-  conn.setUrl(httpCachePropsUrl());
+  conn.setUrl(cachePropsUrl());
   conn.setPostField(os.str());
   conn.setPutReq();
   conn.setBuffer();
-  conn.setSync(bAsync);
+  conn.setAsynchronous(bAsync);
 }
 
-void Cursor::httpCacheProperties(const Connection::SPtr& pCon,
-                                 const bool bAsync) {
-  Connection& conn = pCon->reset();
-  conn.setUrl(httpCachePropsUrl());
+void Cursor::cacheProperties(const Connection::SPtr& pCon, const bool bAsync) {
+  ConnectionBase& conn = pCon->reset();
+  conn.setUrl(cachePropsUrl());
   conn.setGetReq();
   conn.setBuffer();
-  conn.setSync(bAsync);
+  conn.setAsynchronous(bAsync);
 }
 
-void Cursor::httpClearCache(const Connection::SPtr& pCon, const bool bAsync) {
-  Connection& conn = pCon->reset();
-  conn.setUrl(httpCacheUrl());
+void Cursor::clearCache(const Connection::SPtr& pCon, const bool bAsync) {
+  ConnectionBase& conn = pCon->reset();
+  conn.setUrl(cacheUrl());
   conn.setDeleteReq();
   conn.setBuffer();
-  conn.setSync(bAsync);
+  conn.setAsynchronous(bAsync);
 }
 
-void Cursor::httpDelete(const Connection::SPtr& pCon, std::string id,
-                        const bool bAsync) {
-  Connection& conn = pCon->reset();
-  conn.setUrl(httpCursorUrl() + '/' + id);
+void Cursor::remove(const Connection::SPtr& pCon, std::string id,
+                    const bool bAsync) {
+  ConnectionBase& conn = pCon->reset();
+  conn.setUrl(cursorUrl() + ('/' + id));
   conn.setDeleteReq();
   conn.setBuffer();
-  conn.setSync(bAsync);
+  conn.setAsynchronous(bAsync);
 }
 
-void Cursor::httpMore(const Connection::SPtr& pCon, std::string id,
-                      const bool bAsync) {
-  Connection& conn = pCon->reset();
-  conn.setUrl(httpCursorUrl() + '/' + id);
+void Cursor::more(const Connection::SPtr& pCon, std::string id,
+                  const bool bAsync) {
+  ConnectionBase& conn = pCon->reset();
+  conn.setUrl(cursorUrl() + ('/' + id));
   conn.setPutReq();
   conn.setBuffer();
-  conn.setSync(bAsync);
+  conn.setAsynchronous(bAsync);
 }
 
-void Cursor::httpCreate(const Connection::SPtr& pCon, const std::string query,
-                        uint16_t batSize, const bool bAsync) {
+void Cursor::create(const Connection::SPtr& pCon, const std::string query,
+                    uint16_t batSize, const bool bAsync) {
   std::ostringstream os;
-  Connection& conn = pCon->reset();
-  conn.setUrl(httpCursorUrl());
+  ConnectionBase& conn = pCon->reset();
+  conn.setUrl(cursorUrl());
   conn.setPostReq();
   os << "{\"query\" : \"" << query << "\"";
   if (batSize) {
@@ -90,45 +89,45 @@ void Cursor::httpCreate(const Connection::SPtr& pCon, const std::string query,
   os << " }";
   conn.setPostField(os.str());
   conn.setBuffer();
-  conn.setSync(bAsync);
+  conn.setAsynchronous(bAsync);
 }
 
-void Cursor::httpCreate(const Connection::SPtr& pCon,
-                        const Connection::VPack& config, const bool bAsync) {
-  Connection& conn = pCon->reset();
-  conn.setUrl(httpCursorUrl());
+void Cursor::create(const Connection::SPtr& pCon,
+                    const Connection::VPack& config, const bool bAsync) {
+  ConnectionBase& conn = pCon->reset();
+  conn.setUrl(cursorUrl());
   conn.setPostField(config);
   conn.setBuffer();
-  conn.setSync(bAsync);
+  conn.setAsynchronous(bAsync);
 }
 
-void Cursor::httpAddFnc(const Connection::SPtr& pCon, const std::string& name,
-                        const std::string& code, const bool bAsync) {
-  Connection& conn = pCon->reset();
+void Cursor::addFnc(const Connection::SPtr& pCon, const std::string& name,
+                    const std::string& code, const bool bAsync) {
+  ConnectionBase& conn = pCon->reset();
   std::string config = " { \"name\":\"" + name;
   config += "\",\"code\":\"" + code;
   config += "\"}";
-  conn.setUrl(httpAqlFnc());
+  conn.setUrl(aqlFncUrl());
   conn.setPostField(config);
   conn.setBuffer();
-  conn.setSync(bAsync);
+  conn.setAsynchronous(bAsync);
 }
 
-void Cursor::httpDeleteFnc(const Connection::SPtr& pCon,
-                           const std::string& name, const bool bAsync) {
-  Connection& conn = pCon->reset();
-  conn.setUrl(httpAqlFnc() + '/' + name);
+void Cursor::deleteFnc(const Connection::SPtr& pCon, const std::string& name,
+                       const bool bAsync) {
+  ConnectionBase& conn = pCon->reset();
+  conn.setUrl(aqlFncUrl() + ('/' + name));
   conn.setDeleteReq();
   conn.setBuffer();
-  conn.setSync(bAsync);
+  conn.setAsynchronous(bAsync);
 }
 
-void Cursor::httpGetFncs(const Connection::SPtr& pCon, const bool bAsync) {
-  Connection& conn = pCon->reset();
-  conn.setUrl(httpAqlFnc());
+void Cursor::getFncs(const Connection::SPtr& pCon, const bool bAsync) {
+  ConnectionBase& conn = pCon->reset();
+  conn.setUrl(aqlFncUrl());
   conn.setGetReq();
   conn.setBuffer();
-  conn.setSync(bAsync);
+  conn.setAsynchronous(bAsync);
 }
 
 std::string Cursor::moreId(const Connection::VPack& res) {

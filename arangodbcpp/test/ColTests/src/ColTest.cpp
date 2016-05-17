@@ -28,7 +28,7 @@
 namespace velocypack = arangodb::velocypack;
 
 ColTest::ColTest()
-    : _pSrv{std::make_shared<Server>(TestApp::hostUrl(), TestApp::hostPort())},
+    : _pSrv{std::make_shared<Server>(TestApp::hostUrl())},
       _pDb{std::make_shared<Database>(_pSrv, std::string{"Test"})},
       _pCol{std::make_shared<Collection>(_pDb, std::string{"MyTest"})},
       _pCon{std::make_shared<Connection>()} {
@@ -38,80 +38,80 @@ ColTest::ColTest()
 ColTest::~ColTest() { deleteDatabase(); }
 
 const ColTest::Connection::VPack ColTest::createDatabase() {
-  _pDb->httpCreate(_pCon);
+  _pDb->create(_pCon);
   _pCon->run();
-  return Database::httpCreate(false, _pCon);
+  return _pCon->result(false);
 }
 
 const ColTest::Connection::VPack ColTest::deleteDatabase() {
-  _pDb->httpDelete(_pCon);
+  _pDb->remove(_pCon);
   _pCon->run();
-  return Database::httpCreate(false, _pCon);
+  return _pCon->result(false);
 }
 
 const ColTest::Connection::VPack ColTest::createCollection() {
-  _pCol->httpCreate(_pCon);
+  _pCol->create(_pCon);
   _pCon->run();
-  return Collection::httpCreate(false, _pCon);
+  return _pCon->result(false);
 }
 
 const ColTest::Connection::VPack ColTest::deleteCollection() {
-  _pCol->httpDelete(_pCon);
+  _pCol->remove(_pCon);
   _pCon->run();
-  return Collection::httpCreate(false, _pCon);
+  return _pCon->result(false);
 }
 
 const ColTest::Connection::VPack ColTest::truncateCollection() {
-  _pCol->httpTruncate(_pCon);
+  _pCol->truncate(_pCon);
   _pCon->run();
-  return Collection::httpTruncate(false, _pCon);
+  return _pCon->result(false);
 }
 
 const ColTest::Connection::VPack ColTest::docCount() {
-  _pCol->httpCount(_pCon);
+  _pCol->count(_pCon);
   _pCon->run();
-  return Collection::httpCount(false, _pCon);
+  return _pCon->result(false);
 }
 
 const ColTest::Connection::VPack ColTest::collections() {
-  _pCol->httpCollections(_pCon);
+  _pCol->collections(_pCon);
   _pCon->run();
-  return Collection::httpCollections(false, _pCon);
+  return _pCon->result(false);
 }
 
 const ColTest::Connection::VPack ColTest::collectionProps() {
-  _pCol->httpProps(_pCon);
+  _pCol->properties(_pCon);
   _pCon->run();
-  return Collection::httpProps(false, _pCon);
+  return _pCon->result(false);
 }
 
 const ColTest::Connection::VPack ColTest::aboutCollection() {
-  _pCol->httpAbout(_pCon);
+  _pCol->about(_pCon);
   _pCon->run();
-  return Collection::httpAbout(false, _pCon);
+  return _pCon->result(false);
 }
 
 const ColTest::Connection::VPack ColTest::collectionDocs(
     const Collection::Options opts) {
-  _pCol->httpDocs(_pCon, opts);
+  _pCol->docs(_pCon, opts);
   _pCon->run();
-  return Collection::httpDocs(false, _pCon);
+  return _pCon->result(false);
 }
 
 const ColTest::Connection::VPack ColTest::addDocument(const std::string& name) {
   typedef arangodb::dbinterface::Document Document;
   typedef Document::Options Options;
   Document::SPtr pDoc = std::make_shared<Document>(name);
-  pDoc->httpCreate(_pCol, _pCon, Options{});
+  pDoc->create(_pCol, _pCon, Options{});
   _pCon->run();
-  return Document::httpCreate(false, _pCon);
+  return _pCon->result(false);
 }
 
 const ColTest::Connection::VPack ColTest::renameCollection(
     const std::string& name) {
-  _pCol->httpRename(_pCon, name);
+  _pCol->rename(_pCon, name);
   _pCon->run();
-  return Collection::httpRename(false, _pCon);
+  return _pCon->result(false);
 }
 
 namespace {
@@ -208,9 +208,10 @@ void ColTest::docsTest(const std::string& docKey,
   const Connection::VPack res = collectionDocs(opts);
   const Slice resSlice = Slice{res->data()};
   if (checkError(resSlice)) {
+    ADD_FAILURE() << "Document list error";
     return;
   }
-  Slice slice = resSlice.get("documents");
+  Slice slice = resSlice.get("result");
   if (slice.type() != ValueType::Array) {
     unrecognisedError();
     return;
@@ -221,8 +222,7 @@ void ColTest::docsTest(const std::string& docKey,
   }
   slice = slice[0];
   const std::string docName = TestApp::string(slice);
-  const std::string url = _pCol->refDocUrl(docKey);
-  std::string::size_type len = url.length() - docName.length();
+  std::string::size_type len = docName.length() - docKey.length();
   std::string::difference_type cnt =
       std::count(docName.cbegin(), docName.cend(), '/');
   typedef Collection::Options::List List;
@@ -237,8 +237,8 @@ void ColTest::docsTest(const std::string& docKey,
     case List::Key:
     default:;
   }
-  if (cnt != 0 || url.substr(len) != docName) {
-    ADD_FAILURE() << "Doc list error";
+  if (cnt != 0 || docName.substr(len) != docKey) {
+    ADD_FAILURE() << "Doc list format error";
   }
 }
 
@@ -286,6 +286,7 @@ void ColTest::test2() {
   typedef Collection::Options ColOpts;
   typedef ColOpts::List List;
   static std::string newName{"NewTest"};
+  createCollection();
   addDocument("newDoc1");
   docsTest("newDoc1");
   docsTest("newDoc1", ColOpts{List::Id});
@@ -315,8 +316,6 @@ TEST_F(ColTest, test1) {
 
 TEST(test3, colOptsTest) {
   typedef ColTest::Collection::Options Options;
-  Options opts{Options::Run::Async, Options::List::Id, Options::Run::Sync,
-               Options::List::Key};
-  EXPECT_EQ(Options::Run::Sync, opts.flag<Options::Run>());
+  Options opts{Options::List::Id, Options::List::Key};
   EXPECT_EQ(Options::List::Key, opts.flag<Options::List>());
 }

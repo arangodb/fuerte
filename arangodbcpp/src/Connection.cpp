@@ -32,6 +32,8 @@
 
 #include <curlpp/Infos.hpp>
 
+#include "arangodbcpp/ConnectionBase.h"
+
 namespace arangodb {
 
 namespace dbinterface {
@@ -58,35 +60,110 @@ void Connection::errFound(const std::string& inp, const Mode err) {
   reset(err);
 }
 
-void Connection::fixProtocol(std::string& url) {
-  typedef std::string::size_type size_type;
-  std::string sep{'/', '/'};
-  size_type len = url.find(sep);
-  if (len == std::string::npos) {
-    if (!url.empty()) {
-      url.insert(0, "http://");
-    }
-    return;
-  }
-  std::string prot = url.substr(0, len);
-  std::transform(prot.begin(), prot.end(), prot.begin(), ::tolower);
-  url = url.substr(len);
-  if (prot == "http+ssl:" || prot == "https:") {
-    url = "https:" + url;
-    return;
-  }
-  url = "http:" + url;
+void Connection::addHeader(const ConOption& inp) {
+  _headers.push_back(inp.headerString());
 }
 
-void Connection::setUrl(const std::string& inp) {
+void Connection::addQuery(const ConOption& inp) {
+  _queries += '&' + inp.queryString();
+}
+
+void Connection::addHeader(ConOption&& inp) {
+  _headers.push_back(inp.headerString());
+}
+
+void Connection::addQuery(ConOption&& inp) {
+  _queries += '&' + inp.queryString();
+}
+
+void Connection::setBuffer(const std::string& inp) {
+  switch (_prot) {
+    case Protocol::JSonVPack:
+    case Protocol::JSon: {
+      size_t len = inp.length();
+      _buf.resize(len);
+      memcpy(_buf.data(), inp.data(), len);
+      break;
+    }
+
+    case Protocol::VPack:
+    case Protocol::VPackJSon: {
+      VPack data = vpack(reinterpret_cast<const uint8_t*>(inp.c_str()),
+                         inp.length(), false);
+      _buf.resize(data->size());
+      memcpy(_buf.data(), data->data(), data->size());
+    }
+    default:;
+  }
+}
+
+void Connection::setUrl(const Connection::Url& inp) {
+#ifdef FUERTE_CONNECTIONURL
+  std::string url = inp.httpUrl();
+#else
   std::string url = inp;
-  fixProtocol(url);
+#endif
+  if (!_queries.empty()) {
+    _queries[0] = '?';
+    url += _queries;
+  }
   setOpt(curlpp::options::Url(url));
 }
 
-void Connection::setUrl(std::string&& inp) {
-  fixProtocol(inp);
-  setOpt(curlpp::options::Url(inp));
+void Connection::defaultContentType(Format inp) {
+  if (inp == Format::JSon) {
+    switch (_prot) {
+      case Protocol::VPack: {
+        _prot = Protocol::VPackJSon;
+        break;
+      }
+      case Protocol::JSonVPack: {
+        _prot = Protocol::JSon;
+        break;
+      }
+      default:;
+    }
+    return;
+  }
+  switch (_prot) {
+    case Protocol::JSon: {
+      _prot = Protocol::JSonVPack;
+      break;
+    }
+    case Protocol::VPackJSon: {
+      _prot = Protocol::VPack;
+      break;
+    }
+    default:;
+  }
+}
+
+void Connection::defaultAccept(Format inp) {
+  if (inp == Format::JSon) {
+    switch (_prot) {
+      case Protocol::VPack: {
+        _prot = Protocol::JSonVPack;
+        break;
+      }
+      case Protocol::VPackJSon: {
+        _prot = Protocol::JSon;
+        break;
+      }
+      default:;
+    }
+    return;
+  }
+  switch (_prot) {
+    case Protocol::JSon: {
+      _prot = Protocol::VPackJSon;
+      break;
+    }
+    case Protocol::JSonVPack: {
+      _prot = Protocol::VPack;
+      break;
+    }
+    default:;
+  }
 }
 
 std::string Connection::json(const VPack& v, bool bSort) {
@@ -104,11 +181,28 @@ std::string Connection::json(const VPack& v, bool bSort) {
 }
 
 void Connection::setPostField(const VPack data) {
-  std::string field{"{}"};
-  if (data.get() != nullptr) {
-    field = json(data, false);
+  char* pData = reinterpret_cast<char*>(data->data());
+  if (pData == nullptr) {
+    return;
   }
-  setPostField(field);
+  std::string field;
+  switch (_prot) {
+    case Protocol::VPack:
+    case Protocol::JSonVPack: {
+      field.append(pData, data->length());
+      break;
+    }
+
+    case Protocol::JSon:
+    case Protocol::VPackJSon: {
+      field = json(data, false);
+      break;
+    }
+
+    default: { return; }
+  }
+  setOpt(curlpp::options::PostFields(field));
+  setOpt(curlpp::options::PostFieldSize(field.length()));
 }
 
 //
@@ -120,20 +214,13 @@ void Connection::setBuffer() {
 }
 
 //
-//
-//
-void Connection::setJsonContent(HttpHeaderList& headers) {
-  headers.push_back("Content-Type: application/json");
-}
-
-//
 // Configures whether the next operation will be done
 // synchronously or asyncronously
 //
 // IMPORTANT
 // This should be the last configuration item to be set
 //
-void Connection::setSync(const bool bAsync) {
+void Connection::setAsynchronous(const bool bAsync) {
   if (bAsync) {
     _mode = Mode::AsyncRun;
     _async.add(&_request);
@@ -190,8 +277,10 @@ void Connection::run() {
   }
 }
 
-Connection& Connection::reset() {
-  reset(Mode::Clear);
+ConnectionBase& Connection::reset() {
+  _headers.clear();
+  _queries.clear();
+  reset(Mode::SyncRun);
   return *this;
 }
 
@@ -282,8 +371,29 @@ void Connection::httpResponse() {
 }
 
 void Connection::setPostField(const std::string& inp) {
-  setOpt(curlpp::options::PostFields(inp));
-  setOpt(curlpp::options::PostFieldSize(inp.length()));
+  if (inp.empty()) {
+    return;
+  }
+  std::string field;
+  switch (_prot) {
+    case Protocol::VPack:
+    case Protocol::JSonVPack: {
+      const uint8_t* data = reinterpret_cast<const uint8_t*>(inp.c_str());
+      VPack vp = vpack(data, inp.length(), false);
+      data = vp->data();
+      field.append(reinterpret_cast<const char*>(data), vp->length());
+      break;
+    }
+    case Protocol::JSon:
+    case Protocol::VPackJSon: {
+      field = inp;
+      break;
+    }
+
+    default: { return; }
+  }
+  setOpt(curlpp::options::PostFields(field));
+  setOpt(curlpp::options::PostFieldSize(field.length()));
 }
 
 //
@@ -310,11 +420,28 @@ size_t Connection::WriteMemoryCallback(char* ptr, size_t size, size_t nmemb) {
 }
 
 Connection::VPack Connection::fromVPData() const {
-  VPack buf{std::make_shared<VBuffer>(_buf.size())};
-  if (!_buf.empty()) {
-    buf->append(&_buf[0], _buf.size());
+  if (_buf.empty()) {
+    return VPack{};
   }
+  VPack buf{std::make_shared<VBuffer>(_buf.size())};
+  buf->append(&_buf[0], _buf.size());
   return buf;
+}
+
+Connection::VPack Connection::vpack(const uint8_t* data, std::size_t sz,
+                                    bool bSort) {
+  if (sz < 2) {
+    return Connection::VPack{};
+  }
+  using arangodb::velocypack::Builder;
+  using arangodb::velocypack::Parser;
+  using arangodb::velocypack::Options;
+  Options options;
+  options.sortAttributeNames = bSort;
+  Parser parser{&options};
+  parser.parse(data, sz);
+  std::shared_ptr<Builder> vp{parser.steal()};
+  return vp->buffer();
 }
 
 //
@@ -322,26 +449,33 @@ Connection::VPack Connection::fromVPData() const {
 // to a shared velocypack buffer
 //
 Connection::VPack Connection::fromJSon(const bool bSorted) const {
-  if (!_buf.empty()) {
-    using arangodb::velocypack::Builder;
-    using arangodb::velocypack::Parser;
-    using arangodb::velocypack::Options;
-    Options options;
-    options.sortAttributeNames = bSorted;
-    Parser parser{&options};
-    parser.parse(&_buf[0], _buf.size());
-    std::shared_ptr<Builder> vp{parser.steal()};
-    return vp->buffer();
+  return vpack(reinterpret_cast<const uint8_t*>(&_buf[0]), _buf.size(),
+               bSorted);
+}
+
+Connection::VPack Connection::result(const bool bSort) const {
+  switch (_prot) {
+    case Protocol::VPack:
+    case Protocol::VPackJSon: {
+      return fromVPData();
+    }
+
+    case Protocol::JSonVPack:
+    case Protocol::JSon: {
+      return fromJSon(bSort);
+    }
+
+    default:;
   }
   return VPack{};
 }
 
-void Connection::httpProtocol(Connection::HttpHeaderList& hdrs) {
+void Connection::httpProtocol() {
   if (_prot == Protocol::VPackJSon || _prot == Protocol::VPack) {
-    hdrs.push_back("Accept: application/x-velocypack");
+    addHeader(ConOption("Accept", "application/x-velocypack"));
   }
   if (_prot == Protocol::JSonVPack || _prot == Protocol::VPack) {
-    hdrs.push_back("content-type: application/x-velocypack");
+    addHeader(ConOption("content-type", "application/x-velocypack"));
   }
 }
 

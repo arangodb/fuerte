@@ -26,16 +26,15 @@
 #include <sstream>
 #include <velocypack/Slice.h>
 
-std::string TestApp::_url = "localhost";
-uint16_t TestApp::_port = 8529;
+std::string TestApp::_url{"http://127.0.0.1:8529"};
 
 namespace {
 
 void usage() {
   using std::cout;
   using std::endl;
-  cout << "ColTests [Host url] [Host port] [GTEST options....]" << endl;
-  cout << endl << "e.g BasicTests localhost" << endl;
+  cout << "ColTests [Host url] [GTEST options....]" << endl;
+  cout << endl << "e.g BasicTests http://127.0.0.1:8529" << endl;
 }
 }
 
@@ -49,16 +48,12 @@ TestApp::TestApp(int argc, char* argv[]) : _argc(argc), _argv(argv) {}
 
 void TestApp::init() {
   _url = std::string{_argv[1]};
-  {
-    std::istringstream is{_argv[2]};
-    is >> _port;
-  }
-  _argc -= 2;
-  _argv += 2;
+  _argc -= 1;
+  _argv += 1;
 }
 
 int TestApp::run() {
-  if (_argc < 3) {
+  if (_argc < 2) {
     usage();
     return -1;
   }

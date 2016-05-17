@@ -29,8 +29,7 @@
 BucketReadTest::BucketReadTest(const std::string& hostName,
                                const std::string& dbName,
                                const std::string& colName)
-    : _pSrv{std::make_shared<Server>(FuerteBench::hostUrl(),
-                                     FuerteBench::hostPort())},
+    : _pSrv{std::make_shared<Server>(FuerteBench::hostUrl())},
       _pDb{std::make_shared<Database>(_pSrv, dbName)},
       _pCol{std::make_shared<Collection>(_pDb, colName)},
       _pDoc{std::make_shared<Document>("MyDoc")},
@@ -57,7 +56,7 @@ bool BucketReadTest::isIsolated() const {
 bool BucketReadTest::collectionExists() {
   enum : long { ReadSuccess = 200 };
   Connection& con = *_pCon;
-  _pCol->httpAbout(_pCon);
+  _pCol->about(_pCon);
   con.run();
   return con.httpResponseCode() == ReadSuccess;
 }
@@ -65,7 +64,7 @@ bool BucketReadTest::collectionExists() {
 bool BucketReadTest::databaseExists() {
   enum : long { ReadSuccess = 200 };
   Connection& con = *_pCon;
-  _pCol->httpCollections(_pCon);
+  _pCol->collections(_pCon);
   con.run();
   return con.httpResponseCode() == ReadSuccess;
 }
@@ -73,7 +72,7 @@ bool BucketReadTest::databaseExists() {
 bool BucketReadTest::serverExists() {
   enum : long { ReadSuccess = 200 };
   Connection& con = *_pCon;
-  _pSrv->httpVersion(_pCon);
+  _pSrv->version(_pCon);
   con.run();
   return con.httpResponseCode() == ReadSuccess;
 }
@@ -95,9 +94,9 @@ void BucketReadTest::operator()(std::atomic_bool& bWait, LoopCount loops) {
       enum : long { ReadSuccess = 200 };
       std::string name = *iName;
       doc = name;
-      doc.httpGet(_pCol, _pCon);
+      doc.get(_pCol, _pCon);
       con.run();
-      (*_docGet)(false, _pCon);
+      con.result(false);
       if (con.httpResponseCode() != ReadSuccess) {
         ++_misses;
       }

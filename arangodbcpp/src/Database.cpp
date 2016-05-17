@@ -41,60 +41,74 @@ Database::Database(const Server::SPtr& srv, std::string&& name)
 //
 //      Get the core database url
 //
-std::string Database::databaseUrl() const {
-  return _server->hostUrl() + "/_db/" + _name;
+Connection::Url Database::databaseUrl() const {
+#ifdef FUERTE_CONNECTIONURL
+  ConnectionUrl res{_server->hostUrl()};
+  res.setDbName(_name);
+  return res;
+#else
+  std::string res = _server->hostUrl();
+  if (!_name.empty()) {
+    res += "/_db/" + _name;
+  }
+  return res;
+#endif
 }
 
 //
 // Configure to create a Database using the VPack configuration data
 //
-void Database::httpCreate(const Connection::SPtr& p,
-                          const Connection::VPack& data, const bool bAsync) {
-  std::string val{_server->hostUrl() + httpDbApi};
-  Connection& conn = p->reset();
+void Database::create(const Connection::SPtr& p, const Connection::VPack& data,
+                      const bool bAsync) {
+  Connection::Url val{_server->hostUrl() + httpDbApi};
+  ConnectionBase& conn = p->reset();
   conn.setUrl(val);
   conn.setPostReq();
-  conn.setPostField(Connection::json(data));
+  conn.setPostField(data);
   conn.setBuffer();
-  conn.setSync(bAsync);
+  conn.setAsynchronous(bAsync);
 }
 
 //
 // Configure to create a Database using the configured name
 //
-void Database::httpCreate(const Connection::SPtr& p, const bool bAsync) {
-  std::string val{_server->hostUrl() + httpDbApi};
-  Connection& conn = p->reset();
-  conn.setUrl(val);
-  val = "{ \"name\" : \"" + _name + "\" }";
-  conn.setPostField(val);
+void Database::create(const Connection::SPtr& p, const bool bAsync) {
+  ConnectionBase& conn = p->reset();
+  {
+    Connection::Url val{_server->hostUrl() + httpDbApi};
+    conn.setUrl(val);
+  }
+  {
+    std::string val = "{ \"name\" : \"" + _name + "\" }";
+    conn.setPostField(val);
+  }
   conn.setPostReq();
   conn.setBuffer();
-  conn.setSync(bAsync);
+  conn.setAsynchronous(bAsync);
 }
 
 //
 // Configure to get info on the current Database
 //
-void Database::httpInfo(const Connection::SPtr& p, const bool bAsync) {
-  std::string url{_server->hostUrl() + httpDbApi + "/current"};
-  Connection& conn = p->reset();
+void Database::innfo(const Connection::SPtr& p, const bool bAsync) {
+  Connection::Url url{_server->hostUrl() + httpDbApi + "/current"};
+  ConnectionBase& conn = p->reset();
   conn.setUrl(url);
   conn.setGetReq();
   conn.setBuffer();
-  conn.setSync(bAsync);
+  conn.setAsynchronous(bAsync);
 }
 
 //
 // Configure to drop a Database using the configured name
 //
-void Database::httpDelete(const Connection::SPtr& p, const bool bAsync) {
-  std::string url{_server->hostUrl() + httpDbApi + '/' + _name};
-  Connection& conn = p->reset();
+void Database::remove(const Connection::SPtr& p, const bool bAsync) {
+  Connection::Url url{_server->hostUrl() + (httpDbApi + '/' + _name)};
+  ConnectionBase& conn = p->reset();
   conn.setUrl(url);
   conn.setDeleteReq();
   conn.setBuffer();
-  conn.setSync(bAsync);
+  conn.setAsynchronous(bAsync);
 }
 }
 }

@@ -20,36 +20,31 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef TESTAPP_H
-#define TESTAPP_H
+#include "arangodbcpp/ConnectionUrl.h"
 
-#include <gtest/gtest.h>
-#include <arangodbcpp/Server.h>
-#include <arangodbcpp/Database.h>
-#include <velocypack/Slice.h>
+namespace arangodb {
 
-class TestApp {
- public:
-  typedef arangodb::dbinterface::Server Server;
-  typedef arangodb::dbinterface::Database DataBase;
-  typedef arangodb::dbinterface::Connection Connection;
-  typedef arangodb::velocypack::Slice Slice;
+namespace dbinterface {
 
-  TestApp(int argc, char* argv[]);
-  int run();
+std::string ConnectionUrl::httpUrl() const {
+  std::string res = _serverUrl;
+  if (!_dbName.empty()) {
+    res += "/_db/" + _dbName;
+  }
+  res += _tailUrl;
+  return res;
+}
 
-  static const std::string& hostUrl();
-  static std::string string(Slice& slice);
+const ConnectionUrl operator+(const ConnectionUrl& inp,
+                              const std::string& add) {
+  ConnectionUrl res{inp};
+  res += add;
+  return res;
+}
 
- private:
-  void init();
-
-  int _argc;
-  char** _argv;
-
-  static std::string _url;
-};
-
-inline const std::string& TestApp::hostUrl() { return _url; }
-
-#endif  // TESTAPP_H
+ConnectionUrl&& operator+(ConnectionUrl&& inp, const std::string& add) {
+  inp += add;
+  return std::move(inp);
+}
+}
+}

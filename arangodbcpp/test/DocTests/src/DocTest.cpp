@@ -28,7 +28,8 @@ namespace velocypack = arangodb::velocypack;
 
 namespace {
 
-inline void httpRun(DocTest::Connection& con) {
+inline void httpRun(DocTest::Connection& con, bool bAsync = false) {
+  con.setAsynchronous(bAsync);
   do {
     con.run();
   } while (con.isRunning());
@@ -93,7 +94,7 @@ const DocTest::Connection::VPack DocTest::makeDocument2() {
 }
 
 DocTest::DocTest()
-    : _pSrv{std::make_shared<Server>(TestApp::hostUrl(), TestApp::hostPort())},
+    : _pSrv{std::make_shared<Server>(TestApp::hostUrl())},
       _pDb{std::make_shared<Database>(_pSrv, std::string{"Test"})},
       _pCol{std::make_shared<Collection>(_pDb, std::string{"MyTest"})},
       _pDoc{std::make_shared<Document>("MyDoc")},
@@ -108,51 +109,52 @@ DocTest::~DocTest() { deleteDatabase(); }
 
 const DocTest::Connection::VPack DocTest::docHead(const Document::Options& opts,
                                                   bool bSort) {
-  _pDoc->httpHead(_pCol, _pCon, opts);
+  _pDoc->head(_pCol, _pCon, opts);
   httpRun(*_pCon);
-  return Document::httpHead(bSort, _pCon);
+  // return _pCon->result(false);
+  return Document::head(bSort, _pCon);
 }
 
 const DocTest::Connection::VPack DocTest::getDoc(
     const Document::Options& opts) {
-  _pDoc->httpGet(_pCol, _pCon, opts);
+  _pDoc->get(_pCol, _pCon, opts);
   httpRun(*_pCon);
-  return Document::httpGet(false, _pCon);
+  return _pCon->result(false);
 }
 
 const DocTest::Connection::VPack DocTest::replaceDoc(
     const Connection::VPack& doc, const Document::Options& opts) {
-  _pDoc->httpReplace(_pCol, _pCon, doc, opts);
+  _pDoc->replace(_pCol, _pCon, doc, opts);
   httpRun(*_pCon);
-  return Document::httpReplace(false, _pCon);
+  return _pCon->result(false);
 }
 
 const DocTest::Connection::VPack DocTest::createDoc(
     const Connection::VPack& doc, const Document::Options& opts) {
-  _pDoc->httpCreate(_pCol, _pCon, doc, opts);
+  _pDoc->create(_pCol, _pCon, doc, opts);
   httpRun(*_pCon);
-  return Document::httpCreate(false, _pCon);
+  return _pCon->result(false);
 }
 
 const DocTest::Connection::VPack DocTest::patchDoc(
     const Connection::VPack& doc, const Document::Options& opts) {
-  _pDoc->httpPatch(_pCol, _pCon, doc, opts);
+  _pDoc->patch(_pCol, _pCon, doc, opts);
   httpRun(*_pCon);
-  return Document::httpPatch(false, _pCon);
+  return _pCon->result(false);
 }
 
 const DocTest::Connection::VPack DocTest::createDoc(
     const Document::Options& opts) {
-  _pDoc->httpCreate(_pCol, _pCon, opts);
+  _pDoc->create(_pCol, _pCon, opts);
   httpRun(*_pCon);
-  return Document::httpCreate(false, _pCon);
+  return _pCon->result(false);
 }
 
 const DocTest::Connection::VPack DocTest::deleteDoc(
     const Document::Options& opts) {
-  _pDoc->httpDelete(_pCol, _pCon, opts);
+  _pDoc->remove(_pCol, _pCon, opts);
   httpRun(*_pCon);
-  return Document::httpDelete(false, _pCon);
+  return _pCon->result(false);
 }
 
 //---------------------------------------------------
@@ -160,15 +162,15 @@ const DocTest::Connection::VPack DocTest::deleteDoc(
 //-------- Database interfaces ----------------------
 
 const DocTest::Connection::VPack DocTest::createDatabase() {
-  _pDb->httpCreate(_pCon);
+  _pDb->create(_pCon);
   httpRun(*_pCon);
-  return Database::httpCreate(false, _pCon);
+  return _pCon->result(false);
 }
 
 const DocTest::Connection::VPack DocTest::deleteDatabase() {
-  _pDb->httpDelete(_pCon);
+  _pDb->remove(_pCon);
   httpRun(*_pCon);
-  return Database::httpCreate(false, _pCon);
+  return _pCon->result(false);
 }
 
 //---------------------------------------------------
@@ -176,21 +178,21 @@ const DocTest::Connection::VPack DocTest::deleteDatabase() {
 //-------- Collection interfaces ----------------------
 
 const DocTest::Connection::VPack DocTest::createCollection() {
-  _pCol->httpCreate(_pCon);
+  _pCol->create(_pCon);
   httpRun(*_pCon);
-  return Collection::httpCreate(false, _pCon);
+  return _pCon->result(false);
 }
 
 const DocTest::Connection::VPack DocTest::deleteCollection() {
-  _pCol->httpDelete(_pCon);
+  _pCol->remove(_pCon);
   httpRun(*_pCon);
-  return Collection::httpCreate(false, _pCon);
+  return _pCon->result(false);
 }
 
 const DocTest::Connection::VPack DocTest::truncateCollection() {
-  _pCol->httpTruncate(_pCon);
+  _pCol->truncate(_pCon);
   httpRun(*_pCon);
-  return Collection::httpTruncate(false, _pCon);
+  return _pCon->result(false);
 }
 
 //-----------------------------------------------------
@@ -198,9 +200,9 @@ const DocTest::Connection::VPack DocTest::truncateCollection() {
 //-------- Server interfaces ----------------------
 
 const DocTest::Connection::VPack DocTest::serverVer() {
-  _pSrv->httpVersion(_pCon, false);
+  _pSrv->version(_pCon);
   httpRun(*_pCon);
-  return Server::httpVersion(false, _pCon);
+  return _pCon->result(false);
 }
 
 //-------------------------------------------------
@@ -327,7 +329,7 @@ bool DocTest::getTest(const Document::Options& opts) {
         attribNotFound(attrib::error);
         break;
       }
-      EXPECT_EQ(false, slice.getBool());
+      EXPECT_NE(true, slice.getBool());
       break;
     }
     case RevMatch: {
@@ -365,7 +367,6 @@ bool DocTest::deleteTest(const Document::Options& opts) {
 
 bool DocTest::replaceTest(const Connection::VPack& doc,
                           const Document::Options& opts) {
-  typedef Document::Options::Sync Sync;
   typedef velocypack::Slice Slice;
   const Connection::VPack res = replaceDoc(doc, opts);
   Slice resSlice{res->data()};
@@ -510,13 +511,10 @@ void DocTest::test4() {
   typedef DocTest::Document::Options Options;
   typedef Options::Rev Rev;
   typedef Options::Merge Merge;
-  typedef Options::Run Run;
   typedef Options::Merge Merge;
   SCOPED_TRACE("test4");
-  Options opts{"1234",    Rev::Match, Rev::NoMatch, Run::Async,
-               Run::Sync, Merge::No,  Merge::Yes};
+  Options opts{"1234", Rev::Match, Rev::NoMatch, Merge::No, Merge::Yes};
   EXPECT_EQ(Rev::NoMatch, opts.flag<Rev>());
-  EXPECT_EQ(Run::Sync, opts.flag<Run>());
   EXPECT_EQ(Merge::Yes, opts.flag<Merge>());
 }
 

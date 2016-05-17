@@ -60,7 +60,7 @@ class BucketReadTest {
   DocNames::difference_type noDocs() const;
 
  private:
-  Connection::VPack (*_docGet)(const bool, const Connection::SPtr&);
+  // Connection::VPack (*_docGet)(const bool, const Connection::SPtr&);
   Server::SPtr _pSrv;
   Database::SPtr _pDb;
   Collection::SPtr _pCol;
@@ -94,13 +94,9 @@ inline std::chrono::microseconds BucketReadTest::duration() const {
 inline BucketReadTest::DocNames::const_iterator BucketReadTest::setDocs(
     DocNames::const_iterator iFirst, DocNames::size_type n,
     Connection::Protocol prot) {
-  _docGet = Document::httpGet;
   _iFirst = iFirst;
   _iEnd = iFirst + n;
   *_pCon = prot;
-  if (prot == Connection::Protocol::VPackJSon) {
-    _docGet = Document::vppGet;
-  }
   return _iEnd;
 }
 
