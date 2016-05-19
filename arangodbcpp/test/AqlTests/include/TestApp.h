@@ -33,14 +33,13 @@ class TestApp
   public:
     typedef arangodb::dbinterface::Server Server;
     typedef arangodb::dbinterface::Database DataBase;
-    typedef arangodb::dbinterface::Connection Connection;
+    typedef arangodb::dbinterface::ConnectionBase ConnectionBase;
     typedef arangodb::velocypack::Slice Slice;
 
     TestApp(int argc, char *argv[]);
     int run();
 
     static const std::string &hostUrl();
-    static uint16_t hostPort();
     static std::string string(Slice &slice);
 
   private:
@@ -49,18 +48,12 @@ class TestApp
     int _argc;
     char **_argv;
 
-    static std::string _url;
-    static uint16_t _port;
+    static std::string _host;
 };
 
 inline const std::string &TestApp::hostUrl()
 {
-  return _url;
-}
-
-inline uint16_t TestApp::hostPort()
-{
-  return _port;
+  return _host;
 }
 
 #endif  // TESTAPP_H

@@ -30,9 +30,11 @@ namespace velocypack = arangodb::velocypack;
 
 SrvTest::SrvTest()
     : _pSrv{std::make_shared<Server>(TestApp::hostUrl())},
-      _pCon{std::make_shared<Connection>()} {}
+      _pCon{_pSrv->makeConnection()}
 
-const SrvTest::Connection::VPack SrvTest::getDbVersion() {
+{}
+
+const SrvTest::ConnectionBase::VPack SrvTest::getDbVersion() {
   Server& srv = *_pSrv;
   srv.version(_pCon);
   _pCon->run();
@@ -42,7 +44,7 @@ const SrvTest::Connection::VPack SrvTest::getDbVersion() {
 TEST_F(SrvTest, version) {
   typedef velocypack::Slice Slice;
   typedef velocypack::ValueType ValueType;
-  Connection::VPack res = getDbVersion();
+  ConnectionBase::VPack res = getDbVersion();
   Slice retSlice{res->data()};
   Slice slice = retSlice.get("version");
   if (slice.type() == ValueType::String) {

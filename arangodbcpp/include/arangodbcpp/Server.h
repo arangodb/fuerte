@@ -26,32 +26,40 @@
 #include <memory>
 #include <string.h>
 
-#include "arangodbcpp/Connection.h"
+#include "arangodbcpp/ConnectionBase.h"
 
 namespace arangodb {
 
 namespace dbinterface {
-
-class Database;
 
 class Server {
  public:
   typedef std::shared_ptr<Server> SPtr;
   explicit Server(std::string url = {"http://127.0.0.1:8529"});
   virtual ~Server();
-  void version(Connection::SPtr conn);
-  void currentDb(Connection::SPtr conn);
-  void userDbs(Connection::SPtr conn);
-  void existingDbs(Connection::SPtr conn);
+
+  void version(ConnectionBase::SPtr conn);
+  void currentDb(ConnectionBase::SPtr conn);
+  void userDbs(ConnectionBase::SPtr conn);
+  void existingDbs(ConnectionBase::SPtr conn);
   void setHostUrl(const std::string url);
-  const Connection::Url& hostUrl() const;
+  const ConnectionBase::Url& hostUrl() const;
+  ConnectionBase::SPtr makeConnection() const;
 
  private:
+  typedef ConnectionBase::SPtr (*ConFnc)();
   void setSrvUrl(const std::string& url);
+  static ConnectionBase::SPtr httpConnection();
+  static ConnectionBase::SPtr vppConnection();
 
   static uint16_t _inst;
-  Connection::Url _host;
+  ConnectionBase::Url _host;
+  ConFnc _makeConnection;
 };
+
+inline ConnectionBase::SPtr Server::makeConnection() const {
+  return (*_makeConnection)();
+}
 
 #ifdef FUERTE_CONNECTIONURL
 
@@ -65,7 +73,7 @@ inline void Server::setSrvUrl(const std::string& url) { _host = url; }
 
 #endif
 
-inline const Connection::Url& Server::hostUrl() const { return _host; }
+inline const ConnectionBase::Url& Server::hostUrl() const { return _host; }
 }
 }
 

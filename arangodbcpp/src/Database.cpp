@@ -20,11 +20,9 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "arangodbcpp/Database.h"
-
 #include <sstream>
 
-#include "arangodbcpp/Server.h"
+#include "arangodbcpp/Database.h"
 
 namespace arangodb {
 
@@ -41,26 +39,27 @@ Database::Database(const Server::SPtr& srv, std::string&& name)
 //
 //      Get the core database url
 //
-Connection::Url Database::databaseUrl() const {
+ConnectionBase::Url Database::databaseUrl(const std::string& tail) const {
 #ifdef FUERTE_CONNECTIONURL
   ConnectionUrl res{_server->hostUrl()};
-  res.setDbName(_name);
-  return res;
+  if (!_name.empty()) {
+    res.setDbName(_name);
+  }
 #else
   std::string res = _server->hostUrl();
   if (!_name.empty()) {
     res += "/_db/" + _name;
   }
-  return res;
 #endif
+  return res += tail;
 }
 
 //
 // Configure to create a Database using the VPack configuration data
 //
-void Database::create(const Connection::SPtr& p, const Connection::VPack& data,
-                      const bool bAsync) {
-  Connection::Url val{_server->hostUrl() + httpDbApi};
+void Database::create(const ConnectionBase::SPtr& p,
+                      const ConnectionBase::VPack& data, const bool bAsync) {
+  ConnectionBase::Url val{_server->hostUrl() + httpDbApi};
   ConnectionBase& conn = p->reset();
   conn.setUrl(val);
   conn.setPostReq();
@@ -72,10 +71,10 @@ void Database::create(const Connection::SPtr& p, const Connection::VPack& data,
 //
 // Configure to create a Database using the configured name
 //
-void Database::create(const Connection::SPtr& p, const bool bAsync) {
+void Database::create(const ConnectionBase::SPtr& p, const bool bAsync) {
   ConnectionBase& conn = p->reset();
   {
-    Connection::Url val{_server->hostUrl() + httpDbApi};
+    ConnectionBase::Url val{_server->hostUrl() + httpDbApi};
     conn.setUrl(val);
   }
   {
@@ -90,8 +89,8 @@ void Database::create(const Connection::SPtr& p, const bool bAsync) {
 //
 // Configure to get info on the current Database
 //
-void Database::innfo(const Connection::SPtr& p, const bool bAsync) {
-  Connection::Url url{_server->hostUrl() + httpDbApi + "/current"};
+void Database::info(const ConnectionBase::SPtr& p, const bool bAsync) {
+  ConnectionBase::Url url{_server->hostUrl() + httpDbApi + "/current"};
   ConnectionBase& conn = p->reset();
   conn.setUrl(url);
   conn.setGetReq();
@@ -102,8 +101,8 @@ void Database::innfo(const Connection::SPtr& p, const bool bAsync) {
 //
 // Configure to drop a Database using the configured name
 //
-void Database::remove(const Connection::SPtr& p, const bool bAsync) {
-  Connection::Url url{_server->hostUrl() + (httpDbApi + '/' + _name)};
+void Database::remove(const ConnectionBase::SPtr& p, const bool bAsync) {
+  ConnectionBase::Url url{_server->hostUrl() + (httpDbApi + '/' + _name)};
   ConnectionBase& conn = p->reset();
   conn.setUrl(url);
   conn.setDeleteReq();

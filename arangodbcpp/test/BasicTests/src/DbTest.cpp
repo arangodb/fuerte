@@ -29,27 +29,29 @@ namespace velocypack = arangodb::velocypack;
 DbTest::DbTest()
     : _pSrv{std::make_shared<Server>(TestApp::hostUrl())},
       _pDb{std::make_shared<Database>(_pSrv, std::string{"Test"})},
-      _pCon{std::make_shared<Connection>()} {}
+      _pCon{_pSrv->makeConnection()}
 
-const DbTest::Connection::VPack DbTest::createDatabase() {
+{}
+
+const DbTest::ConnectionBase::VPack DbTest::createDatabase() {
   Database& db = *_pDb;
   db.create(_pCon);
   _pCon->run();
   return _pCon->result(false);
 }
 
-const DbTest::Connection::VPack DbTest::deleteDatabase() {
+const DbTest::ConnectionBase::VPack DbTest::deleteDatabase() {
   Database& db = *_pDb;
   db.remove(_pCon);
   _pCon->run();
   return _pCon->result(false);
 }
 
-void DbTest::generalTest(const Connection::VPack (DbTest::*fn)(),
+void DbTest::generalTest(const ConnectionBase::VPack (DbTest::*fn)(),
                          uint64_t code) {
   typedef velocypack::Slice Slice;
   typedef velocypack::ValueType ValueType;
-  const Connection::VPack res = (this->*fn)();
+  const ConnectionBase::VPack res = (this->*fn)();
   Slice retSlice{res->data()};
   Slice slice = retSlice.get("result");
   if (slice.type() == ValueType::Bool) {

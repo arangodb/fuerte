@@ -27,16 +27,17 @@
 #include <atomic>
 
 #include <arangodbcpp/Server.h>
+#include <arangodbcpp/Database.h>
 #include <arangodbcpp/Collection.h>
 #include <arangodbcpp/Document.h>
 
 class BucketReadTest {
   typedef arangodb::dbinterface::Server Server;
   typedef arangodb::dbinterface::Database Database;
-  typedef arangodb::dbinterface::Connection Connection;
+  typedef arangodb::dbinterface::ConnectionBase ConnectionBase;
   typedef arangodb::dbinterface::Collection Collection;
   typedef arangodb::dbinterface::Document Document;
-  typedef Connection::Protocol Protocol;
+  typedef ConnectionBase::Protocol Protocol;
 
  public:
   typedef std::vector<std::string> DocNames;
@@ -47,7 +48,7 @@ class BucketReadTest {
                  const std::string& colName);
   DocNames::const_iterator setDocs(DocNames::const_iterator iFirst,
                                    DocNames::size_type n,
-                                   Connection::Protocol prot);
+                                   ConnectionBase::Protocol prot);
   bool collectionExists();
   bool databaseExists();
   bool serverExists();
@@ -60,12 +61,11 @@ class BucketReadTest {
   DocNames::difference_type noDocs() const;
 
  private:
-  // Connection::VPack (*_docGet)(const bool, const Connection::SPtr&);
   Server::SPtr _pSrv;
   Database::SPtr _pDb;
   Collection::SPtr _pCol;
   Document::SPtr _pDoc;
-  Connection::SPtr _pCon;
+  ConnectionBase::SPtr _pCon;
   DocNames::const_iterator _iFirst;
   DocNames::const_iterator _iEnd;
   std::chrono::microseconds _usecs;
@@ -93,7 +93,7 @@ inline std::chrono::microseconds BucketReadTest::duration() const {
 
 inline BucketReadTest::DocNames::const_iterator BucketReadTest::setDocs(
     DocNames::const_iterator iFirst, DocNames::size_type n,
-    Connection::Protocol prot) {
+    ConnectionBase::Protocol prot) {
   _iFirst = iFirst;
   _iEnd = iFirst + n;
   *_pCon = prot;

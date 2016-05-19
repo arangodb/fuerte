@@ -30,7 +30,7 @@
 
 class DbTest : public testing::Test {
  public:
-  typedef arangodb::dbinterface::Connection Connection;
+  typedef arangodb::dbinterface::ConnectionBase ConnectionBase;
   typedef arangodb::dbinterface::Database Database;
   typedef arangodb::dbinterface::Server Server;
   DbTest();
@@ -40,15 +40,15 @@ class DbTest : public testing::Test {
   void test1();
 
  private:
-  void generalTest(const Connection::VPack (DbTest::*fn)(), uint64_t code);
+  void generalTest(const ConnectionBase::VPack (DbTest::*fn)(), uint64_t code);
   void createTest();
   void deleteTest();
-  const Connection::VPack createDatabase();
-  const Connection::VPack deleteDatabase();
+  const ConnectionBase::VPack createDatabase();
+  const ConnectionBase::VPack deleteDatabase();
 
   Server::SPtr _pSrv;
   Database::SPtr _pDb;
-  Connection::SPtr _pCon;
+  ConnectionBase::SPtr _pCon;
 };
 
 inline DbTest::~DbTest() {}

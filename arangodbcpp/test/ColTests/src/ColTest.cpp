@@ -30,75 +30,76 @@ namespace velocypack = arangodb::velocypack;
 ColTest::ColTest()
     : _pSrv{std::make_shared<Server>(TestApp::hostUrl())},
       _pDb{std::make_shared<Database>(_pSrv, std::string{"Test"})},
-      _pCol{std::make_shared<Collection>(_pDb, std::string{"MyTest"})},
-      _pCon{std::make_shared<Connection>()} {
+      _pCol{std::make_shared<Collection>(_pDb, std::string{"MyTest"})} {
+  _pCon = _pSrv->makeConnection();
   createDatabase();
 }
 
 ColTest::~ColTest() { deleteDatabase(); }
 
-const ColTest::Connection::VPack ColTest::createDatabase() {
+const ColTest::ConnectionBase::VPack ColTest::createDatabase() {
   _pDb->create(_pCon);
   _pCon->run();
   return _pCon->result(false);
 }
 
-const ColTest::Connection::VPack ColTest::deleteDatabase() {
+const ColTest::ConnectionBase::VPack ColTest::deleteDatabase() {
   _pDb->remove(_pCon);
   _pCon->run();
   return _pCon->result(false);
 }
 
-const ColTest::Connection::VPack ColTest::createCollection() {
+const ColTest::ConnectionBase::VPack ColTest::createCollection() {
   _pCol->create(_pCon);
   _pCon->run();
   return _pCon->result(false);
 }
 
-const ColTest::Connection::VPack ColTest::deleteCollection() {
+const ColTest::ConnectionBase::VPack ColTest::deleteCollection() {
   _pCol->remove(_pCon);
   _pCon->run();
   return _pCon->result(false);
 }
 
-const ColTest::Connection::VPack ColTest::truncateCollection() {
+const ColTest::ConnectionBase::VPack ColTest::truncateCollection() {
   _pCol->truncate(_pCon);
   _pCon->run();
   return _pCon->result(false);
 }
 
-const ColTest::Connection::VPack ColTest::docCount() {
+const ColTest::ConnectionBase::VPack ColTest::docCount() {
   _pCol->count(_pCon);
   _pCon->run();
   return _pCon->result(false);
 }
 
-const ColTest::Connection::VPack ColTest::collections() {
+const ColTest::ConnectionBase::VPack ColTest::collections() {
   _pCol->collections(_pCon);
   _pCon->run();
   return _pCon->result(false);
 }
 
-const ColTest::Connection::VPack ColTest::collectionProps() {
+const ColTest::ConnectionBase::VPack ColTest::collectionProps() {
   _pCol->properties(_pCon);
   _pCon->run();
   return _pCon->result(false);
 }
 
-const ColTest::Connection::VPack ColTest::aboutCollection() {
+const ColTest::ConnectionBase::VPack ColTest::aboutCollection() {
   _pCol->about(_pCon);
   _pCon->run();
   return _pCon->result(false);
 }
 
-const ColTest::Connection::VPack ColTest::collectionDocs(
+const ColTest::ConnectionBase::VPack ColTest::collectionDocs(
     const Collection::Options opts) {
   _pCol->docs(_pCon, opts);
   _pCon->run();
   return _pCon->result(false);
 }
 
-const ColTest::Connection::VPack ColTest::addDocument(const std::string& name) {
+const ColTest::ConnectionBase::VPack ColTest::addDocument(
+    const std::string& name) {
   typedef arangodb::dbinterface::Document Document;
   typedef Document::Options Options;
   Document::SPtr pDoc = std::make_shared<Document>(name);
@@ -107,7 +108,7 @@ const ColTest::Connection::VPack ColTest::addDocument(const std::string& name) {
   return _pCon->result(false);
 }
 
-const ColTest::Connection::VPack ColTest::renameCollection(
+const ColTest::ConnectionBase::VPack ColTest::renameCollection(
     const std::string& name) {
   _pCol->rename(_pCon, name);
   _pCon->run();
@@ -166,7 +167,7 @@ void ColTest::countTest(const uint16_t cnt) {
   typedef velocypack::Slice Slice;
   typedef velocypack::ValueType ValueType;
   SCOPED_TRACE("Count");
-  const Connection::VPack res = docCount();
+  const ConnectionBase::VPack res = docCount();
   const Slice resSlice = Slice{res->data()};
   if (checkError(resSlice)) {
     return;
@@ -187,7 +188,7 @@ void ColTest::countTest(const uint16_t cnt) {
 void ColTest::renameTest(const std::string& name) {
   typedef velocypack::Slice Slice;
   SCOPED_TRACE("Rename");
-  const Connection::VPack res = renameCollection(name);
+  const ConnectionBase::VPack res = renameCollection(name);
   const Slice resSlice = Slice{res->data()};
   if (checkError(resSlice)) {
     return;
@@ -205,7 +206,7 @@ void ColTest::docsTest(const std::string& docKey,
   typedef velocypack::Slice Slice;
   typedef velocypack::ValueType ValueType;
   SCOPED_TRACE("Docs");
-  const Connection::VPack res = collectionDocs(opts);
+  const ConnectionBase::VPack res = collectionDocs(opts);
   const Slice resSlice = Slice{res->data()};
   if (checkError(resSlice)) {
     ADD_FAILURE() << "Document list error";
@@ -242,11 +243,11 @@ void ColTest::docsTest(const std::string& docKey,
   }
 }
 
-void ColTest::commonTest(const Connection::VPack (ColTest::*pTestFnc)(),
+void ColTest::commonTest(const ConnectionBase::VPack (ColTest::*pTestFnc)(),
                          std::string&& scope) {
   typedef velocypack::Slice Slice;
   SCOPED_TRACE(scope);
-  const Connection::VPack res = (this->*pTestFnc)();
+  const ConnectionBase::VPack res = (this->*pTestFnc)();
   const Slice resSlice = Slice{res->data()};
   if (checkError(resSlice)) {
     return;
@@ -262,7 +263,7 @@ void ColTest::commonTest(const Connection::VPack (ColTest::*pTestFnc)(),
 void ColTest::deleteTest() {
   typedef velocypack::Slice Slice;
   SCOPED_TRACE("Delete");
-  Connection::VPack res = deleteCollection();
+  ConnectionBase::VPack res = deleteCollection();
   const Slice resSlice = Slice{res->data()};
   if (checkError(resSlice)) {
     return;

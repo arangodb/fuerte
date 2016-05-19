@@ -38,8 +38,7 @@ std::string ConnectionUrl::httpUrl() const {
 const ConnectionUrl operator+(const ConnectionUrl& inp,
                               const std::string& add) {
   ConnectionUrl res{inp};
-  res += add;
-  return res;
+  return res += add;
 }
 
 ConnectionUrl&& operator+(ConnectionUrl&& inp, const std::string& add) {

@@ -30,7 +30,6 @@
 #include <curlpp/Options.hpp>
 #include <curlpp/Infos.hpp>
 
-#include "ConOption.h"
 #include "ConnectionBase.h"
 
 namespace arangodb {
@@ -43,19 +42,12 @@ namespace dbinterface {
 //
 class Connection : public ConnectionBase {
  public:
-  enum class Protocol : uint8_t {
-    JSon = 0,   // JSon <=> JSon
-    VPackJSon,  // VPack <=> Json
-    JSonVPack,  // JSon <=> VPack
-    VPack,      // VPack <=> Vpack
-    VStream     // VelocyStream
-  };
   typedef std::shared_ptr<Connection> SPtr;
   typedef std::list<std::string> HeaderList;
   typedef std::string QueryList;
   Connection();
   virtual ~Connection();
-  Connection& operator=(const Protocol in);
+  ConnectionBase& operator=(const Protocol in);
   void addHeader(const ConOption& inp);
   void addQuery(const ConOption& inp);
   void addHeader(ConOption&& inp);
@@ -71,8 +63,8 @@ class Connection : public ConnectionBase {
   void setHeaderOpts();
   void setCustomReq(const std::string inp);
   void setPostReq();
+  // void setHeadReq();
   void setDeleteReq();
-  void setHeadReq();
   void setGetReq();
   void setPutReq();
   void setPatchReq();
@@ -82,7 +74,7 @@ class Connection : public ConnectionBase {
   void setBuffer(T* p, size_t (T::*f)(char* p, size_t sz, size_t m));
   void setBuffer(size_t (*f)(char* p, size_t sz, size_t m));
   void setBuffer();
-  long httpResponseCode();
+  long responseCode();
   std::string httpEffectiveUrl();
 
   const std::string bufString() const;
@@ -134,14 +126,14 @@ inline void Connection::setBuffer(T* p, size_t (T::*f)(char*, size_t, size_t)) {
   setOpt(curlpp::options::WriteFunction(functor));
 }
 
-inline Connection& Connection::operator=(const Protocol inp) {
+inline ConnectionBase& Connection::operator=(const Protocol inp) {
   _prot = inp;
   return *this;
 }
 
 inline bool Connection::bufEmpty() const { return _buf.empty(); }
 
-inline long Connection::httpResponseCode() {
+inline long Connection::responseCode() {
   return curlpp::infos::ResponseCode::get(_request);
 }
 
@@ -152,11 +144,11 @@ inline std::string Connection::httpEffectiveUrl() {
 //
 // For curl, a HEADER request is implemented as a GET request with options
 //
-inline void Connection::setHeadReq() {
-  setGetReq();
-  _request.setOpt(curlpp::options::Header(true));
-  _request.setOpt(curlpp::options::NoBody(true));
-}
+// inline void Connection::setHeadReq() {
+//  setGetReq();
+//  _request.setOpt(curlpp::options::Header(true));
+//  _request.setOpt(curlpp::options::NoBody(true));
+//}
 
 inline void Connection::setPostReq() { setCustomReq("POST"); }
 

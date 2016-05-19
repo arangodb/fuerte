@@ -15,7 +15,7 @@
 /// See the License for the specific language governing permissions and
 /// limitations under the License.
 ///
-/// Copyright holder is ArangoDB GmbH, Cologne, Germany
+/// Copyright holder is ArangoDB GmbH, Cologne, Ge  `rmany
 ///
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
@@ -32,11 +32,11 @@ BucketReadTest::BucketReadTest(const std::string& hostName,
     : _pSrv{std::make_shared<Server>(FuerteBench::hostUrl())},
       _pDb{std::make_shared<Database>(_pSrv, dbName)},
       _pCol{std::make_shared<Collection>(_pDb, colName)},
-      _pDoc{std::make_shared<Document>("MyDoc")},
-      _pCon{std::make_shared<Connection>()} {
+      _pDoc{std::make_shared<Document>("MyDoc")} {
   if (!hostName.empty()) {
     _pSrv->setHostUrl(hostName);
   }
+  _pCon = _pSrv->makeConnection();
 }
 
 //
@@ -46,7 +46,7 @@ BucketReadTest::BucketReadTest(const std::string& hostName,
 //
 void BucketReadTest::isolate() {
   _pDoc = std::make_shared<Document>("MyDoc");
-  _pCon = std::make_shared<Connection>();
+  _pCon = _pSrv->makeConnection();
 }
 
 bool BucketReadTest::isIsolated() const {
@@ -55,33 +55,33 @@ bool BucketReadTest::isIsolated() const {
 
 bool BucketReadTest::collectionExists() {
   enum : long { ReadSuccess = 200 };
-  Connection& con = *_pCon;
+  ConnectionBase& con = *_pCon;
   _pCol->about(_pCon);
   con.run();
-  return con.httpResponseCode() == ReadSuccess;
+  return con.responseCode() == ReadSuccess;
 }
 
 bool BucketReadTest::databaseExists() {
   enum : long { ReadSuccess = 200 };
-  Connection& con = *_pCon;
+  ConnectionBase& con = *_pCon;
   _pCol->collections(_pCon);
   con.run();
-  return con.httpResponseCode() == ReadSuccess;
+  return con.responseCode() == ReadSuccess;
 }
 
 bool BucketReadTest::serverExists() {
   enum : long { ReadSuccess = 200 };
-  Connection& con = *_pCon;
+  ConnectionBase& con = *_pCon;
   _pSrv->version(_pCon);
   con.run();
-  return con.httpResponseCode() == ReadSuccess;
+  return con.responseCode() == ReadSuccess;
 }
 
 void BucketReadTest::operator()(std::atomic_bool& bWait, LoopCount loops) {
   namespace chrono = std::chrono;
   using system_clock = chrono::system_clock;
   Document& doc = *_pDoc;
-  Connection& con = *_pCon;
+  ConnectionBase& con = *_pCon;
   while (bWait == true) {
     std::this_thread::yield();
   }
@@ -97,7 +97,7 @@ void BucketReadTest::operator()(std::atomic_bool& bWait, LoopCount loops) {
       doc.get(_pCol, _pCon);
       con.run();
       con.result(false);
-      if (con.httpResponseCode() != ReadSuccess) {
+      if (con.responseCode() != ReadSuccess) {
         ++_misses;
       }
     } while (++iName != _iEnd);

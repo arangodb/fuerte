@@ -25,7 +25,7 @@
 
 #include <memory>
 
-#include "arangodbcpp/Connection.h"
+#include "arangodbcpp/Server.h"
 
 namespace arangodb {
 
@@ -34,21 +34,20 @@ namespace dbinterface {
 class Server;
 
 class Database {
- private:
-  typedef std::shared_ptr<Server> ServerPtr;
-
  public:
   typedef std::shared_ptr<Database> SPtr;
   Database() = delete;
-  explicit Database(const ServerPtr& srv, const std::string& name);
-  explicit Database(const ServerPtr& srv, std::string&& name = "_system");
+  explicit Database(const Server::SPtr& srv, const std::string& name);
+  explicit Database(const Server::SPtr& srv, std::string&& name = "_system");
   virtual ~Database();
-  void create(const Connection::SPtr& p, const Connection::VPack& data,
+
+  void create(const ConnectionBase::SPtr& p, const ConnectionBase::VPack& data,
               const bool bAsync);
-  void create(const Connection::SPtr& conn, const bool bAsync = false);
-  void remove(const Connection::SPtr& conn, const bool bAsync = false);
-  void innfo(const Connection::SPtr& conn, const bool bAsync = false);
-  Connection::Url databaseUrl() const;
+  void create(const ConnectionBase::SPtr& conn, const bool bAsync = false);
+  void remove(const ConnectionBase::SPtr& conn, const bool bAsync = false);
+  void info(const ConnectionBase::SPtr& conn, const bool bAsync = false);
+
+  ConnectionBase::Url databaseUrl(const std::string& tail) const;
   bool hasValidHost() const;
   Database& operator=(const std::string&);
   Database& operator=(std::string&&);
@@ -57,7 +56,7 @@ class Database {
  private:
   static const std::string httpDbApi;
 
-  ServerPtr _server;
+  Server::SPtr _server;
   std::string _name;
 };
 

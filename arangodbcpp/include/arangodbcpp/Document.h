@@ -25,7 +25,6 @@
 
 #include <velocypack/Builder.h>
 
-#include "arangodbcpp/Connection.h"
 #include "arangodbcpp/Collection.h"
 #include "arangodbcpp/DocOptions.h"
 
@@ -40,23 +39,21 @@ class Document {
   Document(const std::string& name);
   Document(std::string&& name = "NewDoc");
   virtual ~Document();
-  void create(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
+
+  void create(const Collection::SPtr& pCol, const ConnectionBase::SPtr& pCon,
               const Options& opts = Options{});
   static void create(const Collection::SPtr& pCol,
-                     const Connection::SPtr& pConn,
-                     const Connection::VPack data,
+                     const ConnectionBase::SPtr& pConn,
+                     const ConnectionBase::VPack data,
                      const Options& opts = Options{});
-  void remove(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
+  void remove(const Collection::SPtr& pCol, const ConnectionBase::SPtr& pCon,
               const Options& opts = Options{});
-  void get(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
+  void get(const Collection::SPtr& pCol, const ConnectionBase::SPtr& pCon,
            const Options& opts = Options{});
-  void head(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
-            const Options& opts = Options{});
-  static Connection::VPack head(const bool bSort, const Connection::SPtr& pCon);
-  void patch(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
-             Connection::VPack data, const Options& opts = Options{});
-  void replace(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
-               Connection::VPack data, const Options& opts = Options{});
+  void patch(const Collection::SPtr& pCol, const ConnectionBase::SPtr& pCon,
+             ConnectionBase::VPack data, const Options& opts = Options{});
+  void replace(const Collection::SPtr& pCol, const ConnectionBase::SPtr& pCon,
+               ConnectionBase::VPack data, const Options& opts = Options{});
 
   void addKeyAttrib(arangodb::velocypack::Builder& builder);
 

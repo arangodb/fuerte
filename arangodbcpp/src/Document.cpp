@@ -22,9 +22,6 @@
 
 #include "arangodbcpp/Document.h"
 
-#include "arangodbcpp/Database.h"
-#include "arangodbcpp/Collection.h"
-
 namespace arangodb {
 
 namespace dbinterface {
@@ -71,15 +68,13 @@ void Document::keepNullQuery(ConnectionBase& conn, const Options& opts) {
 // pCol parameter
 //
 void Document::create(const Collection::SPtr& pCol,
-                      const Connection::SPtr& pCon, const Options& opts) {
-  typedef Connection::Url Url;
+                      const ConnectionBase::SPtr& pCon, const Options& opts) {
   ConnectionBase& conn = pCon->reset();
-  Url url{pCol->refColUrl()};
   std::string json{"{\"_key\":\"" + _key + "\"}"};
   { conn.setHeaderOpts(); }
   {
     syncQuery(conn, opts);
-    conn.setUrl(url);
+    conn.setUrl(pCol->refColUrl());
   }
   conn.setPostField(json);
   conn.setPostReq();
@@ -87,15 +82,13 @@ void Document::create(const Collection::SPtr& pCol,
 }
 
 void Document::create(const Collection::SPtr& pCol,
-                      const Connection::SPtr& pCon,
-                      const Connection::VPack data, const Options& opts) {
-  typedef Connection::Url Url;
+                      const ConnectionBase::SPtr& pCon,
+                      const ConnectionBase::VPack data, const Options& opts) {
   ConnectionBase& conn = pCon->reset();
-  Url url{pCol->refColUrl()};
   { conn.setHeaderOpts(); }
   {
     syncQuery(conn, opts);
-    conn.setUrl(url);
+    conn.setUrl(pCol->refColUrl());
   }
   conn.setPostField(data);
   conn.setPostReq();
@@ -108,16 +101,15 @@ void Document::create(const Collection::SPtr& pCol,
 // location determined by the pCol parameter
 //
 void Document::remove(const Collection::SPtr& pCol,
-                      const Connection::SPtr& pCon, const Options& opts) {
+                      const ConnectionBase::SPtr& pCon, const Options& opts) {
   ConnectionBase& conn = pCon->reset();
-  Connection::Url url = pCol->refDocUrl(_key);
   {
     revMatch(conn, opts);
     conn.setHeaderOpts();
   }
   {
     syncQuery(conn, opts);
-    conn.setUrl(url);
+    conn.setUrl(pCol->refDocUrl(_key));
   }
   conn.setDeleteReq();
   conn.setBuffer();
@@ -162,8 +154,8 @@ void Document::matchHeader(ConnectionBase& conn, const Options& opts) {
 // Location determined by the pCol parameter
 // DONE
 //
-void Document::get(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
-                   const Options& opts) {
+void Document::get(const Collection::SPtr& pCol,
+                   const ConnectionBase::SPtr& pCon, const Options& opts) {
   ConnectionBase& conn = pCon->reset();
   matchHeader(conn, opts);
   conn.setUrl(pCol->refDocUrl(_key));
@@ -178,17 +170,16 @@ void Document::get(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
 // All options implemented, match rev done as a query
 //
 void Document::replace(const Collection::SPtr& pCol,
-                       const Connection::SPtr& pCon, Connection::VPack data,
-                       const Options& opts) {
+                       const ConnectionBase::SPtr& pCon,
+                       ConnectionBase::VPack data, const Options& opts) {
   ConnectionBase& conn = pCon->reset();
-  Connection::Url url = pCol->refDocUrl(_key);
   {
     revMatch(conn, opts);
     conn.setHeaderOpts();
   }
   {
     syncQuery(conn, opts);
-    conn.setUrl(url);
+    conn.setUrl(pCol->refDocUrl(_key));
   }
   conn.setPostField(data);
   conn.setPutReq();
@@ -198,10 +189,10 @@ void Document::replace(const Collection::SPtr& pCol,
 //
 // DONE
 //
-void Document::patch(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
-                     Connection::VPack data, const Options& opts) {
+void Document::patch(const Collection::SPtr& pCol,
+                     const ConnectionBase::SPtr& pCon,
+                     ConnectionBase::VPack data, const Options& opts) {
   ConnectionBase& conn = pCon->reset();
-  Connection::Url url{pCol->refDocUrl(_key)};
   {
     revMatch(conn, opts);
     conn.setHeaderOpts();
@@ -210,75 +201,10 @@ void Document::patch(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
     syncQuery(conn, opts);
     mergeQuery(conn, opts);
     keepNullQuery(conn, opts);
-    conn.setUrl(url);
+    conn.setUrl(pCol->refDocUrl(_key));
   }
   conn.setPatchReq();
   conn.setPostField(data);
-  conn.setBuffer();
-}
-
-Connection::VPack Document::head(bool bSort, const Connection::SPtr& pCon) {
-  namespace VTest = arangodb::velocypack;
-  using VTest::ValueType;
-  using VTest::Value;
-  using VTest::Options;
-  using VTest::Builder;
-  typedef std::string::size_type sz_type;
-  auto processLine = [](const std::string line, Builder& build) -> void {
-    sz_type split = line.find_first_of(':');
-    if (split == std::string::npos) {
-      return;
-    }
-    std::string name = line.substr(0, split);
-    split = line.find_first_not_of("\t\r\n ", split + 1);
-    std::string value = line.substr(split, line.length() - split);
-    if (std::isdigit(value[0])) {
-      sz_type num = std::stoul(value);
-      build.add(name, Value(num));
-      return;
-    }
-    if (value[0] == '"') {
-      split = value.rfind('"');
-      value = value.substr(1, split - 1);
-    }
-    build.add(name, Value(value));
-  };
-  Options opts;
-  opts.sortAttributeNames = bSort;
-  Builder build{&opts};
-  static const std::string delimEol{"\r\n"};
-  std::string res = pCon->bufString();
-  sz_type old = 0;
-  sz_type pos = res.find_first_of(delimEol, old);
-  // Start building an object
-  build.add(Value(ValueType::Object));
-  for (; pos != std::string::npos; pos = res.find_first_of(delimEol, old)) {
-    if (pos != old) {
-      processLine(res.substr(old, pos - old), build);
-    }
-    old = pos + 1;
-  }
-  pos = res.length();
-  if (old != pos) {
-    processLine(res.substr(old, pos - old), build);
-  }
-  build.close();
-  return build.steal();
-}
-
-//
-// DONE
-//
-void Document::head(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
-                    const Options& opts) {
-  ConnectionBase& conn = pCon->reset();
-  Connection::Url url = pCol->refDocUrl(_key);
-  {
-    matchHeader(conn, opts);
-    conn.setHeaderOpts();
-  }
-  conn.setHeadReq();
-  conn.setUrl(url);
   conn.setBuffer();
 }
 }

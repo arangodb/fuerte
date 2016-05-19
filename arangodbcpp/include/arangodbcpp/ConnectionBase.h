@@ -28,6 +28,7 @@
 #include <velocypack/Buffer.h>
 #include <velocypack/Builder.h>
 
+#include "ConOption.h"
 #include "arangodbcpp/ConnectionUrl.h"
 
 namespace arangodb {
@@ -48,10 +49,18 @@ class ConnectionBase {
 #else
   typedef std::string Url;
 #endif
+  enum class Protocol : uint8_t {
+    JSon = 0,   // JSon <=> JSon
+    VPackJSon,  // VPack <=> Json
+    JSonVPack,  // JSon <=> VPack
+    VPack,      // VPack <=> Vpack
+    VStream     // VelocyStream
+  };
   enum class Format { JSon, VPack };
 
   virtual ~ConnectionBase();
 
+  virtual ConnectionBase& operator=(const Protocol in) = 0;
   virtual ConnectionBase& reset() = 0;
   virtual void defaultContentType(Format inp) = 0;
   virtual void defaultAccept(Format inp) = 0;
@@ -63,7 +72,6 @@ class ConnectionBase {
   virtual void addQuery(ConOption&& inp) = 0;
   virtual void setPostReq() = 0;
   virtual void setDeleteReq() = 0;
-  virtual void setHeadReq() = 0;
   virtual void setGetReq() = 0;
   virtual void setPutReq() = 0;
   virtual void setPatchReq() = 0;
@@ -72,7 +80,9 @@ class ConnectionBase {
   virtual void setBuffer() = 0;
   virtual void setAsynchronous(const bool bAsync = false) = 0;
   virtual void run() = 0;
+  virtual bool isRunning() const = 0;
   virtual VPack result(const bool bSort) const = 0;
+  virtual long responseCode() = 0;
 };
 
 inline ConnectionBase::~ConnectionBase() {}

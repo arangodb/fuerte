@@ -26,6 +26,7 @@
 
 #include "arangodbcpp/Server.h"
 #include "arangodbcpp/Database.h"
+#include "arangodbcpp/Connection.h"
 
 namespace arangodb {
 
@@ -48,6 +49,12 @@ Server::~Server() {
   }
 }
 
+ConnectionBase::SPtr Server::httpConnection() {
+  return ConnectionBase::SPtr(new Connection());
+}
+
+ConnectionBase::SPtr Server::vppConnection() { return ConnectionBase::SPtr(); }
+
 //
 //      Enables the user to set the host url
 //
@@ -56,10 +63,9 @@ void Server::setHostUrl(const std::string url) {
   static std::string sep{'/', '/'};
   size_type len = url.find(sep);
   std::string res = url;
+  _makeConnection = &Server::httpConnection;
   if (len == std::string::npos) {
-    if (!url.empty()) {
-      res = "http://" + url;
-    }
+    setSrvUrl("http://" + res);
     return;
   }
   std::string prot = url.substr(0, len);
@@ -70,10 +76,12 @@ void Server::setHostUrl(const std::string url) {
     return;
   }
   if (prot == "vstream+ssl:" || prot == "vstreams:") {
+    _makeConnection = &Server::vppConnection;
     setSrvUrl("vstreams:" + res);
     return;
   }
   if (prot == "vstream+tcp:" || prot == "vstream:") {
+    _makeConnection = &Server::vppConnection;
     setSrvUrl("vstream:" + res);
     return;
   }
@@ -83,40 +91,36 @@ void Server::setHostUrl(const std::string url) {
 //
 //      Configure to request the Arangodb version
 //
-void Server::version(Connection::SPtr p) {
+void Server::version(ConnectionBase::SPtr p) {
   ConnectionBase& conn = p->reset();
-  Connection::Url url{_host + "/_api/version"};
-  conn.setUrl(url);
+  conn.setUrl(_host + "/_api/version");
   conn.setBuffer();
 }
 
 //
 //      Configure to request the current default Database
 //
-void Server::currentDb(Connection::SPtr p) {
+void Server::currentDb(ConnectionBase::SPtr p) {
   ConnectionBase& conn = p->reset();
-  Connection::Url url{_host + "/_api/database/current"};
-  conn.setUrl(url);
+  conn.setUrl(_host + "/_api/database/current");
   conn.setBuffer();
 }
 
 //
 //      Configure to request the user Databases available
 //
-void Server::userDbs(Connection::SPtr p) {
+void Server::userDbs(ConnectionBase::SPtr p) {
   ConnectionBase& conn = p->reset();
-  Connection::Url url{_host + "/_api/database/user"};
-  conn.setUrl(url);
+  conn.setUrl(_host + "/_api/database/user");
   conn.setBuffer();
 }
 
 //
-//      Configure to request the Databases available
+// Configure to request the Databases available
 //
-void Server::existingDbs(Connection::SPtr p) {
+void Server::existingDbs(ConnectionBase::SPtr p) {
   ConnectionBase& conn = p->reset();
-  Connection::Url url{_host + "/_api/database"};
-  conn.setUrl(url);
+  conn.setUrl(_host + "/_api/database");
   conn.setBuffer();
 }
 }

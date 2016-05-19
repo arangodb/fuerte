@@ -353,7 +353,7 @@ void Connection::asyncRun() {
 }
 
 void Connection::httpResponse() {
-  long res = httpResponseCode();
+  long res = responseCode();
   if (!res && _mode == Mode::AsyncRun) {
     typedef curlpp::Multi::Msgs M_Msgs;
     M_Msgs msgs = _async.info();
@@ -419,7 +419,7 @@ size_t Connection::WriteMemoryCallback(char* ptr, size_t size, size_t nmemb) {
   return realsize;
 }
 
-Connection::VPack Connection::fromVPData() const {
+ConnectionBase::VPack Connection::fromVPData() const {
   if (_buf.empty()) {
     return VPack{};
   }
@@ -428,10 +428,10 @@ Connection::VPack Connection::fromVPData() const {
   return buf;
 }
 
-Connection::VPack Connection::vpack(const uint8_t* data, std::size_t sz,
-                                    bool bSort) {
+ConnectionBase::VPack Connection::vpack(const uint8_t* data, std::size_t sz,
+                                        bool bSort) {
   if (sz < 2) {
-    return Connection::VPack{};
+    return ConnectionBase::VPack{};
   }
   using arangodb::velocypack::Builder;
   using arangodb::velocypack::Parser;
@@ -448,12 +448,12 @@ Connection::VPack Connection::vpack(const uint8_t* data, std::size_t sz,
 // Converts JSon held in the default write buffer
 // to a shared velocypack buffer
 //
-Connection::VPack Connection::fromJSon(const bool bSorted) const {
+ConnectionBase::VPack Connection::fromJSon(const bool bSorted) const {
   return vpack(reinterpret_cast<const uint8_t*>(&_buf[0]), _buf.size(),
                bSorted);
 }
 
-Connection::VPack Connection::result(const bool bSort) const {
+ConnectionBase::VPack Connection::result(const bool bSort) const {
   switch (_prot) {
     case Protocol::VPack:
     case Protocol::VPackJSon: {
