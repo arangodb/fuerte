@@ -29,13 +29,13 @@
 BucketReadTest::BucketReadTest(const std::string& hostName,
                                const std::string& dbName,
                                const std::string& colName,
-                               ConnectionBase::Protocol prot)
+                               Connection::Protocol prot)
     : BucketTest(hostName, dbName, colName, prot),
       _document{std::make_shared<Document>("MyDoc")} {}
 
 bool BucketReadTest::collectionExists() {
   enum : long { ReadSuccess = 200 };
-  ConnectionBase& con = *_connection;
+  Connection& con = *_connection;
   _collection->about(_connection);
   con.run();
   return con.responseCode() == ReadSuccess;
@@ -43,7 +43,7 @@ bool BucketReadTest::collectionExists() {
 
 bool BucketReadTest::databaseExists() {
   enum : long { ReadSuccess = 200 };
-  ConnectionBase& con = *_connection;
+  Connection& con = *_connection;
   _collection->collections(_connection);
   con.run();
   return con.responseCode() == ReadSuccess;
@@ -51,7 +51,7 @@ bool BucketReadTest::databaseExists() {
 
 bool BucketReadTest::serverExists() {
   enum : long { ReadSuccess = 200 };
-  ConnectionBase& con = *_connection;
+  Connection& con = *_connection;
   _server->version(_connection);
   con.run();
   return con.responseCode() == ReadSuccess;
@@ -61,7 +61,7 @@ void BucketReadTest::operator()(std::atomic_bool& bWait, LoopCount loops) {
   namespace chrono = std::chrono;
   using system_clock = chrono::system_clock;
   Document& doc = *_document;
-  ConnectionBase& con = *_connection;
+  Connection& con = *_connection;
 
   while (bWait == true) {
     std::this_thread::yield();

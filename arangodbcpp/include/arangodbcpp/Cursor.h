@@ -38,32 +38,32 @@ class Cursor {
   Cursor() = delete;
   virtual ~Cursor();
 
-  void create(const ConnectionBase::SPtr& pCon, const std::string query,
+  void create(const Connection::SPtr& pCon, const std::string query,
               uint16_t batSize = 0, const bool bAsync = false);
-  void create(const ConnectionBase::SPtr& pCon,
-              const ConnectionBase::VPack& config, const bool bAsync = false);
-  void more(const ConnectionBase::SPtr& pCon, std::string id,
+  void create(const Connection::SPtr& pCon,
+              const Connection::VPack& config, const bool bAsync = false);
+  void more(const Connection::SPtr& pCon, std::string id,
             const bool bAsync = false);
-  void addFnc(const ConnectionBase::SPtr& pCon, const std::string& name,
+  void addFnc(const Connection::SPtr& pCon, const std::string& name,
               const std::string& code, const bool bAsync);
-  void deleteFnc(const ConnectionBase::SPtr& pCon, const std::string& name,
+  void deleteFnc(const Connection::SPtr& pCon, const std::string& name,
                  const bool bAsync);
-  void getFncs(const ConnectionBase::SPtr& pCon, const bool bAsync);
-  void remove(const ConnectionBase::SPtr& pCon, std::string id,
+  void getFncs(const Connection::SPtr& pCon, const bool bAsync);
+  void remove(const Connection::SPtr& pCon, std::string id,
               const bool bAsync = false);
-  void clearCache(const ConnectionBase::SPtr& pCon, const bool bAsync = false);
-  void cacheProperties(const ConnectionBase::SPtr& pCon,
+  void clearCache(const Connection::SPtr& pCon, const bool bAsync = false);
+  void cacheProperties(const Connection::SPtr& pCon,
                        const bool bAsync = false);
-  void setCacheProps(const ConnectionBase::SPtr& pCon, enum CacheMode mode,
+  void setCacheProps(const Connection::SPtr& pCon, enum CacheMode mode,
                      uint16_t max, const bool bAsync = false);
 
-  static std::string moreId(const ConnectionBase::VPack& res);
+  static std::string moreId(const Connection::VPack& res);
 
  private:
-  ConnectionBase::Url cursorUrl() const;
-  ConnectionBase::Url aqlFncUrl() const;
-  ConnectionBase::Url cacheUrl() const;
-  ConnectionBase::Url cachePropsUrl() const;
+  Connection::Url cursorUrl() const;
+  Connection::Url aqlFncUrl() const;
+  Connection::Url cacheUrl() const;
+  Connection::Url cachePropsUrl() const;
 
   Database::SPtr _database;
 };

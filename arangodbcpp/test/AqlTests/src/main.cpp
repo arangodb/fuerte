@@ -22,7 +22,6 @@
 
 #include "TestApp.h"
 
-#include <arangodbcpp/Connection.h>
 #include <iostream>
 
 int main(const int argc, char *argv[])

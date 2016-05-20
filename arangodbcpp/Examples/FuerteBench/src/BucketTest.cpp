@@ -25,7 +25,7 @@
 #include "FuerteBench.h"
 
 BucketTest::BucketTest(const std::string& hostName, const std::string& dbName,
-                       const std::string& colName, ConnectionBase::Protocol prot)
+                       const std::string& colName, Connection::Protocol prot)
     : _server{std::make_shared<Server>(FuerteBench::hostUrl())},
       _database{std::make_shared<Database>(_server, dbName)},
       _collection{std::make_shared<Collection>(_database, colName)} {

@@ -39,7 +39,7 @@ Database::Database(const Server::SPtr& srv, std::string&& name)
 //
 //      Get the core database url
 //
-ConnectionBase::Url Database::databaseUrl(const std::string& tail) const {
+Connection::Url Database::databaseUrl(const std::string& tail) const {
 #ifdef FUERTE_CONNECTIONURL
   ConnectionUrl res{_server->hostUrl()};
   if (!_name.empty()) {
@@ -57,10 +57,10 @@ ConnectionBase::Url Database::databaseUrl(const std::string& tail) const {
 //
 // Configure to create a Database using the VPack configuration data
 //
-void Database::create(const ConnectionBase::SPtr& p,
-                      const ConnectionBase::VPack& data, const bool bAsync) {
-  ConnectionBase::Url val{_server->hostUrl() + httpDbApi};
-  ConnectionBase& conn = p->reset();
+void Database::create(const Connection::SPtr& p,
+                      const Connection::VPack& data, const bool bAsync) {
+  Connection::Url val{_server->hostUrl() + httpDbApi};
+  Connection& conn = p->reset();
   conn.setUrl(val);
   conn.setPostReq();
   conn.setPostField(data);
@@ -71,10 +71,10 @@ void Database::create(const ConnectionBase::SPtr& p,
 //
 // Configure to create a Database using the configured name
 //
-void Database::create(const ConnectionBase::SPtr& p, const bool bAsync) {
-  ConnectionBase& conn = p->reset();
+void Database::create(const Connection::SPtr& p, const bool bAsync) {
+  Connection& conn = p->reset();
   {
-    ConnectionBase::Url val{_server->hostUrl() + httpDbApi};
+    Connection::Url val{_server->hostUrl() + httpDbApi};
     conn.setUrl(val);
   }
   {
@@ -89,9 +89,9 @@ void Database::create(const ConnectionBase::SPtr& p, const bool bAsync) {
 //
 // Configure to get info on the current Database
 //
-void Database::info(const ConnectionBase::SPtr& p, const bool bAsync) {
-  ConnectionBase::Url url{_server->hostUrl() + httpDbApi + "/current"};
-  ConnectionBase& conn = p->reset();
+void Database::info(const Connection::SPtr& p, const bool bAsync) {
+  Connection::Url url{_server->hostUrl() + httpDbApi + "/current"};
+  Connection& conn = p->reset();
   conn.setUrl(url);
   conn.setGetReq();
   conn.setBuffer();
@@ -101,9 +101,9 @@ void Database::info(const ConnectionBase::SPtr& p, const bool bAsync) {
 //
 // Configure to drop a Database using the configured name
 //
-void Database::remove(const ConnectionBase::SPtr& p, const bool bAsync) {
-  ConnectionBase::Url url{_server->hostUrl() + (httpDbApi + '/' + _name)};
-  ConnectionBase& conn = p->reset();
+void Database::remove(const Connection::SPtr& p, const bool bAsync) {
+  Connection::Url url{_server->hostUrl() + (httpDbApi + '/' + _name)};
+  Connection& conn = p->reset();
   conn.setUrl(url);
   conn.setDeleteReq();
   conn.setBuffer();

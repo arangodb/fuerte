@@ -40,20 +40,20 @@ class Document {
   Document(std::string&& name = "NewDoc");
   virtual ~Document();
 
-  void create(const Collection::SPtr& pCol, const ConnectionBase::SPtr& pCon,
+  void create(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
               const Options& opts = Options{});
   static void create(const Collection::SPtr& pCol,
-                     const ConnectionBase::SPtr& pConn,
-                     const ConnectionBase::VPack data,
+                     const Connection::SPtr& pConn,
+                     const Connection::VPack data,
                      const Options& opts = Options{});
-  void remove(const Collection::SPtr& pCol, const ConnectionBase::SPtr& pCon,
+  void remove(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
               const Options& opts = Options{});
-  void get(const Collection::SPtr& pCol, const ConnectionBase::SPtr& pCon,
+  void get(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
            const Options& opts = Options{});
-  void patch(const Collection::SPtr& pCol, const ConnectionBase::SPtr& pCon,
-             ConnectionBase::VPack data, const Options& opts = Options{});
-  void replace(const Collection::SPtr& pCol, const ConnectionBase::SPtr& pCon,
-               ConnectionBase::VPack data, const Options& opts = Options{});
+  void patch(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
+             Connection::VPack data, const Options& opts = Options{});
+  void replace(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
+               Connection::VPack data, const Options& opts = Options{});
 
   void addKeyAttrib(arangodb::velocypack::Builder& builder);
 
@@ -62,11 +62,11 @@ class Document {
   operator const std::string&() const;
 
  private:
-  static void syncQuery(ConnectionBase& conn, const Options& opts);
-  static void mergeQuery(ConnectionBase& conn, const Options& opts);
-  static void keepNullQuery(ConnectionBase& conn, const Options& opts);
-  static void revMatch(ConnectionBase& conn, const Options& opts);
-  static void matchHeader(ConnectionBase& conn, const Options& opts);
+  static void syncQuery(Connection& conn, const Options& opts);
+  static void mergeQuery(Connection& conn, const Options& opts);
+  static void keepNullQuery(Connection& conn, const Options& opts);
+  static void revMatch(Connection& conn, const Options& opts);
+  static void matchHeader(Connection& conn, const Options& opts);
 
   std::string _key;
 };

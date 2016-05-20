@@ -33,7 +33,7 @@ class BucketReadTest : public BucketTest {
 
   BucketReadTest() = delete;
   BucketReadTest(const std::string& hostName, const std::string& dbName,
-                 const std::string& colName, ConnectionBase::Protocol prot);
+                 const std::string& colName, Connection::Protocol prot);
 
   void setDocNames(DocDatas::const_iterator iFirst,
                    DocDatas::const_iterator iEnd);

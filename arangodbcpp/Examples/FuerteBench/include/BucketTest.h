@@ -34,10 +34,10 @@ class BucketTest {
  protected:
   typedef arangodb::dbinterface::Server Server;
   typedef arangodb::dbinterface::Database Database;
-  typedef arangodb::dbinterface::ConnectionBase ConnectionBase;
+  typedef arangodb::dbinterface::Connection Connection;
   typedef arangodb::dbinterface::Collection Collection;
   typedef arangodb::dbinterface::Document Document;
-  typedef ConnectionBase::Protocol Protocol;
+  typedef Connection::Protocol Protocol;
 
  public:
   typedef std::vector<std::string> DocDatas;
@@ -46,7 +46,7 @@ class BucketTest {
 
   BucketTest() = delete;
   BucketTest(const std::string& hostName, const std::string& dbName,
-             const std::string& colName, ConnectionBase::Protocol prot);
+             const std::string& colName, Connection::Protocol prot);
 
   std::chrono::microseconds duration() const;
   TestCount successful() const;
@@ -58,7 +58,7 @@ class BucketTest {
   Server::SPtr _server;
   Database::SPtr _database;
   Collection::SPtr _collection;
-  ConnectionBase::SPtr _connection;
+  Connection::SPtr _connection;
 
   std::chrono::microseconds _duration;
   TestCount _failed;

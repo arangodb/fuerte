@@ -29,7 +29,7 @@
 BucketWriteTest::BucketWriteTest(const std::string& hostName,
                                  const std::string& dbName,
                                  const std::string& colName,
-                                 ConnectionBase::Protocol prot)
+                                 Connection::Protocol prot)
     : BucketTest(hostName, dbName, colName, prot),
       _document{std::make_shared<Document>()} {}
 
@@ -37,7 +37,7 @@ void BucketWriteTest::operator()(std::atomic_bool& bWait, LoopCount loops) {
   namespace chrono = std::chrono;
   using system_clock = chrono::system_clock;
   Document& doc = *_document;
-  ConnectionBase& con = *_connection;
+  Connection& con = *_connection;
 
   while (bWait == true) {
     std::this_thread::yield();

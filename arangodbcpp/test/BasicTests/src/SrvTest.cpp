@@ -34,7 +34,7 @@ SrvTest::SrvTest()
 
 {}
 
-const SrvTest::ConnectionBase::VPack SrvTest::getDbVersion() {
+const SrvTest::Connection::VPack SrvTest::getDbVersion() {
   Server& srv = *_pSrv;
   srv.version(_pCon);
   _pCon->run();
@@ -44,7 +44,7 @@ const SrvTest::ConnectionBase::VPack SrvTest::getDbVersion() {
 TEST_F(SrvTest, version) {
   typedef velocypack::Slice Slice;
   typedef velocypack::ValueType ValueType;
-  ConnectionBase::VPack res = getDbVersion();
+  Connection::VPack res = getDbVersion();
   Slice retSlice{res->data()};
   Slice slice = retSlice.get("version");
   if (slice.type() == ValueType::String) {
