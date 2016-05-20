@@ -20,40 +20,38 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef BUCKETREADTEST_H
-#define BUCKETREADTEST_H
+#ifndef BUCKETWRITETEST_H
+#define BUCKETWRITETEST_H
 
 #include "BucketTest.h"
 
+#include <velocypack/Buffer.h>
+#include <velocypack/Builder.h>
+#include <velocypack/Parser.h>
+
 #include <atomic>
 
-class BucketReadTest : public BucketTest {
+class BucketWriteTest : public BucketTest {
  public:
-  typedef std::vector<std::string> DocNames;
+  typedef arangodb::velocypack::Buffer<uint8_t> VBuffer;
+  typedef arangodb::velocypack::Builder Builder;
+  typedef std::shared_ptr<VBuffer> VPack;
+  typedef std::vector<VPack> DocBodies;
 
-  BucketReadTest() = delete;
-  BucketReadTest(const std::string& hostName, const std::string& dbName,
-                 const std::string& colName, ConnectionBase::Protocol prot);
+  BucketWriteTest() = delete;
+  BucketWriteTest(const std::string& hostName, const std::string& dbName,
+                  const std::string& colName, ConnectionBase::Protocol prot);
 
-  void setDocNames(DocDatas::const_iterator iFirst,
-                   DocDatas::const_iterator iEnd);
-
-  bool collectionExists();
-  bool databaseExists();
-  bool serverExists();
+  void setDocBodies(DocDatas::const_iterator iFirst,
+                    DocDatas::const_iterator iEnd);
 
   void operator()(std::atomic_bool& bWait, LoopCount loops) override final;
 
  private:
   Document::SPtr _document;
-  DocNames::const_iterator _iFirst;
-  DocNames::const_iterator _iEnd;
+  DocBodies::const_iterator _iFirst;
+  DocBodies::const_iterator _iEnd;
+  DocBodies _bodies;
 };
-
-inline void BucketReadTest::setDocNames(DocDatas::const_iterator iFirst,
-                                        DocDatas::const_iterator iEnd) {
-  _iFirst = iFirst;
-  _iEnd = iEnd;
-}
 
 #endif

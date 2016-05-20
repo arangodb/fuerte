@@ -26,25 +26,34 @@
 #include <string>
 #include <vector>
 
-#include "BucketReadTest.h"
+#include "BucketTest.h"
 
 class FuerteBench {
  public:
-  typedef BucketReadTest::DocNames DocNames;
-  typedef BucketReadTest::LoopCount LoopCount;
+  typedef BucketTest::DocDatas DocDatas;
+  typedef BucketTest::LoopCount LoopCount;
   typedef uint16_t ThreadCount;
-  typedef std::vector<BucketReadTest> TestObjs;
-  FuerteBench(int argc, const char* argv[]);
+  typedef std::vector<BucketTest*> TestObjs;
+
+  enum class TestCase { READ, WRITE };
+
+ public:
   static std::string hostUrl();
+
+ public:
+  FuerteBench(int argc, const char* argv[]);
+
   bool start();
   void outputReport() const;
 
  private:
   typedef arangodb::dbinterface::ConnectionBase::Protocol Protocol;
+
   void processCmdLine();
-  bool getDocNames();
-  void createTestObjs();
-  std::string collectionExists() const;
+  bool readDocDatas();
+  void createTestObjs(std::function<std::unique_ptr<BucketTest>(
+                          DocDatas::const_iterator, DocDatas::const_iterator)>);
+  std::string checkCollection() const;
 
   int _argc;
   const char** _argv;
@@ -54,12 +63,13 @@ class FuerteBench {
   std::string _dbName;
   std::string _colName;
   std::string _fileName;
-  DocNames _docNames;
+  DocDatas _docDatas;
+  TestCase _testCase;
   TestObjs _tests;
   Protocol _prot;
-  std::chrono::microseconds _usecs;
+  std::chrono::microseconds _duration;
 };
 
 inline std::string FuerteBench::hostUrl() { return "http://127.0.0.1:8529"; }
 
-#endif  // FUERTEBENCH_H
+#endif

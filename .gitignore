@@ -47,3 +47,6 @@ arangodbcpp/test/ColTests/build/
 arangodbcpp/test/DocTests/build/
 arangodbcpp/Examples/build/
 arangodbcpp/Examples/FuerteBench/build/
+
+# emacs
+*~

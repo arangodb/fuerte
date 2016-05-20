@@ -3,6 +3,8 @@
 set(FuerteBenchSRCS
   main.cpp
   BucketReadTest.cpp
+  BucketWriteTest.cpp
+  BucketTest.cpp
   FuerteBench.cpp
 )
 

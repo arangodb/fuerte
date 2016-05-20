@@ -20,44 +20,20 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "BucketReadTest.h"
+#include "BucketWriteTest.h"
 
 #include <thread>
 
 #include "FuerteBench.h"
 
-BucketReadTest::BucketReadTest(const std::string& hostName,
-                               const std::string& dbName,
-                               const std::string& colName,
-                               ConnectionBase::Protocol prot)
+BucketWriteTest::BucketWriteTest(const std::string& hostName,
+                                 const std::string& dbName,
+                                 const std::string& colName,
+                                 ConnectionBase::Protocol prot)
     : BucketTest(hostName, dbName, colName, prot),
-      _document{std::make_shared<Document>("MyDoc")} {}
+      _document{std::make_shared<Document>()} {}
 
-bool BucketReadTest::collectionExists() {
-  enum : long { ReadSuccess = 200 };
-  ConnectionBase& con = *_connection;
-  _collection->about(_connection);
-  con.run();
-  return con.responseCode() == ReadSuccess;
-}
-
-bool BucketReadTest::databaseExists() {
-  enum : long { ReadSuccess = 200 };
-  ConnectionBase& con = *_connection;
-  _collection->collections(_connection);
-  con.run();
-  return con.responseCode() == ReadSuccess;
-}
-
-bool BucketReadTest::serverExists() {
-  enum : long { ReadSuccess = 200 };
-  ConnectionBase& con = *_connection;
-  _server->version(_connection);
-  con.run();
-  return con.responseCode() == ReadSuccess;
-}
-
-void BucketReadTest::operator()(std::atomic_bool& bWait, LoopCount loops) {
+void BucketWriteTest::operator()(std::atomic_bool& bWait, LoopCount loops) {
   namespace chrono = std::chrono;
   using system_clock = chrono::system_clock;
   Document& doc = *_document;
@@ -72,24 +48,39 @@ void BucketReadTest::operator()(std::atomic_bool& bWait, LoopCount loops) {
   system_clock::time_point now = system_clock::now();
 
   do {
-    DocNames::const_iterator iName = _iFirst;
+    DocBodies::const_iterator iBody = _iFirst;
 
     do {
-      enum : long { ReadSuccess = 200 };
-      std::string name = *iName;
-      doc = name;
-      doc.get(_collection, _connection);
+      enum : long { WriteCreated = 201, WriteAccepted = 202 };
+      VPack body = *iBody;
+      doc.create(_collection, _connection, body);
       con.run();
       con.result(false);
 
-      if (con.responseCode() != ReadSuccess) {
+      auto code = con.responseCode();
+      if (code != WriteCreated && code != WriteAccepted) {
         ++_failed;
       } else {
         ++_successful;
       }
-    } while (++iName != _iEnd);
+    } while (++iBody != _iEnd);
   } while (--loops);
 
   _duration =
       chrono::duration_cast<chrono::microseconds>(system_clock::now() - now);
+}
+
+void BucketWriteTest::setDocBodies(DocDatas::const_iterator iFirst,
+                                   DocDatas::const_iterator iEnd) {
+  using arangodb::velocypack::Builder;
+  using arangodb::velocypack::Parser;
+  using arangodb::velocypack::Options;
+
+  while (iFirst != iEnd) {
+    std::string const& body = *iFirst++;
+    _bodies.emplace_back(Parser::fromJson(body)->steal());
+  }
+
+  _iFirst = _bodies.cbegin();
+  _iEnd = _bodies.cend();
 }
