@@ -23,6 +23,7 @@
 #ifndef BUCKETTEST_H
 #define BUCKETTEST_H
 
+#include <atomic>
 #include <chrono>
 
 #include <arangodbcpp/Server.h>
