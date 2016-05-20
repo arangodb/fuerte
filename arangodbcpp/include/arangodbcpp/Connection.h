@@ -20,8 +20,8 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef FUERTE_CONNECTIONBASE
-#define FUERTE_CONNECTIONBASE
+#ifndef FUERTE_CONNECTION
+#define FUERTE_CONNECTION
 
 #include <memory>
 

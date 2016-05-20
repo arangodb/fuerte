@@ -30,7 +30,7 @@
 #include <curlpp/Options.hpp>
 #include <curlpp/Infos.hpp>
 
-#include "ConnectionBase.h"
+#include "Connection.h"
 
 namespace arangodb {
 

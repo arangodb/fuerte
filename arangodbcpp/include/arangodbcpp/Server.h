@@ -26,7 +26,7 @@
 #include <memory>
 #include <string.h>
 
-#include "arangodbcpp/ConnectionBase.h"
+#include "arangodbcpp/Connection.h"
 
 namespace arangodb {
 
