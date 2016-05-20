@@ -2,7 +2,7 @@
 
 set(arangodbcppSRCS
   ConnectionUrl.cpp
-  Connection.cpp
+  HttpConnection.cpp
   Server.cpp
   Database.cpp
   Collection.cpp

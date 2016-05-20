@@ -32,7 +32,7 @@
 
 class DocTest : public testing::Test {
  public:
-  typedef arangodb::dbinterface::ConnectionBase ConnectionBase;
+  typedef arangodb::dbinterface::Connection Connection;
   typedef arangodb::dbinterface::Database Database;
   typedef arangodb::dbinterface::Server Server;
   typedef arangodb::dbinterface::Collection Collection;
@@ -49,48 +49,48 @@ class DocTest : public testing::Test {
   bool versionTest();
 
  private:
-  const ConnectionBase::VPack makeDocument1();
-  const ConnectionBase::VPack makeDocument2();
-  void generalTest(const ConnectionBase::VPack (DocTest::*fn)(), uint64_t code);
+  const Connection::VPack makeDocument1();
+  const Connection::VPack makeDocument2();
+  void generalTest(const Connection::VPack (DocTest::*fn)(), uint64_t code);
   void checkResponse(const unsigned rWait, unsigned rNoWait,
                      Document::Options::Sync flg);
   bool checkKey(const arangodb::velocypack::Slice& resSlice);
-  bool createTest(const ConnectionBase::VPack& doc,
+  bool createTest(const Connection::VPack& doc,
                   const Document::Options& opts);
-  bool patchTest(const ConnectionBase::VPack& doc,
+  bool patchTest(const Connection::VPack& doc,
                  const Document::Options& opts);
-  bool replaceTest(const ConnectionBase::VPack& doc,
+  bool replaceTest(const Connection::VPack& doc,
                    const Document::Options& opts);
   bool getTest(const Document::Options& opts);
   bool deleteTest(const Document::Options& opts);
   void replaceTest(const std::string& name);
   std::string getRev();
   bool checkError(const arangodb::velocypack::Slice& resSlice);
-  const ConnectionBase::VPack createDatabase();
-  const ConnectionBase::VPack deleteDatabase();
-  const ConnectionBase::VPack createCollection();
-  const ConnectionBase::VPack deleteCollection();
-  const ConnectionBase::VPack truncateCollection();
-  const ConnectionBase::VPack serverVer();
-  const ConnectionBase::VPack createDoc(
-      const ConnectionBase::VPack& doc,
+  const Connection::VPack createDatabase();
+  const Connection::VPack deleteDatabase();
+  const Connection::VPack createCollection();
+  const Connection::VPack deleteCollection();
+  const Connection::VPack truncateCollection();
+  const Connection::VPack serverVer();
+  const Connection::VPack createDoc(
+      const Connection::VPack& doc,
       const Document::Options& opts = Document::Options{});
-  const ConnectionBase::VPack patchDoc(
-      const ConnectionBase::VPack& doc,
+  const Connection::VPack patchDoc(
+      const Connection::VPack& doc,
       const Document::Options& opts = Document::Options{});
-  const ConnectionBase::VPack createDoc(
+  const Connection::VPack createDoc(
       const Document::Options& opts = Document::Options{});
-  const ConnectionBase::VPack replaceDoc(
-      const ConnectionBase::VPack& doc,
+  const Connection::VPack replaceDoc(
+      const Connection::VPack& doc,
       const Document::Options& opts = Document::Options{});
-  const ConnectionBase::VPack deleteDoc(const Document::Options& opts);
-  const ConnectionBase::VPack getDoc(const Document::Options& opts);
+  const Connection::VPack deleteDoc(const Document::Options& opts);
+  const Connection::VPack getDoc(const Document::Options& opts);
 
   Server::SPtr _pSrv;
   Database::SPtr _pDb;
   Collection::SPtr _pCol;
   Document::SPtr _pDoc;
-  ConnectionBase::SPtr _pCon;
+  Connection::SPtr _pCon;
 };
 
 #endif  // DOCTEST_H

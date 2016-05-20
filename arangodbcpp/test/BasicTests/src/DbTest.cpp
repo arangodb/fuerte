@@ -33,25 +33,25 @@ DbTest::DbTest()
 
 {}
 
-const DbTest::ConnectionBase::VPack DbTest::createDatabase() {
+const DbTest::Connection::VPack DbTest::createDatabase() {
   Database& db = *_pDb;
   db.create(_pCon);
   _pCon->run();
   return _pCon->result(false);
 }
 
-const DbTest::ConnectionBase::VPack DbTest::deleteDatabase() {
+const DbTest::Connection::VPack DbTest::deleteDatabase() {
   Database& db = *_pDb;
   db.remove(_pCon);
   _pCon->run();
   return _pCon->result(false);
 }
 
-void DbTest::generalTest(const ConnectionBase::VPack (DbTest::*fn)(),
+void DbTest::generalTest(const Connection::VPack (DbTest::*fn)(),
                          uint64_t code) {
   typedef velocypack::Slice Slice;
   typedef velocypack::ValueType ValueType;
-  const ConnectionBase::VPack res = (this->*fn)();
+  const Connection::VPack res = (this->*fn)();
   Slice retSlice{res->data()};
   Slice slice = retSlice.get("result");
   if (slice.type() == ValueType::Bool) {

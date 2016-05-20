@@ -89,28 +89,28 @@ class Collection {
   virtual ~Collection();
 
   static void create(const Database::SPtr& pDb,
-                     const ConnectionBase::SPtr& pCon,
-                     const ConnectionBase::VPack& body);
-  void create(const ConnectionBase::SPtr& pCon);
-  void docs(const ConnectionBase::SPtr& pCon, const Options opts = Options());
-  void collections(const ConnectionBase::SPtr& pCon,
+                     const Connection::SPtr& pCon,
+                     const Connection::VPack& body);
+  void create(const Connection::SPtr& pCon);
+  void docs(const Connection::SPtr& pCon, const Options opts = Options());
+  void collections(const Connection::SPtr& pCon,
                    const Options opts = Options());
-  void remove(const ConnectionBase::SPtr& pCon, const Options opts = Options());
-  void about(const ConnectionBase::SPtr& pCon, const Options opts = Options());
-  void truncate(const ConnectionBase::SPtr& pCon,
+  void remove(const Connection::SPtr& pCon, const Options opts = Options());
+  void about(const Connection::SPtr& pCon, const Options opts = Options());
+  void truncate(const Connection::SPtr& pCon,
                 const Options opts = Options());
-  void rename(const ConnectionBase::SPtr& pCon, const std::string& name,
+  void rename(const Connection::SPtr& pCon, const std::string& name,
               const Options opts = Options());
-  void count(const ConnectionBase::SPtr& pCon, const Options opts = Options());
-  void checksum(const ConnectionBase::SPtr& pCon,
+  void count(const Connection::SPtr& pCon, const Options opts = Options());
+  void checksum(const Connection::SPtr& pCon,
                 const Options opts = Options());
-  void stats(const ConnectionBase::SPtr& pCon, const Options opts = Options());
-  void properties(const ConnectionBase::SPtr& pCon,
+  void stats(const Connection::SPtr& pCon, const Options opts = Options());
+  void properties(const Connection::SPtr& pCon,
                   const Options opts = Options());
-  void revId(const ConnectionBase::SPtr& pCon, const Options opts = Options());
+  void revId(const Connection::SPtr& pCon, const Options opts = Options());
 
-  ConnectionBase::Url refColUrl() const;
-  ConnectionBase::Url refDocUrl(const std::string& key) const;
+  Connection::Url refColUrl() const;
+  Connection::Url refDocUrl(const std::string& key) const;
   bool hasValidHost() const;
   Collection& operator=(const std::string&);
 
@@ -120,10 +120,10 @@ class Collection {
   operator const std::string&() const;
 
  private:
-  void httpInfo(const ConnectionBase::SPtr& pCon, const Options,
+  void httpInfo(const Connection::SPtr& pCon, const Options,
                 const std::string&& info);
-  const ConnectionBase::Url httpApi() const;
-  const ConnectionBase::Url httpApiName() const;
+  const Connection::Url httpApi() const;
+  const Connection::Url httpApiName() const;
 
   Database::SPtr _database;
   std::string _name;
@@ -208,22 +208,22 @@ inline const std::string Collection::id() const { return _name; }
 
 // Configure to get document count in a Collection using the configured
 // Database and Collection name
-inline void Collection::count(const ConnectionBase::SPtr& pCon,
+inline void Collection::count(const Connection::SPtr& pCon,
                               const Options opts) {
   httpInfo(pCon, opts, "/count");
 }
 
-inline void Collection::properties(const ConnectionBase::SPtr& pCon,
+inline void Collection::properties(const Connection::SPtr& pCon,
                                    const Options opts) {
   httpInfo(pCon, opts, "/propeties");
 }
 
-inline void Collection::stats(const ConnectionBase::SPtr& pCon,
+inline void Collection::stats(const Connection::SPtr& pCon,
                               const Options opts) {
   httpInfo(pCon, opts, "/figures");
 }
 
-inline void Collection::revId(const ConnectionBase::SPtr& pCon,
+inline void Collection::revId(const Connection::SPtr& pCon,
                               const Options opts) {
   httpInfo(pCon, opts, "/revision");
 }

@@ -36,7 +36,7 @@ void Document::addKeyAttrib(arangodb::velocypack::Builder& builder) {
   builder.add("_key", arangodb::velocypack::Value(_key));
 }
 
-void Document::syncQuery(ConnectionBase& conn, const Options& opts) {
+void Document::syncQuery(Connection& conn, const Options& opts) {
   typedef Options::Sync Sync;
   switch (opts.flag<Sync>()) {
     case Sync::NoWait: {
@@ -51,13 +51,13 @@ void Document::syncQuery(ConnectionBase& conn, const Options& opts) {
   }
 }
 
-void Document::mergeQuery(ConnectionBase& conn, const Options& opts) {
+void Document::mergeQuery(Connection& conn, const Options& opts) {
   if (opts.flagged(Options::Merge::No)) {
     conn.addQuery(ConOption("mergeObjects", "false"));
   }
 }
 
-void Document::keepNullQuery(ConnectionBase& conn, const Options& opts) {
+void Document::keepNullQuery(Connection& conn, const Options& opts) {
   if (opts.flagged(Options::RemoveNull::Yes)) {
     conn.addQuery(ConOption{"KeepNull", "false"});
   }
@@ -68,8 +68,8 @@ void Document::keepNullQuery(ConnectionBase& conn, const Options& opts) {
 // pCol parameter
 //
 void Document::create(const Collection::SPtr& pCol,
-                      const ConnectionBase::SPtr& pCon, const Options& opts) {
-  ConnectionBase& conn = pCon->reset();
+                      const Connection::SPtr& pCon, const Options& opts) {
+  Connection& conn = pCon->reset();
   std::string json{"{\"_key\":\"" + _key + "\"}"};
   { conn.setHeaderOpts(); }
   {
@@ -82,9 +82,9 @@ void Document::create(const Collection::SPtr& pCol,
 }
 
 void Document::create(const Collection::SPtr& pCol,
-                      const ConnectionBase::SPtr& pCon,
-                      const ConnectionBase::VPack data, const Options& opts) {
-  ConnectionBase& conn = pCon->reset();
+                      const Connection::SPtr& pCon,
+                      const Connection::VPack data, const Options& opts) {
+  Connection& conn = pCon->reset();
   { conn.setHeaderOpts(); }
   {
     syncQuery(conn, opts);
@@ -101,8 +101,8 @@ void Document::create(const Collection::SPtr& pCol,
 // location determined by the pCol parameter
 //
 void Document::remove(const Collection::SPtr& pCol,
-                      const ConnectionBase::SPtr& pCon, const Options& opts) {
-  ConnectionBase& conn = pCon->reset();
+                      const Connection::SPtr& pCon, const Options& opts) {
+  Connection& conn = pCon->reset();
   {
     revMatch(conn, opts);
     conn.setHeaderOpts();
@@ -115,7 +115,7 @@ void Document::remove(const Collection::SPtr& pCol,
   conn.setBuffer();
 }
 
-void Document::revMatch(ConnectionBase& conn, const Options& opts) {
+void Document::revMatch(Connection& conn, const Options& opts) {
   const std::string& rev = opts;
   if (!rev.empty() && opts.flagged(Options::Rev::Match)) {
     ConOption opt{"If-Match", '"' + rev + '"'};
@@ -127,7 +127,7 @@ void Document::revMatch(ConnectionBase& conn, const Options& opts) {
 //  Ensures Match _rev headers are mutually exclusive and require
 //  an ETag
 //
-void Document::matchHeader(ConnectionBase& conn, const Options& opts) {
+void Document::matchHeader(Connection& conn, const Options& opts) {
   typedef Options::Rev Rev;
   const std::string& rev = opts;
   if (!rev.empty()) {
@@ -155,8 +155,8 @@ void Document::matchHeader(ConnectionBase& conn, const Options& opts) {
 // DONE
 //
 void Document::get(const Collection::SPtr& pCol,
-                   const ConnectionBase::SPtr& pCon, const Options& opts) {
-  ConnectionBase& conn = pCon->reset();
+                   const Connection::SPtr& pCon, const Options& opts) {
+  Connection& conn = pCon->reset();
   matchHeader(conn, opts);
   conn.setUrl(pCol->refDocUrl(_key));
   conn.setGetReq();
@@ -170,9 +170,9 @@ void Document::get(const Collection::SPtr& pCol,
 // All options implemented, match rev done as a query
 //
 void Document::replace(const Collection::SPtr& pCol,
-                       const ConnectionBase::SPtr& pCon,
-                       ConnectionBase::VPack data, const Options& opts) {
-  ConnectionBase& conn = pCon->reset();
+                       const Connection::SPtr& pCon,
+                       Connection::VPack data, const Options& opts) {
+  Connection& conn = pCon->reset();
   {
     revMatch(conn, opts);
     conn.setHeaderOpts();
@@ -190,9 +190,9 @@ void Document::replace(const Collection::SPtr& pCol,
 // DONE
 //
 void Document::patch(const Collection::SPtr& pCol,
-                     const ConnectionBase::SPtr& pCon,
-                     ConnectionBase::VPack data, const Options& opts) {
-  ConnectionBase& conn = pCon->reset();
+                     const Connection::SPtr& pCon,
+                     Connection::VPack data, const Options& opts) {
+  Connection& conn = pCon->reset();
   {
     revMatch(conn, opts);
     conn.setHeaderOpts();

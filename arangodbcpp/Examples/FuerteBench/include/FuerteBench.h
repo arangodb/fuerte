@@ -40,7 +40,7 @@ class FuerteBench {
   void outputReport() const;
 
  private:
-  typedef arangodb::dbinterface::ConnectionBase::Protocol Protocol;
+  typedef arangodb::dbinterface::Connection::Protocol Protocol;
   void processCmdLine();
   bool getDocNames();
   void createTestObjs();

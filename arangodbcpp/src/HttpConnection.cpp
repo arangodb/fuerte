@@ -20,8 +20,6 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "arangodbcpp/Connection.h"
-
 #include <algorithm>
 #include <velocypack/Builder.h>
 #include <velocypack/Slice.h>
@@ -32,7 +30,7 @@
 
 #include <curlpp/Infos.hpp>
 
-#include "arangodbcpp/ConnectionBase.h"
+#include "arangodbcpp/HttpConnection.h"
 
 namespace arangodb {
 
@@ -42,7 +40,7 @@ namespace dbinterface {
 // Flags an error has occured and transfers the error message
 // to the default write buffer
 //
-void Connection::errFound(const std::string& inp, const Mode err) {
+void HttpConnection::errFound(const std::string& inp, const Mode err) {
   std::ostringstream os;
   char old = '\0';
   os << "{ \"errorMessage\":\"";
@@ -60,23 +58,23 @@ void Connection::errFound(const std::string& inp, const Mode err) {
   reset(err);
 }
 
-void Connection::addHeader(const ConOption& inp) {
+void HttpConnection::addHeader(const ConOption& inp) {
   _headers.push_back(inp.headerString());
 }
 
-void Connection::addQuery(const ConOption& inp) {
+void HttpConnection::addQuery(const ConOption& inp) {
   _queries += '&' + inp.queryString();
 }
 
-void Connection::addHeader(ConOption&& inp) {
+void HttpConnection::addHeader(ConOption&& inp) {
   _headers.push_back(inp.headerString());
 }
 
-void Connection::addQuery(ConOption&& inp) {
+void HttpConnection::addQuery(ConOption&& inp) {
   _queries += '&' + inp.queryString();
 }
 
-void Connection::setBuffer(const std::string& inp) {
+void HttpConnection::setBuffer(const std::string& inp) {
   switch (_prot) {
     case Protocol::JSonVPack:
     case Protocol::JSon: {
@@ -97,7 +95,7 @@ void Connection::setBuffer(const std::string& inp) {
   }
 }
 
-void Connection::setUrl(const Connection::Url& inp) {
+void HttpConnection::setUrl(const HttpConnection::Url& inp) {
 #ifdef FUERTE_CONNECTIONURL
   std::string url = inp.httpUrl();
 #else
@@ -110,7 +108,7 @@ void Connection::setUrl(const Connection::Url& inp) {
   setOpt(curlpp::options::Url(url));
 }
 
-void Connection::defaultContentType(Format inp) {
+void HttpConnection::defaultContentType(Format inp) {
   if (inp == Format::JSon) {
     switch (_prot) {
       case Protocol::VPack: {
@@ -138,7 +136,7 @@ void Connection::defaultContentType(Format inp) {
   }
 }
 
-void Connection::defaultAccept(Format inp) {
+void HttpConnection::defaultAccept(Format inp) {
   if (inp == Format::JSon) {
     switch (_prot) {
       case Protocol::VPack: {
@@ -166,7 +164,7 @@ void Connection::defaultAccept(Format inp) {
   }
 }
 
-std::string Connection::json(const VPack& v, bool bSort) {
+std::string HttpConnection::json(const VPack& v, bool bSort) {
   using arangodb::velocypack::Slice;
   using arangodb::velocypack::Dumper;
   using arangodb::velocypack::StringSink;
@@ -180,7 +178,7 @@ std::string Connection::json(const VPack& v, bool bSort) {
   return tmp;
 }
 
-void Connection::setPostField(const VPack data) {
+void HttpConnection::setPostField(const VPack data) {
   char* pData = reinterpret_cast<char*>(data->data());
   if (pData == nullptr) {
     return;
@@ -208,9 +206,9 @@ void Connection::setPostField(const VPack data) {
 //
 //
 //
-void Connection::setBuffer() {
+void HttpConnection::setBuffer() {
   _buf.clear();
-  setBuffer(this, &Connection::WriteMemoryCallback);
+  setBuffer(this, &HttpConnection::WriteMemoryCallback);
 }
 
 //
@@ -220,7 +218,7 @@ void Connection::setBuffer() {
 // IMPORTANT
 // This should be the last configuration item to be set
 //
-void Connection::setAsynchronous(const bool bAsync) {
+void HttpConnection::setAsynchronous(const bool bAsync) {
   if (bAsync) {
     _mode = Mode::AsyncRun;
     _async.add(&_request);
@@ -229,7 +227,7 @@ void Connection::setAsynchronous(const bool bAsync) {
   _mode = Mode::SyncRun;
 }
 
-void Connection::reset(const Mode inp) {
+void HttpConnection::reset(const Mode inp) {
   if (_mode == Mode::AsyncRun) {
     _async.remove(&_request);
   }
@@ -237,7 +235,7 @@ void Connection::reset(const Mode inp) {
   _mode = inp;
 }
 
-void Connection::runAgain(bool bAsync) {
+void HttpConnection::runAgain(bool bAsync) {
   if (_mode == Mode::Done) {
     _buf.clear();
     if (bAsync) {
@@ -257,7 +255,7 @@ void Connection::runAgain(bool bAsync) {
   }
 }
 
-void Connection::run() {
+void HttpConnection::run() {
   switch (_mode) {
     case Mode::AsyncRun: {
       asyncRun();
@@ -277,7 +275,7 @@ void Connection::run() {
   }
 }
 
-ConnectionBase& Connection::reset() {
+Connection& HttpConnection::reset() {
   _headers.clear();
   _queries.clear();
   reset(Mode::SyncRun);
@@ -287,7 +285,7 @@ ConnectionBase& Connection::reset() {
 //
 // Synchronous operation which will complete before returning
 //
-void Connection::syncRun() {
+void HttpConnection::syncRun() {
   try {
     _request.perform();
     _mode = Mode::Done;
@@ -307,7 +305,7 @@ void Connection::syncRun() {
 // Asynchronous operation which may need to be run multiple times
 // before completing
 //
-void Connection::asyncRun() {
+void HttpConnection::asyncRun() {
   try {
     {
       int nLeft = 1;
@@ -352,7 +350,7 @@ void Connection::asyncRun() {
   }
 }
 
-void Connection::httpResponse() {
+void HttpConnection::httpResponse() {
   long res = responseCode();
   if (!res && _mode == Mode::AsyncRun) {
     typedef curlpp::Multi::Msgs M_Msgs;
@@ -370,7 +368,7 @@ void Connection::httpResponse() {
   }
 }
 
-void Connection::setPostField(const std::string& inp) {
+void HttpConnection::setPostField(const std::string& inp) {
   if (inp.empty()) {
     return;
   }
@@ -400,7 +398,7 @@ void Connection::setPostField(const std::string& inp) {
 // Sets the curlpp callback function that receives the data returned
 // from the operation performed
 //
-void Connection::setBuffer(size_t (*f)(char* p, size_t sz, size_t m)) {
+void HttpConnection::setBuffer(size_t (*f)(char* p, size_t sz, size_t m)) {
   curlpp::types::WriteFunctionFunctor fnc(f);
   setOpt(curlpp::options::WriteFunction(fnc));
 }
@@ -409,7 +407,7 @@ void Connection::setBuffer(size_t (*f)(char* p, size_t sz, size_t m)) {
 //      Curlpp callback function that receives the data returned
 //      from the operation performed into the default write buffer
 //
-size_t Connection::WriteMemoryCallback(char* ptr, size_t size, size_t nmemb) {
+size_t HttpConnection::WriteMemoryCallback(char* ptr, size_t size, size_t nmemb) {
   size_t realsize = size * nmemb;
   if (realsize != 0) {
     size_t offset = _buf.size();
@@ -419,7 +417,7 @@ size_t Connection::WriteMemoryCallback(char* ptr, size_t size, size_t nmemb) {
   return realsize;
 }
 
-ConnectionBase::VPack Connection::fromVPData() const {
+Connection::VPack HttpConnection::fromVPData() const {
   if (_buf.empty()) {
     return VPack{};
   }
@@ -428,10 +426,10 @@ ConnectionBase::VPack Connection::fromVPData() const {
   return buf;
 }
 
-ConnectionBase::VPack Connection::vpack(const uint8_t* data, std::size_t sz,
+Connection::VPack HttpConnection::vpack(const uint8_t* data, std::size_t sz,
                                         bool bSort) {
   if (sz < 2) {
-    return ConnectionBase::VPack{};
+    return Connection::VPack{};
   }
   using arangodb::velocypack::Builder;
   using arangodb::velocypack::Parser;
@@ -448,12 +446,12 @@ ConnectionBase::VPack Connection::vpack(const uint8_t* data, std::size_t sz,
 // Converts JSon held in the default write buffer
 // to a shared velocypack buffer
 //
-ConnectionBase::VPack Connection::fromJSon(const bool bSorted) const {
+Connection::VPack HttpConnection::fromJSon(const bool bSorted) const {
   return vpack(reinterpret_cast<const uint8_t*>(&_buf[0]), _buf.size(),
                bSorted);
 }
 
-ConnectionBase::VPack Connection::result(const bool bSort) const {
+Connection::VPack HttpConnection::result(const bool bSort) const {
   switch (_prot) {
     case Protocol::VPack:
     case Protocol::VPackJSon: {
@@ -470,7 +468,7 @@ ConnectionBase::VPack Connection::result(const bool bSort) const {
   return VPack{};
 }
 
-void Connection::httpProtocol() {
+void HttpConnection::httpProtocol() {
   if (_prot == Protocol::VPackJSon || _prot == Protocol::VPack) {
     addHeader(ConOption("Accept", "application/x-velocypack"));
   }
@@ -479,8 +477,8 @@ void Connection::httpProtocol() {
   }
 }
 
-Connection::Connection() : _prot(Protocol::JSon) {}
+HttpConnection::HttpConnection() : _prot(Protocol::JSon) {}
 
-Connection::~Connection() {}
+HttpConnection::~HttpConnection() {}
 }
 }

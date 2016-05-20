@@ -13,26 +13,26 @@ std::ostream& operator<<(std::ostream& os, Cursor::CacheMode mode) {
   return os << ref[static_cast<uint8_t>(mode)];
 }
 
-ConnectionBase::Url Cursor::aqlFncUrl() const {
+Connection::Url Cursor::aqlFncUrl() const {
   return _database->databaseUrl("/_api/aqlfunction");
 }
 
-ConnectionBase::Url Cursor::cursorUrl() const {
+Connection::Url Cursor::cursorUrl() const {
   return _database->databaseUrl("/_api/cursor");
 }
 
-ConnectionBase::Url Cursor::cacheUrl() const {
+Connection::Url Cursor::cacheUrl() const {
   return _database->databaseUrl("/_api/query-cache");
 }
 
-ConnectionBase::Url Cursor::cachePropsUrl() const {
+Connection::Url Cursor::cachePropsUrl() const {
   return cacheUrl() + std::string{"/properties"};
 }
 
-void Cursor::setCacheProps(const ConnectionBase::SPtr& pCon, CacheMode mode,
+void Cursor::setCacheProps(const Connection::SPtr& pCon, CacheMode mode,
                            uint16_t max, bool bAsync) {
   std::ostringstream os;
-  ConnectionBase& conn = pCon->reset();
+  Connection& conn = pCon->reset();
   os << "{\"mode\":\"" << mode << "\",\"maxResults\":" << max << ')';
   conn.setUrl(cachePropsUrl());
   conn.setPostField(os.str());
@@ -41,45 +41,45 @@ void Cursor::setCacheProps(const ConnectionBase::SPtr& pCon, CacheMode mode,
   conn.setAsynchronous(bAsync);
 }
 
-void Cursor::cacheProperties(const ConnectionBase::SPtr& pCon,
+void Cursor::cacheProperties(const Connection::SPtr& pCon,
                              const bool bAsync) {
-  ConnectionBase& conn = pCon->reset();
+  Connection& conn = pCon->reset();
   conn.setUrl(cachePropsUrl());
   conn.setGetReq();
   conn.setBuffer();
   conn.setAsynchronous(bAsync);
 }
 
-void Cursor::clearCache(const ConnectionBase::SPtr& pCon, const bool bAsync) {
-  ConnectionBase& conn = pCon->reset();
+void Cursor::clearCache(const Connection::SPtr& pCon, const bool bAsync) {
+  Connection& conn = pCon->reset();
   conn.setUrl(cacheUrl());
   conn.setDeleteReq();
   conn.setBuffer();
   conn.setAsynchronous(bAsync);
 }
 
-void Cursor::remove(const ConnectionBase::SPtr& pCon, std::string id,
+void Cursor::remove(const Connection::SPtr& pCon, std::string id,
                     const bool bAsync) {
-  ConnectionBase& conn = pCon->reset();
+  Connection& conn = pCon->reset();
   conn.setUrl(cursorUrl() + ('/' + id));
   conn.setDeleteReq();
   conn.setBuffer();
   conn.setAsynchronous(bAsync);
 }
 
-void Cursor::more(const ConnectionBase::SPtr& pCon, std::string id,
+void Cursor::more(const Connection::SPtr& pCon, std::string id,
                   const bool bAsync) {
-  ConnectionBase& conn = pCon->reset();
+  Connection& conn = pCon->reset();
   conn.setUrl(cursorUrl() + ('/' + id));
   conn.setPutReq();
   conn.setBuffer();
   conn.setAsynchronous(bAsync);
 }
 
-void Cursor::create(const ConnectionBase::SPtr& pCon, const std::string query,
+void Cursor::create(const Connection::SPtr& pCon, const std::string query,
                     uint16_t batSize, const bool bAsync) {
   std::ostringstream os;
-  ConnectionBase& conn = pCon->reset();
+  Connection& conn = pCon->reset();
   conn.setUrl(cursorUrl());
   conn.setPostReq();
   os << "{\"query\" : \"" << query << "\"";
@@ -92,18 +92,18 @@ void Cursor::create(const ConnectionBase::SPtr& pCon, const std::string query,
   conn.setAsynchronous(bAsync);
 }
 
-void Cursor::create(const ConnectionBase::SPtr& pCon,
-                    const ConnectionBase::VPack& config, const bool bAsync) {
-  ConnectionBase& conn = pCon->reset();
+void Cursor::create(const Connection::SPtr& pCon,
+                    const Connection::VPack& config, const bool bAsync) {
+  Connection& conn = pCon->reset();
   conn.setUrl(cursorUrl());
   conn.setPostField(config);
   conn.setBuffer();
   conn.setAsynchronous(bAsync);
 }
 
-void Cursor::addFnc(const ConnectionBase::SPtr& pCon, const std::string& name,
+void Cursor::addFnc(const Connection::SPtr& pCon, const std::string& name,
                     const std::string& code, const bool bAsync) {
-  ConnectionBase& conn = pCon->reset();
+  Connection& conn = pCon->reset();
   std::string config = " { \"name\":\"" + name;
   config += "\",\"code\":\"" + code;
   config += "\"}";
@@ -113,24 +113,24 @@ void Cursor::addFnc(const ConnectionBase::SPtr& pCon, const std::string& name,
   conn.setAsynchronous(bAsync);
 }
 
-void Cursor::deleteFnc(const ConnectionBase::SPtr& pCon,
+void Cursor::deleteFnc(const Connection::SPtr& pCon,
                        const std::string& name, const bool bAsync) {
-  ConnectionBase& conn = pCon->reset();
+  Connection& conn = pCon->reset();
   conn.setUrl(aqlFncUrl() + ('/' + name));
   conn.setDeleteReq();
   conn.setBuffer();
   conn.setAsynchronous(bAsync);
 }
 
-void Cursor::getFncs(const ConnectionBase::SPtr& pCon, const bool bAsync) {
-  ConnectionBase& conn = pCon->reset();
+void Cursor::getFncs(const Connection::SPtr& pCon, const bool bAsync) {
+  Connection& conn = pCon->reset();
   conn.setUrl(aqlFncUrl());
   conn.setGetReq();
   conn.setBuffer();
   conn.setAsynchronous(bAsync);
 }
 
-std::string Cursor::moreId(const ConnectionBase::VPack& res) {
+std::string Cursor::moreId(const Connection::VPack& res) {
   using arangodb::velocypack::Slice;
   using arangodb::velocypack::ValueLength;
   Slice slice{res->data()};

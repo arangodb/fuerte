@@ -32,7 +32,7 @@ class TestApp {
  public:
   typedef arangodb::dbinterface::Server Server;
   typedef arangodb::dbinterface::Database DataBase;
-  typedef arangodb::dbinterface::ConnectionBase ConnectionBase;
+  typedef arangodb::dbinterface::Connection ConnectionBase;
   typedef arangodb::velocypack::Slice Slice;
 
   TestApp(int argc, char* argv[]);

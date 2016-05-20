@@ -41,13 +41,13 @@ class Database {
   explicit Database(const Server::SPtr& srv, std::string&& name = "_system");
   virtual ~Database();
 
-  void create(const ConnectionBase::SPtr& p, const ConnectionBase::VPack& data,
+  void create(const Connection::SPtr& p, const Connection::VPack& data,
               const bool bAsync);
-  void create(const ConnectionBase::SPtr& conn, const bool bAsync = false);
-  void remove(const ConnectionBase::SPtr& conn, const bool bAsync = false);
-  void info(const ConnectionBase::SPtr& conn, const bool bAsync = false);
+  void create(const Connection::SPtr& conn, const bool bAsync = false);
+  void remove(const Connection::SPtr& conn, const bool bAsync = false);
+  void info(const Connection::SPtr& conn, const bool bAsync = false);
 
-  ConnectionBase::Url databaseUrl(const std::string& tail) const;
+  Connection::Url databaseUrl(const std::string& tail) const;
   bool hasValidHost() const;
   Database& operator=(const std::string&);
   Database& operator=(std::string&&);

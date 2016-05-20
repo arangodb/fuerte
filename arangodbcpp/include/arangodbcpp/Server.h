@@ -38,26 +38,26 @@ class Server {
   explicit Server(std::string url = {"http://127.0.0.1:8529"});
   virtual ~Server();
 
-  void version(ConnectionBase::SPtr conn);
-  void currentDb(ConnectionBase::SPtr conn);
-  void userDbs(ConnectionBase::SPtr conn);
-  void existingDbs(ConnectionBase::SPtr conn);
+  void version(Connection::SPtr conn);
+  void currentDb(Connection::SPtr conn);
+  void userDbs(Connection::SPtr conn);
+  void existingDbs(Connection::SPtr conn);
   void setHostUrl(const std::string url);
-  const ConnectionBase::Url& hostUrl() const;
-  ConnectionBase::SPtr makeConnection() const;
+  const Connection::Url& hostUrl() const;
+  Connection::SPtr makeConnection() const;
 
  private:
-  typedef ConnectionBase::SPtr (*ConFnc)();
+  typedef Connection::SPtr (*ConFnc)();
   void setSrvUrl(const std::string& url);
-  static ConnectionBase::SPtr httpConnection();
-  static ConnectionBase::SPtr vppConnection();
+  static Connection::SPtr httpConnection();
+  static Connection::SPtr vppConnection();
 
   static uint16_t _inst;
-  ConnectionBase::Url _host;
+  Connection::Url _host;
   ConFnc _makeConnection;
 };
 
-inline ConnectionBase::SPtr Server::makeConnection() const {
+inline Connection::SPtr Server::makeConnection() const {
   return (*_makeConnection)();
 }
 
@@ -73,7 +73,7 @@ inline void Server::setSrvUrl(const std::string& url) { _host = url; }
 
 #endif
 
-inline const ConnectionBase::Url& Server::hostUrl() const { return _host; }
+inline const Connection::Url& Server::hostUrl() const { return _host; }
 }
 }
 

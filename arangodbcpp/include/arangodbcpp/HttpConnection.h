@@ -20,8 +20,8 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef FUERTE_CONNECTION_H
-#define FUERTE_CONNECTION_H 1
+#ifndef FUERTE_HTTPCONNECTION_H
+#define FUERTE_HTTPCONNECTION_H 1
 
 #include <vector>
 #include <list>
@@ -40,14 +40,14 @@ namespace dbinterface {
 //  Provide network connection to Arango database
 //  Hide the underlying use of cURL for implementation
 //
-class Connection : public ConnectionBase {
+class HttpConnection : public Connection {
  public:
-  typedef std::shared_ptr<Connection> SPtr;
+  typedef std::shared_ptr<HttpConnection> SPtr;
   typedef std::list<std::string> HeaderList;
   typedef std::string QueryList;
-  Connection();
-  virtual ~Connection();
-  ConnectionBase& operator=(const Protocol in);
+  HttpConnection();
+  virtual ~HttpConnection();
+  Connection& operator=(const Protocol in);
   void addHeader(const ConOption& inp);
   void addQuery(const ConOption& inp);
   void addHeader(ConOption&& inp);
@@ -69,7 +69,7 @@ class Connection : public ConnectionBase {
   void setPutReq();
   void setPatchReq();
   void setVerbose(const bool inp);
-  ConnectionBase& reset();
+  Connection& reset();
   template <typename T>
   void setBuffer(T* p, size_t (T::*f)(char* p, size_t sz, size_t m));
   void setBuffer(size_t (*f)(char* p, size_t sz, size_t m));
@@ -121,23 +121,23 @@ class Connection : public ConnectionBase {
 };
 
 template <typename T>
-inline void Connection::setBuffer(T* p, size_t (T::*f)(char*, size_t, size_t)) {
+inline void HttpConnection::setBuffer(T* p, size_t (T::*f)(char*, size_t, size_t)) {
   curlpp::types::WriteFunctionFunctor functor(p, f);
   setOpt(curlpp::options::WriteFunction(functor));
 }
 
-inline ConnectionBase& Connection::operator=(const Protocol inp) {
+inline Connection& HttpConnection::operator=(const Protocol inp) {
   _prot = inp;
   return *this;
 }
 
-inline bool Connection::bufEmpty() const { return _buf.empty(); }
+inline bool HttpConnection::bufEmpty() const { return _buf.empty(); }
 
-inline long Connection::responseCode() {
+inline long HttpConnection::responseCode() {
   return curlpp::infos::ResponseCode::get(_request);
 }
 
-inline std::string Connection::httpEffectiveUrl() {
+inline std::string HttpConnection::httpEffectiveUrl() {
   return curlpp::infos::EffectiveUrl::get(_request);
 }
 
@@ -150,45 +150,45 @@ inline std::string Connection::httpEffectiveUrl() {
 //  _request.setOpt(curlpp::options::NoBody(true));
 //}
 
-inline void Connection::setPostReq() { setCustomReq("POST"); }
+inline void HttpConnection::setPostReq() { setCustomReq("POST"); }
 
-inline void Connection::setDeleteReq() { setCustomReq("DELETE"); }
+inline void HttpConnection::setDeleteReq() { setCustomReq("DELETE"); }
 
-inline void Connection::setGetReq() { setCustomReq("GET"); }
+inline void HttpConnection::setGetReq() { setCustomReq("GET"); }
 
-inline void Connection::setPatchReq() { setCustomReq("PATCH"); }
+inline void HttpConnection::setPatchReq() { setCustomReq("PATCH"); }
 
-inline void Connection::setPutReq() { setCustomReq("PUT"); }
+inline void HttpConnection::setPutReq() { setCustomReq("PUT"); }
 
 // Converts the contents of the default write buffer to a string
 //
 // This will usually be either JSon or an error message
 
-inline const std::string Connection::bufString() const {
+inline const std::string HttpConnection::bufString() const {
   return std::string(_buf.data(), _buf.size());
 }
 
-inline void Connection::setErrBuf(char* inp) {
+inline void HttpConnection::setErrBuf(char* inp) {
   setOpt(cURLpp::options::ErrorBuffer(inp));
 }
 
-inline void Connection::setCustomReq(const std::string inp) {
+inline void HttpConnection::setCustomReq(const std::string inp) {
   setOpt(cURLpp::options::CustomRequest(inp));
 }
 
-inline void Connection::setVerbose(const bool inp) {
+inline void HttpConnection::setVerbose(const bool inp) {
   setOpt(cURLpp::options::Verbose(inp));
 }
 
-inline bool Connection::isError() const {
+inline bool HttpConnection::isError() const {
   return _mode == Mode::LogicError || _mode == Mode::RunError;
 }
 
-inline bool Connection::isRunning() const {
+inline bool HttpConnection::isRunning() const {
   return _mode == Mode::AsyncRun || _mode == Mode::SyncRun;
 }
 
-inline void Connection::setHeaderOpts() {
+inline void HttpConnection::setHeaderOpts() {
   httpProtocol();
   if (!_headers.empty()) {
     setOpt(curlpp::options::HttpHeader(_headers));
@@ -196,7 +196,7 @@ inline void Connection::setHeaderOpts() {
 }
 
 template <typename T>
-inline void Connection::setOpt(const T& inp) {
+inline void HttpConnection::setOpt(const T& inp) {
   _request.setOpt(inp);
 }
 }

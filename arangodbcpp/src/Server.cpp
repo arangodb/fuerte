@@ -26,7 +26,7 @@
 
 #include "arangodbcpp/Server.h"
 #include "arangodbcpp/Database.h"
-#include "arangodbcpp/Connection.h"
+#include "arangodbcpp/HttpConnection.h"
 
 namespace arangodb {
 
@@ -49,11 +49,11 @@ Server::~Server() {
   }
 }
 
-ConnectionBase::SPtr Server::httpConnection() {
-  return ConnectionBase::SPtr(new Connection());
+Connection::SPtr Server::httpConnection() {
+  return Connection::SPtr(new HttpConnection());
 }
 
-ConnectionBase::SPtr Server::vppConnection() { return ConnectionBase::SPtr(); }
+Connection::SPtr Server::vppConnection() { return Connection::SPtr(); }
 
 //
 //      Enables the user to set the host url
@@ -91,8 +91,8 @@ void Server::setHostUrl(const std::string url) {
 //
 //      Configure to request the Arangodb version
 //
-void Server::version(ConnectionBase::SPtr p) {
-  ConnectionBase& conn = p->reset();
+void Server::version(Connection::SPtr p) {
+  Connection& conn = p->reset();
   conn.setUrl(_host + "/_api/version");
   conn.setBuffer();
 }
@@ -100,8 +100,8 @@ void Server::version(ConnectionBase::SPtr p) {
 //
 //      Configure to request the current default Database
 //
-void Server::currentDb(ConnectionBase::SPtr p) {
-  ConnectionBase& conn = p->reset();
+void Server::currentDb(Connection::SPtr p) {
+  Connection& conn = p->reset();
   conn.setUrl(_host + "/_api/database/current");
   conn.setBuffer();
 }
@@ -109,8 +109,8 @@ void Server::currentDb(ConnectionBase::SPtr p) {
 //
 //      Configure to request the user Databases available
 //
-void Server::userDbs(ConnectionBase::SPtr p) {
-  ConnectionBase& conn = p->reset();
+void Server::userDbs(Connection::SPtr p) {
+  Connection& conn = p->reset();
   conn.setUrl(_host + "/_api/database/user");
   conn.setBuffer();
 }
@@ -118,8 +118,8 @@ void Server::userDbs(ConnectionBase::SPtr p) {
 //
 // Configure to request the Databases available
 //
-void Server::existingDbs(ConnectionBase::SPtr p) {
-  ConnectionBase& conn = p->reset();
+void Server::existingDbs(Connection::SPtr p) {
+  Connection& conn = p->reset();
   conn.setUrl(_host + "/_api/database");
   conn.setBuffer();
 }

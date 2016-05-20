@@ -30,16 +30,16 @@
 class SrvTest : public testing::Test {
  public:
   typedef arangodb::dbinterface::Server Server;
-  typedef arangodb::dbinterface::ConnectionBase ConnectionBase;
+  typedef arangodb::dbinterface::Connection Connection;
   SrvTest();
   virtual ~SrvTest();
 
  protected:
-  const ConnectionBase::VPack getDbVersion();
+  const Connection::VPack getDbVersion();
 
  private:
   Server::SPtr _pSrv;
-  ConnectionBase::SPtr _pCon;
+  Connection::SPtr _pCon;
 };
 
 inline SrvTest::~SrvTest() {}

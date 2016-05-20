@@ -34,10 +34,10 @@
 class BucketReadTest {
   typedef arangodb::dbinterface::Server Server;
   typedef arangodb::dbinterface::Database Database;
-  typedef arangodb::dbinterface::ConnectionBase ConnectionBase;
+  typedef arangodb::dbinterface::Connection Connection;
   typedef arangodb::dbinterface::Collection Collection;
   typedef arangodb::dbinterface::Document Document;
-  typedef ConnectionBase::Protocol Protocol;
+  typedef Connection::Protocol Protocol;
 
  public:
   typedef std::vector<std::string> DocNames;
@@ -48,7 +48,7 @@ class BucketReadTest {
                  const std::string& colName);
   DocNames::const_iterator setDocs(DocNames::const_iterator iFirst,
                                    DocNames::size_type n,
-                                   ConnectionBase::Protocol prot);
+                                   Connection::Protocol prot);
   bool collectionExists();
   bool databaseExists();
   bool serverExists();
@@ -65,7 +65,7 @@ class BucketReadTest {
   Database::SPtr _pDb;
   Collection::SPtr _pCol;
   Document::SPtr _pDoc;
-  ConnectionBase::SPtr _pCon;
+  Connection::SPtr _pCon;
   DocNames::const_iterator _iFirst;
   DocNames::const_iterator _iEnd;
   std::chrono::microseconds _usecs;
@@ -93,7 +93,7 @@ inline std::chrono::microseconds BucketReadTest::duration() const {
 
 inline BucketReadTest::DocNames::const_iterator BucketReadTest::setDocs(
     DocNames::const_iterator iFirst, DocNames::size_type n,
-    ConnectionBase::Protocol prot) {
+    Connection::Protocol prot) {
   _iFirst = iFirst;
   _iEnd = iFirst + n;
   *_pCon = prot;

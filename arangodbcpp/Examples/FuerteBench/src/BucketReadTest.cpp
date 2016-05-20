@@ -55,7 +55,7 @@ bool BucketReadTest::isIsolated() const {
 
 bool BucketReadTest::collectionExists() {
   enum : long { ReadSuccess = 200 };
-  ConnectionBase& con = *_pCon;
+  Connection& con = *_pCon;
   _pCol->about(_pCon);
   con.run();
   return con.responseCode() == ReadSuccess;
@@ -63,7 +63,7 @@ bool BucketReadTest::collectionExists() {
 
 bool BucketReadTest::databaseExists() {
   enum : long { ReadSuccess = 200 };
-  ConnectionBase& con = *_pCon;
+  Connection& con = *_pCon;
   _pCol->collections(_pCon);
   con.run();
   return con.responseCode() == ReadSuccess;
@@ -71,7 +71,7 @@ bool BucketReadTest::databaseExists() {
 
 bool BucketReadTest::serverExists() {
   enum : long { ReadSuccess = 200 };
-  ConnectionBase& con = *_pCon;
+  Connection& con = *_pCon;
   _pSrv->version(_pCon);
   con.run();
   return con.responseCode() == ReadSuccess;
@@ -81,7 +81,7 @@ void BucketReadTest::operator()(std::atomic_bool& bWait, LoopCount loops) {
   namespace chrono = std::chrono;
   using system_clock = chrono::system_clock;
   Document& doc = *_pDoc;
-  ConnectionBase& con = *_pCon;
+  Connection& con = *_pCon;
   while (bWait == true) {
     std::this_thread::yield();
   }

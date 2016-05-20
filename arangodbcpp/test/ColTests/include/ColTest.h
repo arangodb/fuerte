@@ -31,7 +31,7 @@
 
 class ColTest : public testing::Test {
  public:
-  typedef arangodb::dbinterface::ConnectionBase ConnectionBase;
+  typedef arangodb::dbinterface::Connection Connection;
   typedef arangodb::dbinterface::Database Database;
   typedef arangodb::dbinterface::Server Server;
   typedef arangodb::dbinterface::Collection Collection;
@@ -43,7 +43,7 @@ class ColTest : public testing::Test {
   void test2();
 
  private:
-  void generalTest(const ConnectionBase::VPack (ColTest::*fn)(), uint64_t code);
+  void generalTest(const Connection::VPack (ColTest::*fn)(), uint64_t code);
   void createTest();
   void collectionsTest();
   void deleteTest();
@@ -53,25 +53,25 @@ class ColTest : public testing::Test {
   void truncateTest();
   void docsTest(const std::string& docKey,
                 const Collection::Options opts = Collection::Options{});
-  void commonTest(const ConnectionBase::VPack (ColTest::*pTestFnc)(),
+  void commonTest(const Connection::VPack (ColTest::*pTestFnc)(),
                   std::string&& scope);
-  const ConnectionBase::VPack createDatabase();
-  const ConnectionBase::VPack deleteDatabase();
-  const ConnectionBase::VPack createCollection();
-  const ConnectionBase::VPack deleteCollection();
-  const ConnectionBase::VPack truncateCollection();
-  const ConnectionBase::VPack docCount();
-  const ConnectionBase::VPack collections();
-  const ConnectionBase::VPack collectionProps();
-  const ConnectionBase::VPack aboutCollection();
-  const ConnectionBase::VPack renameCollection(const std::string& name);
-  const ConnectionBase::VPack addDocument(const std::string& name);
-  const ConnectionBase::VPack collectionDocs(const Collection::Options opts);
+  const Connection::VPack createDatabase();
+  const Connection::VPack deleteDatabase();
+  const Connection::VPack createCollection();
+  const Connection::VPack deleteCollection();
+  const Connection::VPack truncateCollection();
+  const Connection::VPack docCount();
+  const Connection::VPack collections();
+  const Connection::VPack collectionProps();
+  const Connection::VPack aboutCollection();
+  const Connection::VPack renameCollection(const std::string& name);
+  const Connection::VPack addDocument(const std::string& name);
+  const Connection::VPack collectionDocs(const Collection::Options opts);
 
   Server::SPtr _pSrv;
   Database::SPtr _pDb;
   Collection::SPtr _pCol;
-  ConnectionBase::SPtr _pCon;
+  Connection::SPtr _pCon;
 };
 
 inline void ColTest::createTest() {

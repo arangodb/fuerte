@@ -38,9 +38,9 @@ namespace dbinterface {
 //
 // Defines the interfaces required for a connection
 //
-class ConnectionBase {
+class Connection {
  public:
-  typedef std::shared_ptr<ConnectionBase> SPtr;
+  typedef std::shared_ptr<Connection> SPtr;
   typedef arangodb::velocypack::Buffer<uint8_t> VBuffer;
   typedef arangodb::velocypack::Builder Builder;
   typedef std::shared_ptr<VBuffer> VPack;
@@ -58,10 +58,10 @@ class ConnectionBase {
   };
   enum class Format { JSon, VPack };
 
-  virtual ~ConnectionBase();
+  virtual ~Connection();
 
-  virtual ConnectionBase& operator=(const Protocol in) = 0;
-  virtual ConnectionBase& reset() = 0;
+  virtual Connection& operator=(const Protocol in) = 0;
+  virtual Connection& reset() = 0;
   virtual void defaultContentType(Format inp) = 0;
   virtual void defaultAccept(Format inp) = 0;
   virtual void setUrl(const Url& inp) = 0;
@@ -85,7 +85,7 @@ class ConnectionBase {
   virtual long responseCode() = 0;
 };
 
-inline ConnectionBase::~ConnectionBase() {}
+inline Connection::~Connection() {}
 }
 }
 
