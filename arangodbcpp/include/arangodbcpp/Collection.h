@@ -215,7 +215,7 @@ inline void Collection::count(const Connection::SPtr& pCon,
 
 inline void Collection::properties(const Connection::SPtr& pCon,
                                    const Options opts) {
-  httpInfo(pCon, opts, "/propeties");
+  httpInfo(pCon, opts, "/properties");
 }
 
 inline void Collection::stats(const Connection::SPtr& pCon,
