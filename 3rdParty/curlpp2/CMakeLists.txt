@@ -1,6 +1,6 @@
 # -*- mode: CMAKE; -*-
 
-project(curlpp) 
+project(curlpp CXX) 
 cmake_minimum_required(VERSION 2.8)
 
 # need c++11
@@ -18,7 +18,7 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 endif ()
 
 if (CMAKE_COMPILER_IS_GNUCC OR APPLE)
-  set(CXX_FLAGS "${CXX_FLAGS} -std=c++11")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 endif ()
 
 #########################################################################################
