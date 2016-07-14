@@ -28,7 +28,7 @@
 #include "OptionContainerType.hpp"
 #include "buildconfig.h"
 
-#include "../Types.hpp"
+#include <curlpp/Types.hpp>
 
 namespace curlpp {
 

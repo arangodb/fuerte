@@ -32,7 +32,7 @@
 #include <string>
 
 using std::memset;
-using std::auto_ptr;
+using std::unique_ptr;
 
 namespace curlpp {
 
@@ -70,11 +70,11 @@ CurlHandle::CurlHandle(CURL* handle) : mException(NULL) {
   errorBuffer(mErrorBuffer);
 }
 
-std::auto_ptr<CurlHandle> CurlHandle::clone() const {
+std::unique_ptr<CurlHandle> CurlHandle::clone() const {
   CURL* cHandle = curl_easy_duphandle(mCurl);
   runtimeAssert("Error when trying to curl_easy_duphandle() a handle",
                 cHandle != NULL);
-  auto_ptr<CurlHandle> newHandle(new CurlHandle(cHandle));
+  unique_ptr<CurlHandle> newHandle(new CurlHandle(cHandle));
 
   return newHandle;
 }
@@ -269,7 +269,7 @@ CURLcode CurlHandle::executeSslCtxFunctor(void* ssl_ctx) {
 
 void CurlHandle::throwException() {
   if (mException) {
-    std::auto_ptr<cURLpp::CallbackExceptionBase> e(mException);
+    std::unique_ptr<cURLpp::CallbackExceptionBase> e(mException);
     mException = NULL;
     e->throwMe();
   }

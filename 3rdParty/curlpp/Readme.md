@@ -2,6 +2,10 @@
 title: cURLpp
 ---
 
+# Caveats
+
+The version of curlpp is based in the original from Jean-Philippe Barrette-LaPierre. However, it contains incompatible modification. For example, we now require a C++ 11 compiler and do no longer use deprecated `auto_ptr`.
+
 # Description
 
 cURLpp is a C++ wrapper for libcURL. libcURL is described as:

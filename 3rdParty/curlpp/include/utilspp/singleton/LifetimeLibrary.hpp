@@ -26,6 +26,7 @@
 
 #include <cassert>
 
+#include "SingletonHolder.hpp"
 #include "CreationUsingNew.hpp"
 #include "PrivateMembers.hpp"
 

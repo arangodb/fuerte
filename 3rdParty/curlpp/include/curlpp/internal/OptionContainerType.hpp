@@ -26,8 +26,8 @@
 
 #include "SList.hpp"
 
-#include "../Form.hpp"
-#include "../Types.hpp"
+#include <curlpp/Form.hpp>
+#include <curlpp/Types.hpp>
 
 #include <list>
 #include <string>

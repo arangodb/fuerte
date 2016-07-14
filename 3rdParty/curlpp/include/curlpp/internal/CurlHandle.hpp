@@ -26,8 +26,8 @@
 
 #include "buildconfig.h"
 
-#include "../Exception.hpp"
-#include "../Types.hpp"
+#include <curlpp/Exception.hpp>
+#include <curlpp/Types.hpp>
 
 #include <curl/curl.h>
 
@@ -46,7 +46,7 @@ class CURLPPAPI CurlHandle {
   CurlHandle();
   CurlHandle(CURL* handle);
 
-  std::auto_ptr<CurlHandle> clone() const;
+  std::unique_ptr<CurlHandle> clone() const;
 
   /**
   * Calls curl_easy_perform on the handle and throws exceptions on errors.

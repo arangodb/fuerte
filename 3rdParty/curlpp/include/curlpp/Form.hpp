@@ -25,7 +25,7 @@
 #define CURLPP_FORM_HPP
 
 #include <utilspp/clone_ptr.hpp>
-#include "internal/buildconfig.h"
+#include <curlpp/internal/buildconfig.h>
 
 #include <curl/curl.h>
 

@@ -48,10 +48,10 @@ class Functor {
 
   Functor() : mImpl() {}
 
-  Functor(std::auto_ptr<Impl> impl) : mImpl(impl) {}
+  Functor(std::unique_ptr<Impl> impl) {mImpl.swap(impl);}
 
   Functor& operator=(const Functor& functor) {
-    mImpl = std::auto_ptr<Impl>(functor.mImpl->clone());
+    mImpl = std::unique_ptr<Impl>(functor.mImpl->clone());
     return (*this);
   }
 
@@ -182,7 +182,7 @@ class Functor {
   }
 
  private:
-  std::auto_ptr<Impl> mImpl;
+  std::unique_ptr<Impl> mImpl;
 };
 
 template <typename Fun>

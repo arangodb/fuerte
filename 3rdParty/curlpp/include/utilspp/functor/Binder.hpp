@@ -170,7 +170,7 @@ Functor<R, typename TList::tail> BindFirst(const Functor<R, TList>& fun,
   typedef Functor<R, TList> Incoming;
   typedef Functor<R, typename TList::tail> Outgoing;
 
-  return Outgoing(std::auto_ptr<typename Outgoing::Impl>(
+  return Outgoing(std::unique_ptr<typename Outgoing::Impl>(
       new BinderFirst<Incoming>(fun, bound)));
 }
 }
