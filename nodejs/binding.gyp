@@ -1,0 +1,74 @@
+{
+  "targets":
+  [
+    {
+      "target_name": "AsyncDbVer",
+      "sources":
+      [
+        "GetVersion.cpp",
+        "Buffer.cpp",
+      ],
+      "include_dirs":
+      [
+        "<!(node -e \"require('nan')\")",
+      ],
+      "conditions":
+      [
+        [
+          "OS==\"linux\"",
+          {
+            "link_settings":
+            {
+              "libraries":
+              [
+		"-lcurl",
+		"-lcurlpp",
+              ]
+            },
+            "cflags":
+            [
+              "-std=c++11",
+            ],
+            "cflags!":
+            [
+              "-fno-exceptions",
+            ],
+            "cflags_cc!":
+            [
+              "-fno-exceptions",
+              "-fno-rtti",
+            ]
+          }
+        ],
+        [
+          "OS==\"mac\"",
+          {
+            "defines":
+            [
+              "HAVE_CONFIG_H",
+            ],
+            "include_dirs":
+            [
+              "/usr/local/include",
+            ],
+            "link_settings":
+            {
+              "libraries":
+              [
+                "-L/usr/local/lib",
+                "-lcurl",
+                "-lcurlpp",
+		"-stdlib=libstdc++",
+              ]
+            },
+            "xcode_settings":
+            {
+              "GCC_ENABLE_CPP_RTTI": "YES",
+              "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
+            }
+          }
+        ]
+      ]
+    }
+  ]
+}
