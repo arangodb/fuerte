@@ -24,10 +24,9 @@
 #ifndef CURLPP_OPTION_HPP
 #define CURLPP_OPTION_HPP
 
-#include "internal/OptionContainer.hpp"
-#include "internal/buildconfig.h"
-
-#include "OptionBase.hpp"
+#include <curlpp/OptionBase.hpp>
+#include <curlpp/internal/OptionContainer.hpp>
+#include <curlpp/internal/buildconfig.h>
 
 namespace curlpp {
 
@@ -219,6 +218,6 @@ class CURLPPAPI NotAvailableOptionTrait : public Option<OptionType> {
 
 namespace cURLpp = curlpp;
 
-#include "Option.inl"
+#include <curlpp/Option.inl>
 
 #endif

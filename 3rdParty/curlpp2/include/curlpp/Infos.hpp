@@ -24,11 +24,11 @@
 #ifndef CURLPP_INFOS_HPP
 #define CURLPP_INFOS_HPP
 
-#include "Info.hpp"
+#include <list>
 
 #include <curl/curl.h>
 
-#include <list>
+#include <curlpp/Info.hpp>
 
 namespace curlpp {
 

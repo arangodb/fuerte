@@ -26,14 +26,13 @@
 
 #include <memory>
 
-#include "../EmptyType.hpp"
-#include "../NullType.hpp"
-#include "../TypeList.hpp"
-#include "../TypeTrait.hpp"
-
-#include "FunctorHandler.hpp"
-#include "FunctorImpl.hpp"
-#include "MemFunHandler.hpp"
+#include <utilspp/EmptyType.hpp>
+#include <utilspp/NullType.hpp>
+#include <utilspp/TypeList.hpp>
+#include <utilspp/TypeTrait.hpp>
+#include <utilspp/functor/FunctorHandler.hpp>
+#include <utilspp/functor/FunctorImpl.hpp>
+#include <utilspp/functor/MemFunHandler.hpp>
 
 namespace utilspp {
 template <typename R, class TList>
@@ -205,6 +204,6 @@ make_functor(typename PointerOnMemberFunction<MemFun>::ClassType* obj,
 }
 }
 
-#include "Binder.hpp"
+#include <utilspp/functor/Binder.hpp>
 
 #endif

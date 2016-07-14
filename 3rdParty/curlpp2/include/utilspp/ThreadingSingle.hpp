@@ -24,7 +24,7 @@
 #ifndef UTILSPP_SINGLE_THREADED_HPP
 #define UTILSPP_SINGLE_THREADED_HPP
 
-#include "utilspp/NullType.hpp"
+#include <utilspp/NullType.hpp>
 
 namespace utilspp {
 template <typename T = utilspp::NullType>
@@ -43,6 +43,6 @@ struct ThreadingSingle {
 };
 }
 
-#include "utilspp/ThreadingSingle.inl"
+#include <utilspp/ThreadingSingle.inl>
 
 #endif

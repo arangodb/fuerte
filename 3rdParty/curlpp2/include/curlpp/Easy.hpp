@@ -24,12 +24,11 @@
 #ifndef CURLPP_EASY_HPP
 #define CURLPP_EASY_HPP
 
-#include <curlpp/internal/buildconfig.h>
+#include <memory>
 
 #include <curlpp/Option.hpp>
 #include <curlpp/internal/OptionList.hpp>
-
-#include <memory>
+#include <curlpp/internal/buildconfig.h>
 
 namespace curlpp {
 namespace internal {

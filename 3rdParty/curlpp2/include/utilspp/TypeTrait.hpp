@@ -24,7 +24,7 @@
 #ifndef UTILSPP_TYPETRAIT_HPP
 #define UTILSPP_TYPETRAIT_HPP
 
-#include "NullType.hpp"
+#include <utilspp/NullType.hpp>
 
 namespace utilspp {
 template <typename T>

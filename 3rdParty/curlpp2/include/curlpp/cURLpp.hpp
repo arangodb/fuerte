@@ -24,15 +24,15 @@
 #ifndef CURLPP_CURLPP_HPP
 #define CURLPP_CURLPP_HPP
 
-#define LIBCURLPP_VERSION "0.7.3"
-#define LIBCURLPP_VERSION_NUM 0x000703
-
-#include "internal/buildconfig.h"
+#include <cstdlib>
+#include <string>
 
 #include <curl/curl.h>
 
-#include <cstdlib>
-#include <string>
+#define LIBCURLPP_VERSION "2.0.0"
+#define LIBCURLPP_VERSION_NUM 0x020000
+
+#include <curlpp/internal/buildconfig.h>
 
 namespace curlpp {
 

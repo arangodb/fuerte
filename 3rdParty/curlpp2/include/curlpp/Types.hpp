@@ -24,6 +24,8 @@
 #ifndef CURLPP_TYPES_HPP
 #define CURLPP_TYPES_HPP
 
+#include <curl/curl.h>
+
 #include <utilspp/Functors.hpp>
 
 namespace curlpp {

@@ -24,9 +24,9 @@
 #ifndef CURLPP_OPTIONS_HPP
 #define CURLPP_OPTIONS_HPP
 
-#include "Option.hpp"
-
 #include <iostream>
+
+#include <curlpp/Option.hpp>
 
 #ifdef CURLPP_ALLOW_NOT_AVAILABLE
 #define DEF_IF_ALLOW_AVAILABLE                                               \

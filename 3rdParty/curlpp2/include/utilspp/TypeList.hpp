@@ -24,7 +24,7 @@
 #ifndef UTILSPP_TYPE_LIST_HPP
 #define UTILSPP_TYPE_LIST_HPP
 
-#include "NullType.hpp"
+#include <utilspp/NullType.hpp>
 
 #define TYPE_LIST_1(T1) utilspp::tl::TypeList<T1, utilspp::NullType>
 #define TYPE_LIST_2(T1, T2) ::utilspp::tl::TypeList<T1, TYPE_LIST_1(T2)>

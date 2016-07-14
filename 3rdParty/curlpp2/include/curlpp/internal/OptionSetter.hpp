@@ -24,11 +24,10 @@
 #ifndef CURLPP_OPTION_SETTER_HPP
 #define CURLPP_OPTION_SETTER_HPP
 
-#include "CurlHandle.hpp"
-#include "OptionContainerType.hpp"
-#include "buildconfig.h"
-
 #include <curlpp/Types.hpp>
+#include <curlpp/internal/CurlHandle.hpp>
+#include <curlpp/internal/OptionContainerType.hpp>
+#include <curlpp/internal/buildconfig.h>
 
 namespace curlpp {
 
@@ -255,6 +254,6 @@ class CURLPPAPI OptionSetter<curlpp::types::SslCtxFunctionFunctor,
 
 namespace cURLpp = curlpp;
 
-#include "OptionSetter.inl"
+#include <curlpp/internal/OptionSetter.inl>
 
 #endif

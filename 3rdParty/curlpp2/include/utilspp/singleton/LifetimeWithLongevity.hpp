@@ -26,7 +26,8 @@
 
 #include <algorithm>
 #include <cassert>
-#include "PrivateMembers.hpp"
+
+#include <utilspp/singleton/PrivateMembers.hpp>
 
 namespace utilspp {
 
@@ -49,6 +50,6 @@ struct LifetimeWithLongevity {
 };
 }
 
-#include "LifetimeWithLongevity.inl"
+#include <utilspp/singleton/LifetimeWithLongevity.inl>
 
 #endif

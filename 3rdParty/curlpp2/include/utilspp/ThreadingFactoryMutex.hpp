@@ -36,6 +36,6 @@ struct ThreadingFactoryMutex {
 };
 }
 
-#include "utilspp/ThreadingFactoryMutex.inl"
+#include <utilspp/ThreadingFactoryMutex.inl>
 
 #endif

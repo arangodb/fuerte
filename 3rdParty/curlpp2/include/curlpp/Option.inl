@@ -24,10 +24,10 @@
 #ifndef CURLPP_OPTION_INL
 #define CURLPP_OPTION_INL
 
-#include "Exception.hpp"
-#include "internal/OptionSetter.hpp"
-
 #include <iostream>
+
+#include <curlpp/Exception.hpp>
+#include <curlpp/internal/OptionSetter.hpp>
 
 namespace curlpp {
 

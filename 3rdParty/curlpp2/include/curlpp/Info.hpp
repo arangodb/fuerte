@@ -24,9 +24,8 @@
 #ifndef CURLPP_INFO_HPP
 #define CURLPP_INFO_HPP
 
-#include "internal/buildconfig.h"
-
-#include "Easy.hpp"
+#include <curlpp/Easy.hpp>
+#include <curlpp/internal/buildconfig.h>
 
 namespace curlpp {
 
@@ -99,6 +98,6 @@ struct CURLPPAPI InfoGetter {
 
 namespace cURLpp = curlpp;
 
-#include "Info.inl"
+#include <curlpp/Info.inl>
 
 #endif

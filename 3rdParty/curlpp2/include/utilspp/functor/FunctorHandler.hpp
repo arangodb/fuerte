@@ -24,7 +24,7 @@
 #ifndef UTILSPP_FUNCTORHANDLER_HPP
 #define UTILSPP_FUNCTORHANDLER_HPP
 
-#include "FunctorImpl.hpp"
+#include <utilspp/functor/FunctorImpl.hpp>
 
 namespace utilspp {
 template <class ParentFunctor, typename Fun>

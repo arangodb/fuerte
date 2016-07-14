@@ -26,10 +26,10 @@
 
 #include <cassert>
 
-#include "../ThreadingSingle.hpp"
-#include "CreationUsingNew.hpp"
-#include "LifetimeDefault.hpp"
-#include "LifetimeWithLongevity.hpp"
+#include <utilspp/ThreadingSingle.hpp>
+#include <utilspp/singleton/CreationUsingNew.hpp>
+#include <utilspp/singleton/LifetimeDefault.hpp>
+#include <utilspp/singleton/LifetimeWithLongevity.hpp>
 
 namespace utilspp {
 template <class T,
@@ -57,6 +57,6 @@ class SingletonHolder {
 };
 }
 
-#include "SingletonHolder.inl"
+#include <utilspp/singleton/SingletonHolder.inl>
 
 #endif

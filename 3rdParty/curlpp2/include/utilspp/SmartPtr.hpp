@@ -25,7 +25,8 @@
 #define UTILSPP_SMARTPTR_HPP
 
 #include <stdexcept>
-#include "NonCopyable.hpp"
+
+#include <utilspp/NonCopyable.hpp>
 
 #define NULL_BODY_ERROR "the smart pointer contain a NULL pointer"
 

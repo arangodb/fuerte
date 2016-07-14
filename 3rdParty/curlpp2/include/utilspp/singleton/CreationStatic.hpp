@@ -47,6 +47,6 @@ class CreationStatic {
 };
 }
 
-#include "CreationStatic.inl"
+#include <utilspp/singleton/CreationStatic.inl>
 
 #endif

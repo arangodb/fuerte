@@ -24,9 +24,9 @@
 #ifndef CURLPP_OPTION_BASE_HPP
 #define CURLPP_OPTION_BASE_HPP
 
-#include <curlpp/internal/buildconfig.h>
-
 #include <curl/curl.h>
+
+#include <curlpp/internal/buildconfig.h>
 
 namespace curlpp {
 

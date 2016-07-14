@@ -24,11 +24,10 @@
 #ifndef CURLPP_OPTION_LIST_HPP
 #define CURLPP_OPTION_LIST_HPP
 
-#include "buildconfig.h"
-
-#include "../OptionBase.hpp"
-
 #include <map>
+
+#include <curlpp/OptionBase.hpp>
+#include <curlpp/internal/buildconfig.h>
 
 namespace curlpp {
 

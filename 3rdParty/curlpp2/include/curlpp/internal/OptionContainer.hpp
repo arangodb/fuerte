@@ -24,8 +24,8 @@
 #ifndef CURLPP_OPTION_CONTAINER_HPP
 #define CURLPP_OPTION_CONTAINER_HPP
 
-#include "OptionContainerType.hpp"
-#include "buildconfig.h"
+#include <curlpp/internal/OptionContainerType.hpp>
+#include <curlpp/internal/buildconfig.h>
 
 namespace curlpp {
 
@@ -91,7 +91,7 @@ class CURLPPAPI OptionContainer {
 namespace cURLpp = curlpp;
 
 #ifdef CURLPP_INCLUDE_TEMPLATE_DEFINITIONS
-#include "OptionContainer.inl"
+#include <curlpp/internal/OptionContainer.inl>
 #endif
 
 #endif

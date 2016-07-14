@@ -24,6 +24,6 @@
 #ifndef UTILSPP_FUNCTORS_HPP
 #define UTILSPP_FUNCTORS_HPP
 
-#include "functor/Functor.hpp"
+#include <utilspp/functor/Functor.hpp>
 
 #endif

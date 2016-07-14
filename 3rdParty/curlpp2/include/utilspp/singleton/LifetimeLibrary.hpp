@@ -26,9 +26,9 @@
 
 #include <cassert>
 
-#include "SingletonHolder.hpp"
-#include "CreationUsingNew.hpp"
-#include "PrivateMembers.hpp"
+#include <utilspp/singleton/SingletonHolder.hpp>
+#include <utilspp/singleton/CreationUsingNew.hpp>
+#include <utilspp/singleton/PrivateMembers.hpp>
 
 namespace utilspp {
 
@@ -93,6 +93,6 @@ class LifetimeLibraryGuard {
 };
 }
 
-#include "LifetimeLibrary.inl"
+#include <utilspp/singleton/LifetimeLibrary.inl>
 
 #endif

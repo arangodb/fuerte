@@ -79,6 +79,6 @@ struct adapter {
 }
 }
 
-#include "PrivateMembers.inl"
+#include <utilspp/singleton/PrivateMembers.inl>
 
 #endif

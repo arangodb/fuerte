@@ -24,14 +24,13 @@
 #ifndef CURLPP_CURL_HANDLE_HPP
 #define CURLPP_CURL_HANDLE_HPP
 
-#include "buildconfig.h"
-
-#include <curlpp/Exception.hpp>
-#include <curlpp/Types.hpp>
+#include <memory>
 
 #include <curl/curl.h>
 
-#include <memory>
+#include <curlpp/Exception.hpp>
+#include <curlpp/Types.hpp>
+#include <curlpp/internal/buildconfig.h>
 
 namespace curlpp {
 
@@ -170,6 +169,6 @@ class CURLPPAPI CurlHandle {
 
 namespace cURLpp = curlpp;
 
-#include "CurlHandle.inl"
+#include <curlpp/internal/CurlHandle.inl>
 
 #endif

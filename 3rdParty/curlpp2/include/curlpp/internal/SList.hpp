@@ -24,12 +24,12 @@
 #ifndef CURLPP_SLIST_HPP
 #define CURLPP_SLIST_HPP
 
-#include "buildconfig.h"
+#include <list>
+#include <string>
 
 #include <curl/curl.h>
 
-#include <list>
-#include <string>
+#include <curlpp/internal/buildconfig.h>
 
 namespace curlpp {
 

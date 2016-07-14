@@ -29,3 +29,8 @@ install(FILES
   include/fuerte/fuerte_version.h
   DESTINATION include/fuerte
 )
+
+add_custom_target(prepare_node
+  COMMAND
+    make install DESTDIR=${PROJECT_SOURCE_DIR}/nodejs
+)

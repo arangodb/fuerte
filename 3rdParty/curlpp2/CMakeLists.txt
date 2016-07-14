@@ -150,6 +150,7 @@ install(FILES
   include/curlpp/internal/CurlHandle.inl
   include/curlpp/internal/OptionContainer.hpp
   include/curlpp/internal/OptionContainer.inl
+  include/curlpp/internal/OptionContainerType.hpp
   include/curlpp/internal/OptionList.hpp
   include/curlpp/internal/OptionSetter.hpp
   include/curlpp/internal/OptionSetter.inl
