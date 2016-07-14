@@ -1,14 +1,15 @@
 # -*- mode: CMAKE; -*-
 
+project(fuerte)
 cmake_minimum_required(VERSION 2.8)
 
-project(fuerte)
+# need c++11
+set(CMAKE_CXX_STANDARD 11)
 
-add_subdirectory(3rdParty/curlpp-cbffe73/curlpp)
 add_subdirectory(3rdParty/googletest)
+add_subdirectory(3rdParty/curlpp2)
 
-foreach (LINK_DIR ${LINK_DIRECTORIES})
-  link_directories("${LINK_DIR}")
-endforeach()
+add_subdirectory(src)
 
-add_subdirectory(arangodbcpp)
+add_subdirectory(tests)
+add_subdirectory(examples)
