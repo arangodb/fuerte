@@ -22,6 +22,8 @@
 
 #include <fuerte/Collection.h>
 
+#include <velocypack/Builder.h>
+
 namespace arangodb {
 namespace dbinterface {
 Collection::Collection(const Database::SPtr& db, const std::string& id)

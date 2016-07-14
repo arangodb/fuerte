@@ -25,6 +25,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <vector>
 
 #include <fuerte/Server.h>
 #include <fuerte/Database.h>

@@ -26,12 +26,14 @@
 #include <memory>
 
 #include <velocypack/Buffer.h>
-#include <velocypack/Builder.h>
 
 #include <fuerte/ConOption.h>
 #include <fuerte/ConnectionUrl.h>
 
 namespace arangodb {
+namespace velocypack {
+class Builder;
+}
 namespace dbinterface {
 // Defines the interfaces required for a connection
 class Connection {

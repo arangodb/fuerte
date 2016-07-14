@@ -22,6 +22,8 @@
 
 #include "DocTest.h"
 
+#include <velocypack/Builder.h>
+
 #include "TestApp.h"
 
 namespace velocypack = arangodb::velocypack;

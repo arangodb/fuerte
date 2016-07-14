@@ -23,12 +23,13 @@
 #ifndef FUERTE_DOCUMENT_H
 #define FUERTE_DOCUMENT_H 1
 
-#include <velocypack/Builder.h>
-
 #include <fuerte/Collection.h>
 #include <fuerte/DocOptions.h>
 
 namespace arangodb {
+namespace velocypack {
+class Builder;
+}
 namespace dbinterface {
 class Document {
  public:

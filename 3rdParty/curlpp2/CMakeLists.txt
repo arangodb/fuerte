@@ -123,44 +123,81 @@ foreach (Example ${ExamplesFileList})
   add_dependencies(examples ${ExampleName})
 endforeach ()
 
+#########################################################################################
+# Create Examples
+#########################################################################################
 
+install(FILES
+  include/curlpp/Easy.hpp
+  include/curlpp/Easy.inl
+  include/curlpp/Exception.hpp
+  include/curlpp/Form.hpp
+  include/curlpp/Info.hpp
+  include/curlpp/Info.inl
+  include/curlpp/Infos.hpp
+  include/curlpp/Multi.hpp
+  include/curlpp/Option.hpp
+  include/curlpp/Option.inl
+  include/curlpp/OptionBase.hpp
+  include/curlpp/Options.hpp
+  include/curlpp/Types.hpp
+  include/curlpp/cURLpp.hpp
+  DESTINATION include/curlpp
+)
 
+install(FILES
+  include/curlpp/internal/CurlHandle.hpp
+  include/curlpp/internal/CurlHandle.inl
+  include/curlpp/internal/OptionContainer.hpp
+  include/curlpp/internal/OptionContainer.inl
+  include/curlpp/internal/OptionList.hpp
+  include/curlpp/internal/OptionSetter.hpp
+  include/curlpp/internal/OptionSetter.inl
+  include/curlpp/internal/SList.hpp
+  include/curlpp/internal/buildconfig.h
+  DESTINATION include/curlpp/internal
+)
 
+install(FILES
+  include/utilspp/EmptyType.hpp
+  include/utilspp/Functors.hpp
+  include/utilspp/NonCopyable.hpp
+  include/utilspp/NullType.hpp
+  include/utilspp/Singleton.hpp
+  include/utilspp/SmartPtr.hpp
+  include/utilspp/ThreadingFactoryMutex.hpp
+  include/utilspp/ThreadingSingle.hpp
+  include/utilspp/ThreadingSingle.inl
+  include/utilspp/TypeList.hpp
+  include/utilspp/TypeTrait.hpp
+  include/utilspp/clone_ptr.hpp
+  DESTINATION include/utilspp
+)
 
+install(FILES
+  include/utilspp/functor/Binder.hpp
+  include/utilspp/functor/Functor.hpp
+  include/utilspp/functor/FunctorHandler.hpp
+  include/utilspp/functor/FunctorImpl.hpp
+  include/utilspp/functor/MemFunHandler.hpp
+  DESTINATION include/utilspp/functor
+)
 
-# set(LIBCURLPP_INCLUDE_DIR
-#   ${IncludeFolder}
-#   CACHE INTERNAL
-#   "${PROJECT_NAME}: Libraries"
-#   )
-
-# set(LIBCURLPP_LIBS
-#   ${PROJECT_NAME}
-#   CACHE INTERNAL
-#   "${PROJECT_NAME}: Libraries"
-#   )
-
-# list(APPEND LINK_DIRECTORIES "${CMAKE_CURRENT_BINARY_DIR}")
-# set(LINK_DIRECTORIES "${LINK_DIRECTORIES}" PARENT_SCOPE)
-
-# install(FILES  CreationStatic.hpp CreationStatic.inl  	CreationUsingNew.hpp CreationUsingNew.inl  	LifetimeDefault.hpp LifetimeDefault.inl  	LifetimeLibrary.hpp LifetimeLibrary.inl  	LifetimeWithLongevity.hpp LifetimeWithLongevity.inl  	PrivateMembers.hpp PrivateMembers.inl  	SingletonHolder.hpp SingletonHolder.inl  DESTINATION /include/utilspp/singleton)
-
-
-
-# set(curlpp_LIB_SRCS ${sources})
-
-# add_library(curlpp SHARED ${curlpp_LIB_SRCS})
-
-# target_link_libraries(curlpp ${KDE4_KDECORE_LIBS} internal)
-
-# set_target_properties(curlpp PROPERTIES VERSION 1.0.0 SOVERSION 1)
-# install(TARGETS curlpp ${INSTALL_TARGETS_DEFAULT_ARGS})
-
-
-# install(FILES  Binder.hpp   	FunctorHandler.hpp  	Functor.hpp  	FunctorImpl.hpp  	MemFunHandler.hpp DESTINATION /include/utilspp/functor)
-
-
-# install(FILES  Easy.hpp Easy.inl  	Exception.hpp  	Form.hpp  	Info.hpp Info.inl  	Infos.hpp  	Multi.hpp  	Option.hpp Option.inl  	OptionBase.hpp  	Options.hpp  	Types.hpp  	cURLpp.hpp  	config.h.in  	config.h.sample  	config.win32.h  DESTINATION /include/curlpp)
-
-
-# install(FILES  CurlHandle.hpp CurlHandle.inl  	OptionContainer.hpp OptionContainer.inl	OptionContainerType.hpp  	OptionList.hpp  	OptionSetter.hpp OptionSetter.inl  	SList.hpp  	buildconfig.h  	global.h DESTINATION /include/curlpp/internal)
+install(FILES
+  include/utilspp/singleton/CreationStatic.hpp
+  include/utilspp/singleton/CreationStatic.inl
+  include/utilspp/singleton/CreationUsingNew.hpp
+  include/utilspp/singleton/CreationUsingNew.inl
+  include/utilspp/singleton/LifetimeDefault.hpp
+  include/utilspp/singleton/LifetimeDefault.inl
+  include/utilspp/singleton/LifetimeLibrary.hpp
+  include/utilspp/singleton/LifetimeLibrary.inl
+  include/utilspp/singleton/LifetimeWithLongevity.hpp
+  include/utilspp/singleton/LifetimeWithLongevity.inl
+  include/utilspp/singleton/PrivateMembers.hpp
+  include/utilspp/singleton/PrivateMembers.inl
+  include/utilspp/singleton/SingletonHolder.hpp
+  include/utilspp/singleton/SingletonHolder.inl
+  include/utilspp/singleton/ThreadingFactoryMutex.inl
+  DESTINATION include/utilspp/singleton
+)

@@ -30,6 +30,12 @@
 #include <fuerte/Collection.h>
 #include <fuerte/Document.h>
 
+namespace arangodb {
+namespace velocypack {
+class Slice;
+}
+}
+
 class DocTest : public testing::Test {
  public:
   typedef arangodb::dbinterface::Connection Connection;

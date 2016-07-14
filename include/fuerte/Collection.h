@@ -23,11 +23,12 @@
 #ifndef FUERTE_COLLECTION_H
 #define FUERTE_COLLECTION_H 1
 
-#include <velocypack/Builder.h>
-
 #include <fuerte/Database.h>
 
 namespace arangodb {
+namespace velocypack {
+class Builder;
+}
 namespace dbinterface {
 class Database;
 

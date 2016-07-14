@@ -23,6 +23,7 @@
 #ifndef FUERTEBENCH_H
 #define FUERTEBENCH_H
 
+#include <functional>
 #include <string>
 #include <vector>
 

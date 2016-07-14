@@ -22,6 +22,8 @@
 
 #include <fuerte/Document.h>
 
+#include <velocypack/Builder.h>
+
 namespace arangodb {
 namespace dbinterface {
 Document::Document(const std::string& inp) : _key(inp) {}
