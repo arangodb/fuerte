@@ -6,10 +6,13 @@
   "private": true,
   "dependencies": {
     "bindings": "~1.2.1",
-    "nan": "^2.0.0"
+    "cmake-js": "^3.2.1",
+    "nan": "^2.3.5"
+
   },
   "scripts": {
-    "test": "node getVer.js"
+    "test": "node getVer.js",
+    "install": "cmake-js compile"
   },
   "gypfile": true
 }

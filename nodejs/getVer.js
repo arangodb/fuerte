@@ -1,4 +1,4 @@
-var node = require('bindings')('AsyncDbVer');
+var node = require('bindings')('node-arangodb');
 
 var obj = [new node.GetVersion(),new node.GetVersion()];
 

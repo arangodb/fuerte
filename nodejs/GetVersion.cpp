@@ -105,50 +105,35 @@ bool GetVersion::config() {
 
 void GetVersion::checkMsgs() {
   curlpp::Multi::Msgs msgs = _multi.info();
+
   if (!msgs.empty()) {
-    CURLcode code = msgs.front().second.code;
-    if (code != CURLE_OK) {
-      std::string msg{curl_easy_strerror(code)};
-      errorMessage(msg);
-      return;
+    auto msg = msgs.front();
+
+    if (msg.second.msg == CURLMSG_DONE) {
+      CURLcode code = msg.second.code;
+
+      if (code != CURLE_OK) {
+        std::string msg{curl_easy_strerror(code)};
+        errorMessage(msg);
+        return;
+      }
+
+      _multi.remove(&_easy);
     }
   }
-  _multi.remove(&_easy);
 }
 
 bool GetVersion::process() {
   try {
-    {
-      int nbLeft;
-      if (!_multi.perform(&nbLeft)) {
-        return false;
-      }
-      if (!nbLeft) {
-        checkMsgs();
-        return true;
-      }
+    int nbLeft;
+
+    while (!_multi.perform(&nbLeft)) {
+      ;
     }
-    {
-      struct timeval timeout;
-      int rc; /* select() return code */
-      fd_set fdread;
-      fd_set fdwrite;
-      fd_set fdexcep;
-      int maxfd;
-      FD_ZERO(&fdread);
-      FD_ZERO(&fdwrite);
-      FD_ZERO(&fdexcep);
-      /* set a suitable timeout to play around with */
-      timeout.tv_sec = 1;
-      timeout.tv_usec = 0;
-      /* get file descriptors from the transfers */
-      _multi.fdset(&fdread, &fdwrite, &fdexcep, &maxfd);
-      rc = select(maxfd + 1, &fdread, &fdwrite, &fdexcep, &timeout);
-      if (rc == -1) {
-        errorMessage(std::string("Low level select failed"));
-        return true;
-      }
-    }
+
+    checkMsgs();
+
+    return nbLeft == 0;
   } catch (curlpp::LogicError& e) {
     errorMessage(std::string(e.what()));
     return true;
@@ -156,7 +141,6 @@ bool GetVersion::process() {
     errorMessage(std::string(e.what()));
     return true;
   }
-  return false;
 }
 
 //
