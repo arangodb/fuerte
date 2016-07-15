@@ -31,7 +31,7 @@ some tests
 
 The following development packages need to be installed
 
-- a C++ 11 compiler
+- C++ 11 compiler
 - cmake
 - cURL: https://github.com/curl/curl
 
