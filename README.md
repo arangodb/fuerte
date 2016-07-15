@@ -2,9 +2,8 @@
 
 ## driver: C++ Driver for ArangoDB
 
-The project to create the fuerte library is located in the
-subdirectory `driver`. The project uses `cmake`. In order to
-build
+The project to create the fuerte library is located in the subdirectory
+`driver`. It uses `cmake` as build system. In order to build
 
 ```
 > cd driver
@@ -32,7 +31,9 @@ some tests
 
 The following development packages need to be installed
 
-    cURL                   https://github.com/curl/curl
+- a C++ 11 compiler
+- cmake
+- cURL: https://github.com/curl/curl
 
 # License
 
