@@ -15,12 +15,12 @@ set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_JS_INC})
 
 # set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/../cmake/Modules")
-add_subdirectory(fuerte)
+add_subdirectory(driver)
 
 include_directories( 
-  ${PROJECT_SOURCE_DIR}/fuerte/include
-  ${PROJECT_SOURCE_DIR}/fuerte/3rdParty/curlpp2/include
-  ${PROJECT_SOURCE_DIR}/fuerte/3rdParty/velocypack/include
+  ${PROJECT_SOURCE_DIR}/driver/include
+  ${PROJECT_SOURCE_DIR}/driver/3rdParty/curlpp2/include
+  ${PROJECT_SOURCE_DIR}/driver/3rdParty/velocypack/include
 )
 
 # Essential library files to link to a node addon

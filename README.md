@@ -26,7 +26,6 @@ some tests
 > make run-tests
 ```
 
-
 ## Build requirements
 
 The following development packages need to be installed
@@ -35,7 +34,16 @@ The following development packages need to be installed
 - cmake
 - cURL: https://github.com/curl/curl
 
-# License
+## nodejs: a low-level node.js driver
+
+Install node and npm and execute
+
+```
+> cd nodejs
+> npm install
+```
+
+## License
 
 Fuerte is published under the Apache 2 License. Please see
 the files [LICENSE](LICENSE) and
