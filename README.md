@@ -1,13 +1,26 @@
 # fuerte
-Low Level C++ Driver for ArangoDB
+C++ Driver for ArangoDB
 
-The project to create the arangodbcpp library, the project is located in the following subdirectory
+The project to create the fuerte library is located in the
+subdirectory `driver`. The project uses `cmake`. In order to
+build
 
-    ~/arangodbcpp
+```
+> cd driver
+> mkdir build
+> cd build
+> cmake ..
+> make
+```
 
-With some test programs under this subdirectory
+The will create the fuerte library. You can install it using
 
-    ~/arangodbcpp/tests
+```
+> make install
+```
+
+
+
 
 Build requirements
 -----------------------

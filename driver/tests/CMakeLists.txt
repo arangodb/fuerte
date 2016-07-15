@@ -15,4 +15,5 @@ set(TestApps
 
 foreach(app ${TestApps})
   add_subdirectory(${app})
+  add_dependencies(run-tests run-${app})
 endforeach()

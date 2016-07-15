@@ -51,13 +51,10 @@ add_subdirectory(3rdParty/googletest)
 add_subdirectory(3rdParty/curlpp2)
 
 #########################################################################################
-# Main-Project
+# Main Project
 #########################################################################################
 
 add_subdirectory(src)
-
-add_subdirectory(tests)
-add_subdirectory(examples)
 
 install(FILES
   include/fuerte/Collection.h
@@ -75,7 +72,15 @@ install(FILES
   DESTINATION include/fuerte
 )
 
-add_custom_target(prepare_node
-  COMMAND
-    make install DESTDIR=${PROJECT_SOURCE_DIR}/nodejs
-)
+#########################################################################################
+# Tests
+#########################################################################################
+
+add_custom_target(run-tests)
+add_subdirectory(tests)
+
+#########################################################################################
+# Examples
+#########################################################################################
+
+add_subdirectory(examples)
