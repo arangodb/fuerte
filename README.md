@@ -1,5 +1,6 @@
 # fuerte
-C++ Driver for ArangoDB
+
+## driver: C++ Driver for ArangoDB
 
 The project to create the fuerte library is located in the
 subdirectory `driver`. The project uses `cmake`. In order to
@@ -19,23 +20,23 @@ The will create the fuerte library. You can install it using
 > make install
 ```
 
+If you start an ArangoDB server on 127.0.0.1:8259, you can run
+some tests
+
+```
+> make run-tests
+```
 
 
-
-Build requirements
------------------------
+## Build requirements
 
 The following development packages need to be installed
 
     cURL                   https://github.com/curl/curl
-    VelocyPack             https://github.com/arangodb/velocypack
-    
-Building every thing
--------------------------
 
-    mkdir build
-    cd build
-    cmake ..
-    make
+# License
 
-If no errors have occurred everything should now be built.
+Fuerte is published under the Apache 2 License. Please see
+the files [LICENSE](LICENSE) and
+[LICENSES-OTHER-COMPONENTS.md](LICENSES-OTHER-COMPONENTS.md)
+for details.

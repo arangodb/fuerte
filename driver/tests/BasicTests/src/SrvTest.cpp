@@ -48,7 +48,10 @@ TEST_F(SrvTest, version) {
   Slice retSlice{res->data()};
   Slice slice = retSlice.get("version");
   if (slice.type() == ValueType::String) {
-    EXPECT_EQ(TestApp::dbVersion(), TestApp::string(slice));
+    auto dbVersion = TestApp::dbVersion();
+    if (dbVersion != "*") {
+      EXPECT_EQ(dbVersion, TestApp::string(slice));
+    }
     return;
   }
   slice = retSlice.get("errorMessage");
