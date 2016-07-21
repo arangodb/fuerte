@@ -39,7 +39,13 @@ namespace dbinterface {
 // Flags an error has occured and transfers the error message
 // to the default write buffer
 void HttpConnection::errFound(const std::string& inp, const Mode err) {
-  std::ostringstream os;
+  std::string res{" { \"{ errorMessage\" :  \""};
+  res += inp;
+  res += "\" } ";
+  setBuffer(res);
+  reset(err);
+ /* 
+ std::ostringstream os;
   char old = '\0';
   os << "{ \"errorMessage\":\"";
   // Escape double quotes in the message
@@ -53,7 +59,8 @@ void HttpConnection::errFound(const std::string& inp, const Mode err) {
   }
   os << "\"}";
   setBuffer(os.str());
-  reset(err);
+  */
+
 }
 
 void HttpConnection::addHeader(const ConOption& inp) {
@@ -293,37 +300,32 @@ void HttpConnection::syncRun() {
 // before completing
 void HttpConnection::asyncRun() {
   try {
-    {
-      int nLeft = 1;
-      if (!_async.perform(&nLeft)) {
+      int nLeft;
+      while (!_async.perform(&nLeft));
+      if (nLeft)
+      {
         return;
       }
-      if (!nLeft) {
-        _async.remove(&_request);
-        _mode = Mode::Done;
-        return;
+      curlpp::Multi::Msgs msgs = _async.info();
+
+      if (!msgs.empty())
+      {
+        auto msg = msgs.back();
+
+        if (msg.second.msg == CURLMSG_DONE)
+        {
+          CURLcode code = msg.second.code;
+
+          if (code != CURLE_OK)
+          {
+            std::string msg{curl_easy_strerror(code)};
+            errFound(msg);
+          }
+        }
       }
-    }
-    {
-      struct timeval timeout;
-      int rc;  // select() return code
-      fd_set fdread;
-      fd_set fdwrite;
-      fd_set fdexcep;
-      int maxfd;
-      FD_ZERO(&fdread);
-      FD_ZERO(&fdwrite);
-      FD_ZERO(&fdexcep);
-      // set a suitable timeout to play around with
-      timeout.tv_sec = 1;
-      timeout.tv_usec = 0;
-      // get file descriptors from the transfers
-      _async.fdset(&fdread, &fdwrite, &fdexcep, &maxfd);
-      rc = select(maxfd + 1, &fdread, &fdwrite, &fdexcep, &timeout);
-      if (rc == -1) {
-        errFound("Asynchronous select error");
-      }
-    }
+      _async.remove(&_request);
+      _mode = Mode::Done;
+      return;
   } catch (curlpp::LogicError& e) {
     errFound(e.what(), Mode::LogicError);
     return;
@@ -453,7 +455,8 @@ void HttpConnection::httpProtocol() {
   }
 }
 
-HttpConnection::HttpConnection() : _prot(Protocol::Json) {}
+HttpConnection::HttpConnection() : Connection{},
+  _prot(Protocol::Json) {}
 
 HttpConnection::~HttpConnection() {}
 }

@@ -50,7 +50,7 @@ Server::~Server() {
 }
 
 Connection::SPtr Server::httpConnection() {
-  return Connection::SPtr(new HttpConnection());
+  return Connection::SPtr{new HttpConnection()};
 }
 
 Connection::SPtr Server::vppConnection() { return Connection::SPtr(); }
