@@ -141,8 +141,12 @@ NAN_METHOD(Server::New) {
   } else {
     // Invoked as plain function `GetVersion(...)`,
     // turn into construct call.
-    const int argc = info.Length();
-    v8::Local<v8::Value> argv[argc];
+    enum { MAX_ARGS = 10 };
+    int argc = info.Length();
+    if (argc > MAX_ARGS) {
+      argc = MAX_ARGS;
+    }
+    v8::Local<v8::Value> argv[MAX_ARGS];
     for (int i = 0; i < argc; ++i) {
       argv[i] = info[i];
     }
