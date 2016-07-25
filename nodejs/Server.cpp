@@ -30,7 +30,11 @@ namespace dbnodejs {
 
 Nan::Persistent<v8::Function> Server::_constructor;
 
-Server::Server() {_pServer = std::make_shared<PType>(PType{}); }
+Server::Server() { _pServer = std::make_shared<LibType>(LibType{}); }
+
+Server::Server(const std::string url) {
+  _pServer = std::make_shared<LibType>(LibType{url});
+}
 
 //
 // Required for all JavaScript Node.js implementations
@@ -44,12 +48,12 @@ NAN_MODULE_INIT(Server::Init) {
   Nan::HandleScope scope;
   // Prepare constructor template
   // Create Javascript new Server object template
-  v8::Local<v8::FunctionTemplate> tpl = Nan::New<v8::FunctionTemplate>(New);
+  v8::Local<v8::FunctionTemplate> tpl =
+      Nan::New<v8::FunctionTemplate>(New);
   tpl->SetClassName(Nan::New("Server").ToLocalChecked());
 
-  // No idea what number to pass here
-  // Cannot find any useful explanation
-  tpl->InstanceTemplate()->SetInternalFieldCount(2);
+  // Only 1 internal field required for this wrapped class
+  tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
   // TODO Register prototypes for Javascript functions
   //
@@ -70,15 +74,16 @@ NAN_MODULE_INIT(Server::Init) {
 // void Server::version(
 //  const Nan::FunctionCallbackInfo<v8::Value> &info)
 NAN_METHOD(Server::version) {
-  Server* pSrv = ObjectWrap::Unwrap<Server>(info.Holder());
-  if (info.Length() < 1) {
-    Nan::ThrowTypeError("Wrong number of arguments");
+  if (info.Length() != 1) {
+    Nan::ThrowTypeError(
+          "Single Connnection object parameter required");
     return;
   }
+  Server* pSrv = ObjectWrap::Unwrap<Server>(info.Holder());
   v8::Local<v8::Object> obj = info[0]->ToObject();
   Connection* pCon = ObjectWrap::Unwrap<Connection>(obj);
   Connection::Ptr pLibCon = pCon->libConnection();
-  Server::Ptr pLibSrv = pSrv->_pServer;
+  LibPtr pLibSrv = pSrv->_pServer;
   pLibSrv->version(pLibCon);
 }
 
@@ -90,27 +95,60 @@ NAN_METHOD(Server::version) {
 // void Server::makeConnection(
 //  const Nan::FunctionCallbackInfo<v8::Value> &info)
 NAN_METHOD(Server::makeConnection) {
-  info.GetReturnValue().Set(Connection::NewInstance(info[0]));
+  int nArgs = info.Length();
+  if (nArgs > 0) {
+    Nan::ThrowTypeError("Too many arguments");
+    return;
+  }
+  Server* pSrv = ObjectWrap::Unwrap<Server>(info.Holder());
+  LibPtr pLibSrv = pSrv->_pServer;
+  auto libConPtr = pLibSrv->makeConnection();
+  Connection::SetReturnValue(info, libConPtr);
+}
+
+Server* Server::Create(
+    const Nan::FunctionCallbackInfo<v8::Value>& info) {
+  int nArgs = info.Length();
+  if (nArgs > 1) {
+    Nan::ThrowTypeError("Too many arguments");
+    return nullptr;
+  }
+  if (!nArgs) {
+    // Default Server url http://127.0.0.1:8529
+    return new Server();
+  }
+  v8::Local<v8::Value> val = info[0];
+  if (!val->IsString()) {
+    Nan::ThrowTypeError("String parameter required");
+    return nullptr;
+  }
+  v8::String::Utf8Value tmp{val};
+  std::string inp{*tmp};
+  return new Server(inp);
 }
 
 //
-// Static function to create a Javascript GetVersion object
+// Static function to create a Javascript Server object
 //
 // This is called from Javascript as follows
-// var obj = new node.GetVersion()
+// var obj = new node.Server()
 //
 NAN_METHOD(Server::New) {
   if (info.IsConstructCall()) {
-    Server* obj = new Server();
+    Server* obj = Create(info);
     obj->Wrap(info.This());
     info.GetReturnValue().Set(info.This());
   } else {
     // Invoked as plain function `GetVersion(...)`,
     // turn into construct call.
-    const int argc = 1;
-    v8::Local<v8::Value> argv[argc] = {info[0]};
+    const int argc = info.Length();
+    v8::Local<v8::Value> argv[argc];
+    for (int i = 0; i < argc; ++i) {
+      argv[i] = info[i];
+    }
     v8::Local<v8::Function> cons = Nan::New<v8::Function>(_constructor);
-    info.GetReturnValue().Set(cons->NewInstance(argc, argv));
+    auto val = cons->NewInstance(argc, argv);
+    info.GetReturnValue().Set(val);
   }
 }
 }

@@ -38,11 +38,15 @@ class Connection : public Nan::ObjectWrap {
   Connection();
   Connection(const Ptr inp);
   const Ptr libConnection() const;
-  static void Run(const Nan::FunctionCallbackInfo<v8::Value>& info);
-  static void Address(const Nan::FunctionCallbackInfo<v8::Value>& info);
-  static void New(const Nan::FunctionCallbackInfo<v8::Value>& info);
-  static void Init(v8::Local<v8::Object> exports);
-  static v8::Local<v8::Value> NewInstance(v8::Local<v8::Value> arg);
+  static void SetReturnValue(
+    const Nan::FunctionCallbackInfo<v8::Value>& info,Ptr inp);
+  static NAN_METHOD(SetAsynchronous);
+  static NAN_METHOD(Run);
+  static NAN_METHOD(Address);
+  static NAN_METHOD(New);
+  static NAN_MODULE_INIT(Init);
+  static v8::Local<v8::Value> NewInstance(
+      v8::Local<v8::Value> arg);
 
  private:
   Ptr _pConnection;

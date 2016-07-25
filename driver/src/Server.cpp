@@ -61,7 +61,7 @@ void Server::setHostUrl(const std::string url) {
   static std::string sep{'/', '/'};
   size_type len = url.find(sep);
   std::string res = url;
-  _makeConnection = &Server::httpConnection;
+  _bVelocyPack = false;
   if (len == std::string::npos) {
     setSrvUrl("http://" + res);
     return;
@@ -74,12 +74,12 @@ void Server::setHostUrl(const std::string url) {
     return;
   }
   if (prot == "vstream+ssl:" || prot == "vstreams:") {
-    _makeConnection = &Server::vppConnection;
+    _bVelocyPack = true;
     setSrvUrl("vstreams:" + res);
     return;
   }
   if (prot == "vstream+tcp:" || prot == "vstream:") {
-    _makeConnection = &Server::vppConnection;
+    _bVelocyPack = true;
     setSrvUrl("vstream:" + res);
     return;
   }

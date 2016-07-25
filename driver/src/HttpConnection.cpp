@@ -44,23 +44,6 @@ void HttpConnection::errFound(const std::string& inp, const Mode err) {
   res += "\" } ";
   setBuffer(res);
   reset(err);
- /* 
- std::ostringstream os;
-  char old = '\0';
-  os << "{ \"errorMessage\":\"";
-  // Escape double quotes in the message
-  for (char chr : inp) {
-    if (old != '\\' && chr == '"') {
-      os << "\\\"";
-      continue;
-    }
-    os << chr;
-    old = chr;
-  }
-  os << "\"}";
-  setBuffer(os.str());
-  */
-
 }
 
 void HttpConnection::addHeader(const ConOption& inp) {

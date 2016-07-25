@@ -31,16 +31,21 @@ namespace dbnodejs {
 
 class Server : public Nan::ObjectWrap {
  public:
-  Server();
-  static void Init(v8::Local<v8::Object> exports);
-  static void New(const Nan::FunctionCallbackInfo<v8::Value>& info);
-  static void version(const Nan::FunctionCallbackInfo<v8::Value>& info);
-  static void makeConnection(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static NAN_MODULE_INIT(Init);
+  static NAN_METHOD(New);
+  static NAN_METHOD(version);
+  static NAN_METHOD(makeConnection);
 
  private:
-  typedef arangodb::dbinterface::Server PType;
-  typedef PType::SPtr Ptr;
-  Ptr _pServer;
+  Server();
+  Server(const std::string url);
+  static Server *Create(const
+                        Nan::FunctionCallbackInfo<v8::Value>
+                        &info);
+
+  typedef arangodb::dbinterface::Server LibType;
+  typedef LibType::SPtr LibPtr;
+  LibPtr _pServer;
   static Nan::Persistent<v8::Function> _constructor;
 };
 }

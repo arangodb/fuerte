@@ -23,6 +23,7 @@
 #include <iostream>
 
 #include "Connection.h"
+#include "Server.h"
 
 namespace arangodb {
 
@@ -33,12 +34,7 @@ Nan::Persistent<v8::Function> Connection::_constructor;
 //
 // Default to an http connection type
 //
-Connection::Connection() {
-  typedef arangodb::dbinterface::Connection DbCon;
-  typedef arangodb::dbinterface::HttpConnection HttpCon;
-  DbCon* ptr = new HttpCon();
-  _pConnection = Ptr{ptr};
-}
+Connection::Connection() {}
 
 Connection::Connection(const Ptr inp) { _pConnection = inp; }
 
@@ -56,12 +52,15 @@ NAN_MODULE_INIT(Connection::Init) {
   // Create Javascript new Connection object template
   v8::Local<v8::FunctionTemplate> tpl = Nan::New<v8::FunctionTemplate>(New);
   tpl->SetClassName(Nan::New("Connection").ToLocalChecked());
-  tpl->InstanceTemplate()->SetInternalFieldCount(2);
+
+  // Only 1 internal field required for this wrapped class
+  tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
   // TODO Register prototypes for Javascript functions
   //
   Nan::SetPrototypeMethod(tpl, "Address", Connection::Address);
   Nan::SetPrototypeMethod(tpl, "Run", Connection::Run);
+  Nan::SetPrototypeMethod(tpl, "SetAsynchronous", Connection::SetAsynchronous);
 
   // Provides Javascript with GetVersion constructor
   // function
@@ -74,22 +73,40 @@ NAN_METHOD(Connection::Address) {
   std::cout << "Address : " << ptr << std::endl;
 }
 
+NAN_METHOD(Connection::SetAsynchronous) {
+  Connection* pCon = ObjectWrap::Unwrap<Connection>(info.Holder());
+  int nArgs = info.Length();
+  if (nArgs > 1) {
+    Nan::ThrowTypeError("Too many arguments");
+    return;
+  }
+  bool bAsync = false;
+  if (nArgs == 1) {
+    v8::Local<v8::Value> val = info[0];
+    if (!val->IsBoolean()) {
+      Nan::ThrowTypeError("Boolean parameter required");
+      return;
+    }
+    bAsync = val->BooleanValue();
+  }
+  Connection::Ptr pLibCon = pCon->_pConnection;
+  pLibCon->setAsynchronous(bAsync);
+  info.GetReturnValue().Set(bAsync);
+}
+
 NAN_METHOD(Connection::Run) {
   typedef arangodb::dbinterface::HttpConnection HttpConnection;
   typedef arangodb::dbinterface::Connection::VPack VPack;
   Connection* pCon = ObjectWrap::Unwrap<Connection>(info.Holder());
   Connection::Ptr pLibCon = pCon->_pConnection;
-  pLibCon->setAsynchronous(false);
   pLibCon->run();
   VPack vpack = pLibCon->result();
   std::string res = HttpConnection::json(vpack);
-  info.GetReturnValue().Set(
-        Nan::New(res.c_str()).ToLocalChecked());
-  //info.GetReturnValue().Set(Nan::New("Need to get result").ToLocalChecked());
+  info.GetReturnValue().Set(Nan::New(res.c_str()).ToLocalChecked());
 }
 
 //
-// Static function to create a Javascript GetVersion object
+// Static function to create a new Javascript Connection object
 //
 // This is called from Javascript as follows
 // var obj = new node.GetVersion()
@@ -102,14 +119,27 @@ NAN_METHOD(Connection::New) {
     obj->Wrap(info.This());
     info.GetReturnValue().Set(info.This());
   } else {
-    std::cout << "Object factory method" << std::endl;
-    // Invoked as plain function `GetVersion(...)`,
+    // Invoked as plain function `Connection(...)`,
     // turn into construct call.
-    std::cout << "Parameters : " << info.Length() << std::endl;
-    v8::Local<v8::Value> argv[1] = {info[0]};
+    const int argc = info.Length();
+    v8::Local<v8::Value> argv[argc];
+    for (int i = 0; i < argc; ++i) {
+      argv[i] = info[i];
+    }
     v8::Local<v8::Function> cons = Nan::New<v8::Function>(_constructor);
-    info.GetReturnValue().Set(cons->NewInstance(1, argv));
+    auto val = cons->NewInstance(argc, argv);
+    info.GetReturnValue().Set(val);
   }
+}
+
+void Connection::SetReturnValue(
+    const Nan::FunctionCallbackInfo<v8::Value>& info, Ptr inp) {
+  v8::Local<v8::Value> argv[0];
+  v8::Local<v8::Function> cons = Nan::New<v8::Function>(_constructor);
+  v8::Local<v8::Object> val = cons->NewInstance(0, argv);
+  Connection* pCon = ObjectWrap::Unwrap<Connection>(val);
+  pCon->_pConnection = inp;
+  info.GetReturnValue().Set(val);
 }
 
 //

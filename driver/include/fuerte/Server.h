@@ -45,18 +45,21 @@ class Server {
   Connection::SPtr makeConnection() const;
 
  private:
-  typedef Connection::SPtr (*ConFnc)();
   void setSrvUrl(const std::string& url);
   static Connection::SPtr httpConnection();
   static Connection::SPtr vppConnection();
 
   static uint16_t _inst;
   Connection::Url _host;
-  ConFnc _makeConnection;
+  bool _bVelocyPack;
 };
 
 inline Connection::SPtr Server::makeConnection() const {
-  return (*_makeConnection)();
+  if (_bVelocyPack)
+  {
+    return vppConnection();
+  }
+  return httpConnection();
 }
 
 #ifdef FUERTE_CONNECTIONURL
