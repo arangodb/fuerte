@@ -287,6 +287,8 @@ void HttpConnection::asyncRun() {
       while (!_async.perform(&nLeft));
       if (nLeft)
       {
+        // Checking for messages will need to be done here
+        // if more than one connection is being run asynchronously
         return;
       }
       curlpp::Multi::Msgs msgs = _async.info();
@@ -303,6 +305,7 @@ void HttpConnection::asyncRun() {
           {
             std::string msg{curl_easy_strerror(code)};
             errFound(msg);
+            return;
           }
         }
       }

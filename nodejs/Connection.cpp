@@ -58,14 +58,36 @@ NAN_MODULE_INIT(Connection::Init) {
 
   // TODO Register prototypes for Javascript functions
   //
+  Nan::SetPrototypeMethod(tpl, "EnumValues"
+                          ,Connection::EnumValues);
   Nan::SetPrototypeMethod(tpl, "Address", Connection::Address);
+  Nan::SetPrototypeMethod(tpl, "Result", Connection::Result);
   Nan::SetPrototypeMethod(tpl, "Run", Connection::Run);
-  Nan::SetPrototypeMethod(tpl, "SetAsynchronous", Connection::SetAsynchronous);
+  Nan::SetPrototypeMethod(tpl, "IsRunning"
+                          ,Connection::IsRunning);
+  Nan::SetPrototypeMethod(tpl, "SetAsynchronous"
+                          ,Connection::SetAsynchronous);
+  Nan::SetPrototypeMethod(tpl, "ResponseCode"
+                          ,Connection::ResponseCode);
 
-  // Provides Javascript with GetVersion constructor
+  // Provides Javascript with Connection constructor
   // function
   _constructor.Reset(tpl->GetFunction());
-  target->Set(Nan::New("Connection").ToLocalChecked(), tpl->GetFunction());
+  target->Set(Nan::New("Connection").ToLocalChecked()
+              , tpl->GetFunction());
+}
+
+NAN_METHOD(Connection::EnumValues) {
+  typedef arangodb::dbinterface::Connection::Format Format;
+  v8::Local<v8::Object> obj = Nan::New<v8::Object>();
+
+  Nan::Set(obj,Nan::New("JSon").ToLocalChecked()
+           , Nan::New<v8::Number>(
+             static_cast<int>(Format::Json)));
+  Nan::Set(obj,Nan::New("VPack").ToLocalChecked()
+           , Nan::New<v8::Number>(
+             static_cast<int>(Format::VPack)));
+  info.GetReturnValue().Set(obj);
 }
 
 NAN_METHOD(Connection::Address) {
@@ -94,15 +116,41 @@ NAN_METHOD(Connection::SetAsynchronous) {
   info.GetReturnValue().Set(bAsync);
 }
 
+NAN_METHOD(Connection::IsRunning) {
+  if (info.Length() > 0) {
+    Nan::ThrowTypeError("No arguments required");
+    return;
+  }
+  Connection* pCon = ObjectWrap::Unwrap<Connection>(info.Holder());
+  Connection::Ptr pLibCon = pCon->_pConnection;
+  info.GetReturnValue().Set(pLibCon->isRunning());
+}
+
 NAN_METHOD(Connection::Run) {
   typedef arangodb::dbinterface::HttpConnection HttpConnection;
   typedef arangodb::dbinterface::Connection::VPack VPack;
+  if (info.Length() > 0) {
+    Nan::ThrowTypeError("No arguments required");
+    return;
+  }
   Connection* pCon = ObjectWrap::Unwrap<Connection>(info.Holder());
   Connection::Ptr pLibCon = pCon->_pConnection;
   pLibCon->run();
+}
+
+NAN_METHOD(Connection::Result) {
+  typedef arangodb::dbinterface::HttpConnection HttpConnection;
+  typedef arangodb::dbinterface::Connection::VPack VPack;
+  if (info.Length() > 0) {
+    Nan::ThrowTypeError("No arguments required");
+    return;
+  }
+  Connection* pCon = ObjectWrap::Unwrap<Connection>(info.Holder());
+  Connection::Ptr pLibCon = pCon->_pConnection;
   VPack vpack = pLibCon->result();
   std::string res = HttpConnection::json(vpack);
-  info.GetReturnValue().Set(Nan::New(res.c_str()).ToLocalChecked());
+  info.GetReturnValue().Set(
+        Nan::New(res.c_str()).ToLocalChecked());
 }
 
 //
@@ -130,16 +178,30 @@ NAN_METHOD(Connection::New) {
     for (int i = 0; i < argc; ++i) {
       argv[i] = info[i];
     }
-    v8::Local<v8::Function> cons = Nan::New<v8::Function>(_constructor);
+    v8::Local<v8::Function> cons =
+        Nan::New<v8::Function>(_constructor);
     auto val = cons->NewInstance(argc, argv);
     info.GetReturnValue().Set(val);
   }
 }
 
+NAN_METHOD(Connection::ResponseCode) {
+  Connection* pCon = ObjectWrap::Unwrap<Connection>(info.Holder());
+  Connection::Ptr pLibCon = pCon->_pConnection;
+  if (info.Length() > 0) {
+    Nan::ThrowTypeError("No arguments required");
+    return;
+  }
+  std::int32_t res = static_cast<std::int32_t>(
+        pLibCon->responseCode());
+  info.GetReturnValue().Set(res);
+}
+
 void Connection::SetReturnValue(
     const Nan::FunctionCallbackInfo<v8::Value>& info, Ptr inp) {
   v8::Local<v8::Value> argv[0];
-  v8::Local<v8::Function> cons = Nan::New<v8::Function>(_constructor);
+  v8::Local<v8::Function> cons =
+      Nan::New<v8::Function>(_constructor);
   v8::Local<v8::Object> val = cons->NewInstance(0, argv);
   Connection* pCon = ObjectWrap::Unwrap<Connection>(val);
   pCon->_pConnection = inp;
@@ -156,7 +218,8 @@ v8::Local<v8::Value> Connection::NewInstance(v8::Local<v8::Value> arg) {
 
   const unsigned argc = 1;
   v8::Local<v8::Value> argv[argc] = {arg};
-  v8::Local<v8::Function> cons = Nan::New<v8::Function>(_constructor);
+  v8::Local<v8::Function> cons =
+      Nan::New<v8::Function>(_constructor);
   v8::Local<v8::Object> instance = cons->NewInstance(argc, argv);
 
   return scope.Escape(instance);

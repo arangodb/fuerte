@@ -40,7 +40,11 @@ class Connection : public Nan::ObjectWrap {
   const Ptr libConnection() const;
   static void SetReturnValue(
     const Nan::FunctionCallbackInfo<v8::Value>& info,Ptr inp);
+  static NAN_METHOD(EnumValues);
+  static NAN_METHOD(ResponseCode);
   static NAN_METHOD(SetAsynchronous);
+  static NAN_METHOD(Result);
+  static NAN_METHOD(IsRunning);
   static NAN_METHOD(Run);
   static NAN_METHOD(Address);
   static NAN_METHOD(New);
