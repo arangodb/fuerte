@@ -9,8 +9,9 @@ include_directories(
 set(FuerteBenchSRCS
   src/main.cpp
   src/BucketReadTest.cpp
-  src/BucketWriteTest.cpp
   src/BucketTest.cpp
+  src/BucketVersionTest.cpp
+  src/BucketWriteTest.cpp
   src/FuerteBench.cpp
 )
 

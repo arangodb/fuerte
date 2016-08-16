@@ -36,7 +36,7 @@ class FuerteBench {
   typedef uint16_t ThreadCount;
   typedef std::vector<BucketTest*> TestObjs;
 
-  enum class TestCase { READ, WRITE };
+  enum class TestCase { READ, WRITE, VERSION };
 
  public:
   static std::string hostUrl();
@@ -54,6 +54,7 @@ class FuerteBench {
   bool readDocDatas();
   void createTestObjs(std::function<std::unique_ptr<BucketTest>(
                           DocDatas::const_iterator, DocDatas::const_iterator)>);
+  void createTestObjs(std::function<std::unique_ptr<BucketTest>()>);
   std::string checkCollection() const;
 
   int _argc;

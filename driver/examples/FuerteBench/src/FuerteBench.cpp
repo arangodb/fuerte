@@ -26,16 +26,17 @@
 #include <array>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <thread>
-#include <memory>
 #include <utility>
 
 #include "BucketReadTest.h"
+#include "BucketVersionTest.h"
 #include "BucketWriteTest.h"
 
 namespace {
-typedef std::array<std::string, 8> OptArray;
+typedef std::array<std::string, 9> OptArray;
 const OptArray optStrs = {{
     "-f"  // File containing list of documents to load
     ,
@@ -52,6 +53,8 @@ const OptArray optStrs = {{
     "-r"  // ArangoDB to return VPack
     ,
     "-w"  // write tests
+    ,
+    "-v"  // version tests
 }};
 
 enum : uint16_t {
@@ -62,13 +65,17 @@ enum : uint16_t {
   Opt_DbName,
   Opt_HostName,
   Opt_RetVPack,
-  Opt_Write
+  Opt_Write,
+  Opt_Version
 };
 
 const std::string help{
     "Usage : FuerteBench [-f File-name] [-d Database-name] [-c "
     "Collection-name] [-h Host-url] "
-    "[-p Number-of-threads] [-m number-of-iterations] [-r]\n\n"
+    "[-p Number-of-threads] [-m number-of-iterations] [-r] "
+    "[-w] [-v]\n\n"
+    "-w execute a write test\n"
+    "-v execute a version test\n"
     "-r Requests documents returned as VPack objects\n\n"
     "Bencbmarks the arangodbcpp library by reading multiple Documents from "
     "an ArangoDB database using multiple threads\n\n"
@@ -138,6 +145,10 @@ void FuerteBench::processCmdLine() {
         _testCase = TestCase::WRITE;
         break;
       }
+      case Opt_Version: {
+        _testCase = TestCase::VERSION;
+        break;
+      }
       case Opt_FileName: {
         if (idx + 1 == _argc) {
           break;
@@ -204,8 +215,9 @@ std::string FuerteBench::checkCollection() const {
 }
 
 void FuerteBench::createTestObjs(
-    std::function<std::unique_ptr<BucketTest>(
-        DocDatas::const_iterator, DocDatas::const_iterator)> testFactory) {
+    std::function<std::unique_ptr<BucketTest>(DocDatas::const_iterator,
+                                              DocDatas::const_iterator)>
+        testFactory) {
   _tests.clear();
 
   const DocDatas::size_type sz = _docDatas.size();
@@ -244,6 +256,16 @@ void FuerteBench::createTestObjs(
   } while (iFirst != iEnd);
 }
 
+void FuerteBench::createTestObjs(
+    std::function<std::unique_ptr<BucketTest>()> testFactory) {
+  _tests.clear();
+
+  for (size_t i = 0; i < _threads; ++i) {
+    auto test = testFactory();
+    _tests.push_back(test.release());
+  }
+}
+
 bool FuerteBench::start() {
   using std::cout;
   using std::endl;
@@ -251,28 +273,30 @@ bool FuerteBench::start() {
   using system_clock = chrono::system_clock;
   processCmdLine();
 
-  if (_fileName.empty() || _colName.empty() || _dbName.empty()) {
-    cout << help << std::flush;
-    return false;
-  }
-
-  {
-    std::string err = checkCollection();
-
-    if (!err.empty()) {
-      cout << err << endl;
+  if (_testCase != TestCase::VERSION) {
+    if (_fileName.empty() || _colName.empty() || _dbName.empty()) {
+      cout << help << std::flush;
       return false;
     }
-  }
 
-  if (!readDocDatas()) {
-    cout << _fileName << " file not found" << endl;
-    return false;
-  }
+    {
+      std::string err = checkCollection();
 
-  if (_docDatas.empty()) {
-    cout << "No documents listed" << endl;
-    return false;
+      if (!err.empty()) {
+        cout << err << endl;
+        return false;
+      }
+    }
+
+    if (!readDocDatas()) {
+      cout << _fileName << " file not found" << endl;
+      return false;
+    }
+
+    if (_docDatas.empty()) {
+      cout << "No documents listed" << endl;
+      return false;
+    }
   }
 
   auto hostName = _hostName;
@@ -306,14 +330,25 @@ bool FuerteBench::start() {
         return test;
       });
       break;
+
+    case TestCase::VERSION:
+      std::cout << "VERSION TEST\n============\n" << endl;
+
+      createTestObjs([hostName, dbName, colName, prot]() {
+        std::unique_ptr<BucketVersionTest> test(
+            new BucketVersionTest(hostName, prot));
+
+        return test;
+      });
+      break;
   }
 
   std::vector<std::thread> threads;
-  threads.reserve(_docDatas.size());
+  threads.reserve(_tests.size());
   std::atomic_bool bWait{true};
 
   for (BucketTest* test : _tests) {
-    threads.push_back(std::thread{std::ref(*test), std::ref(bWait), _loops});
+    threads.emplace_back(std::ref(*test), std::ref(bWait), _loops);
   }
 
   system_clock::time_point now = system_clock::now();
