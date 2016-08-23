@@ -143,7 +143,7 @@ set(ExamplesFileList
 )
 
 # Create a meta target to create examples
-add_custom_target(examples
+add_custom_target(curlpp_examples
   COMMENT
     A target that requires all the examples.
 )
@@ -154,7 +154,7 @@ foreach (Example ${ExamplesFileList})
   add_executable(${ExampleName} EXCLUDE_FROM_ALL ${Example})
   target_link_libraries(${ExampleName} ${PROJECT_NAME})
 
-  add_dependencies(examples ${ExampleName})
+  add_dependencies(curlpp_examples ${ExampleName})
 endforeach ()
 
 #########################################################################################
