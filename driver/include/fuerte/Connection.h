@@ -26,27 +26,37 @@
 #include <memory>
 
 #include <velocypack/Buffer.h>
+#include <velocypack/Builder.h>
 
 #include <fuerte/ConOption.h>
 #include <fuerte/ConnectionUrl.h>
 
 namespace arangodb {
+/*
 namespace velocypack {
 class Builder;
 }
+*/
 namespace dbinterface {
 // Defines the interfaces required for a connection
 class Connection {
+
+protected:
+enum class Mode : uint8_t {
+    Clear = 0,
+    AsyncRun = 1,
+    SyncRun = 2,
+    Done = 3,
+    LogicError = 4,
+    RunError = 5
+  };
+
  public:
   typedef std::shared_ptr<Connection> SPtr;
   typedef arangodb::velocypack::Buffer<uint8_t> VBuffer;
   typedef arangodb::velocypack::Builder Builder;
   typedef std::shared_ptr<VBuffer> VPack;
-#ifdef FUERTE_CONNECTIONURL
   typedef ConnectionUrl Url;
-#else
-  typedef std::string Url;
-#endif
   enum class Protocol : uint8_t {
     Json = 0,   // Json <=> Json
     VPackJson,  // VPack <=> Json

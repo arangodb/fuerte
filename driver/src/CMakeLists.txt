@@ -11,6 +11,8 @@ include_directories(
 set(fuerteSRCS
   ConnectionUrl.cpp
   HttpConnection.cpp
+  VppConnection.cpp
+  ConOption.cpp
   Server.cpp
   Database.cpp
   Collection.cpp

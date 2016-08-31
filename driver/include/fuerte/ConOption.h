@@ -1,64 +1,70 @@
-////////////////////////////////////////////////////////////////////////////////
-/// DISCLAIMER
-///
-/// Copyright 2016 ArangoDB GmbH, Cologne, Germany
-///
-/// Licensed under the Apache License, Version 2.0 (the "License");
-/// you may not use this file except in compliance with the License.
-/// You may obtain a copy of the License at
-///
-///     http://www.apache.org/licenses/LICENSE-2.0
-///
-/// Unless required by applicable law or agreed to in writing, software
-/// distributed under the License is distributed on an "AS IS" BASIS,
-/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-/// See the License for the specific language governing permissions and
-/// limitations under the License.
-///
-/// Copyright holder is ArangoDB GmbH, Cologne, Germany
-///
-/// @author John Bufton
-////////////////////////////////////////////////////////////////////////////////
-
 #ifndef FUERTE_CONOPTION
 #define FUERTE_CONOPTION
 
-namespace arangodb {
-namespace dbinterface {
-class ConOption {
- public:
-  ConOption() = delete;
-  explicit ConOption(const std::string& name, const std::string& value);
-  const std::string headerString() const;
-  const std::string queryString() const;
-  const std::string& name() const;
-  const std::string& value() const;
-  void setName(const std::string& val);
-  void setValue(const std::string& val);
+#include <vector>
+#include <velocypack/Value.h>
 
- private:
-  std::string _name;
-  std::string _value;
+namespace arangodb
+{
+
+namespace dbinterface
+{
+
+class ConOption
+{
+private:
+    typedef arangodb::velocypack::Value Value;
+    typedef arangodb::velocypack::Value::CType CType;
+public:
+    typedef std::vector<ConOption>  vector;
+    ConOption() = delete;
+    ConOption ( const ConOption &inp );
+    template <typename T>
+    explicit ConOption ( const std::string &name, const T &value );
+    ConOption &operator = ( const ConOption &inp );
+    const std::string headerString() const;
+    const std::string queryString() const;
+    const std::string &name() const;
+    const Value &value() const;
+    void setName ( const std::string &val );
+    template <typename T>
+    void setValue ( const T &val );
+    std::string valueString() const;
+
+private:
+    std::string _name;
+    //  Need to hold string value because _value only heeps a pointer to the value
+    std::string _str;
+    Value _value;
 };
 
-inline ConOption::ConOption(const std::string& name, const std::string& value)
-    : _name(name), _value(value) {}
-
-inline const std::string ConOption::headerString() const {
-  return std::string{_name + ':' + _value};
+template <typename T>
+ConOption::ConOption ( const std::string &name, const T &value )
+    : _name {name},_value {value} {
 }
 
-inline const std::string ConOption::queryString() const {
-  return std::string{_name + '=' + _value};
+inline const std::string &ConOption::name() const
+{
+    return _name;
 }
 
-inline const std::string& ConOption::name() const { return _name; }
+inline const ConOption::Value &ConOption::value() const
+{
+    return _value;
+}
 
-inline const std::string& ConOption::value() const { return _value; }
+inline void ConOption::setName ( const std::string &val )
+{
+    _name = val;
+}
 
-inline void ConOption::setName(const std::string& val) { _name = val; }
+template <typename T>
+inline void ConOption::setValue ( const T &val )
+{
+    new ( &_value ) Value ( val );
+}
 
-inline void ConOption::setValue(const std::string& val) { _value = val; }
+
 }
 }
 

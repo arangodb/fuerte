@@ -35,7 +35,8 @@ class ConnectionUrl {
   void setDbName(const std::string& inp);
   ConnectionUrl& operator+=(const std::string& inp);
   std::string httpUrl() const;
-
+  const std::string &tailUrl() const;
+  
  private:
   std::string _serverUrl;
   std::string _dbName;
@@ -54,6 +55,11 @@ inline const std::string& ConnectionUrl::dbName() const { return _dbName; }
 inline ConnectionUrl& ConnectionUrl::operator+=(const std::string& inp) {
   _tailUrl += inp;
   return *this;
+}
+
+inline const std::string &ConnectionUrl::tailUrl() const
+{
+    return _tailUrl;
 }
 
 inline void ConnectionUrl::setServerUrl(const std::string& inp) {
