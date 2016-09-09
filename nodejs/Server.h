@@ -39,9 +39,7 @@ class Server : public Nan::ObjectWrap {
  private:
   Server();
   Server(const std::string url);
-  static Server *Create(const
-                        Nan::FunctionCallbackInfo<v8::Value>
-                        &info);
+  static Server* Create(const Nan::FunctionCallbackInfo<v8::Value>& info);
 
   typedef arangodb::dbinterface::Server LibType;
   typedef LibType::SPtr LibPtr;

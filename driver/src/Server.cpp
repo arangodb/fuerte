@@ -27,8 +27,9 @@
 
 #include <curlpp/cURLpp.hpp>
 
-#include <fuerte/Database.h>
-#include <fuerte/HttpConnection.h>
+#include "../include/fuerte/Database.h"
+#include "../include/fuerte/HttpConnection.h"
+#include "../include/fuerte/VppConnection.h"
 
 namespace arangodb {
 namespace dbinterface {
@@ -50,10 +51,13 @@ Server::~Server() {
 }
 
 Connection::SPtr Server::httpConnection() {
-  return Connection::SPtr{new HttpConnection()};
+  return Connection::SPtr{new HttpConnection{}};
 }
 
-Connection::SPtr Server::vppConnection() { return Connection::SPtr(); }
+Connection::SPtr Server::vppConnection() {
+  return Connection::SPtr{new VppConnection{}};
+  // return Connection::SPtr{ nullptr };
+}
 
 // Enables the user to set the host url
 void Server::setHostUrl(const std::string url) {
@@ -89,6 +93,7 @@ void Server::setHostUrl(const std::string url) {
 // Configure to request the Arangodb version
 void Server::version(Connection::SPtr p) {
   Connection& conn = p->reset();
+  conn.setGetReq();
   conn.setUrl(_host + "/_api/version");
   conn.setBuffer();
 }
@@ -103,6 +108,7 @@ void Server::currentDb(Connection::SPtr p) {
 // Configure to request the user Databases available
 void Server::userDbs(Connection::SPtr p) {
   Connection& conn = p->reset();
+  conn.setGetReq();
   conn.setUrl(_host + "/_api/database/user");
   conn.setBuffer();
 }
@@ -110,6 +116,7 @@ void Server::userDbs(Connection::SPtr p) {
 // Configure to request the Databases available
 void Server::existingDbs(Connection::SPtr p) {
   Connection& conn = p->reset();
+  conn.setGetReq();
   conn.setUrl(_host + "/_api/database");
   conn.setBuffer();
 }

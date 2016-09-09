@@ -20,7 +20,7 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <fuerte/HttpConnection.h>
+#include "../include/fuerte/HttpConnection.h"
 
 #include <algorithm>
 
@@ -84,11 +84,7 @@ void HttpConnection::setBuffer(const std::string& inp) {
 }
 
 void HttpConnection::setUrl(const HttpConnection::Url& inp) {
-#ifdef FUERTE_CONNECTIONURL
   std::string url = inp.httpUrl();
-#else
-  std::string url = inp;
-#endif
   if (!_queries.empty()) {
     _queries[0] = '?';
     url += _queries;
@@ -150,17 +146,6 @@ void HttpConnection::defaultAccept(Format inp) {
     }
     default:;
   }
-}
-
-std::string HttpConnection::json(const VPack& v) {
-  using arangodb::velocypack::Slice;
-  using arangodb::velocypack::Dumper;
-  using arangodb::velocypack::StringSink;
-  Slice slice{v->data()};
-  std::string tmp;
-  StringSink sink(&tmp);
-  Dumper::dump(slice, &sink);
-  return tmp;
 }
 
 void HttpConnection::setPostField(const VPack data) {
@@ -283,35 +268,32 @@ void HttpConnection::syncRun() {
 // before completing
 void HttpConnection::asyncRun() {
   try {
-      int nLeft;
-      while (!_async.perform(&nLeft));
-      if (nLeft)
-      {
-        // Checking for messages will need to be done here
-        // if more than one connection is being run asynchronously
-        return;
-      }
-      curlpp::Multi::Msgs msgs = _async.info();
+    int nLeft;
+    while (!_async.perform(&nLeft))
+      ;
+    if (nLeft) {
+      // Checking for messages will need to be done here
+      // if more than one connection is being run asynchronously
+      return;
+    }
+    curlpp::Multi::Msgs msgs = _async.info();
 
-      if (!msgs.empty())
-      {
-        auto msg = msgs.back();
+    if (!msgs.empty()) {
+      auto msg = msgs.back();
 
-        if (msg.second.msg == CURLMSG_DONE)
-        {
-          CURLcode code = msg.second.code;
+      if (msg.second.msg == CURLMSG_DONE) {
+        CURLcode code = msg.second.code;
 
-          if (code != CURLE_OK)
-          {
-            std::string msg{curl_easy_strerror(code)};
-            errFound(msg);
-            return;
-          }
+        if (code != CURLE_OK) {
+          std::string msg{curl_easy_strerror(code)};
+          errFound(msg);
+          return;
         }
       }
-      _async.remove(&_request);
-      _mode = Mode::Done;
-      return;
+    }
+    _async.remove(&_request);
+    _mode = Mode::Done;
+    return;
   } catch (curlpp::LogicError& e) {
     errFound(e.what(), Mode::LogicError);
     return;
@@ -397,18 +379,6 @@ Connection::VPack HttpConnection::fromVPData() const {
   return buf;
 }
 
-Connection::VPack HttpConnection::vpack(const uint8_t* data, std::size_t sz) {
-  if (sz < 2) {
-    return Connection::VPack{};
-  }
-  using arangodb::velocypack::Builder;
-  using arangodb::velocypack::Parser;
-  Parser parser;
-  parser.parse(data, sz);
-  std::shared_ptr<Builder> vp{parser.steal()};
-  return vp->buffer();
-}
-
 // Converts Json held in the default write buffer
 // to a shared velocypack buffer
 Connection::VPack HttpConnection::fromJson() const {
@@ -441,8 +411,7 @@ void HttpConnection::httpProtocol() {
   }
 }
 
-HttpConnection::HttpConnection() : Connection{},
-  _prot(Protocol::Json) {}
+HttpConnection::HttpConnection() : Connection{}, _prot(Protocol::Json) {}
 
 HttpConnection::~HttpConnection() {}
 }

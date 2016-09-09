@@ -20,28 +20,48 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "../include/fuerte/ConnectionUrl.h"
+#ifndef FUERTE_HEADERMULTI
+
+#define FUERTE_HEADERMULTI
+
+#include <limits>
+#include "HeaderSingle.h"
 
 namespace arangodb {
+
 namespace dbinterface {
-std::string ConnectionUrl::httpUrl() const {
-  std::string res = _serverUrl;
-  if (!_dbName.empty()) {
-    res += "/_db/" + _dbName;
-  }
-  res += _tailUrl;
-  return res;
+
+namespace Header {
+
+class Multi : public Single {
+ public:
+  Multi();
+  Multi(const uint8_t* ptr);
+  Multi(ChunkInfo noChunks, MsgId msgId, SzChunk szChunk, SzMsg szMsg);
+  uint16_t szHeader() const override;
+  SzMsg szChunks() const override;
+  bool bSingleChunk() const override;
+  void headerOut(uint8_t* ptr) const override;
+
+  enum : uint16_t { HeaderSize = 24 };
+#define __TMP__ (std::numeric_limits<uint32_t>::max())
+  enum : uint64_t {
+    MaxSzMsg = static_cast<uint64_t>(__TMP__ - Common::HeaderSize) *
+                   ((__TMP__ >> 1) - 1) +
+               (__TMP__ - Multi::HeaderSize)
+  };
+#undef __TMP__
+ private:
+  MsgId _szMsg;
+};
+
+inline Multi::Multi() : Single{} {}
+
+inline bool Multi::bSingleChunk() const { return false; }
+
+inline uint16_t Multi::szHeader() const { return HeaderSize; }
+}
+}
 }
 
-const ConnectionUrl operator+(const ConnectionUrl& inp,
-                              const std::string& add) {
-  ConnectionUrl res{inp};
-  return res += add;
-}
-
-ConnectionUrl&& operator+(ConnectionUrl&& inp, const std::string& add) {
-  inp += add;
-  return std::move(inp);
-}
-}
-}
+#endif

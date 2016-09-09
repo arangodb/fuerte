@@ -20,28 +20,29 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "../include/fuerte/ConnectionUrl.h"
+#ifndef FUERTE_HEADERLOADER
+#define FUERTE_HEADERLOADER
+
+#include "HeaderMulti.h"
 
 namespace arangodb {
+
 namespace dbinterface {
-std::string ConnectionUrl::httpUrl() const {
-  std::string res = _serverUrl;
-  if (!_dbName.empty()) {
-    res += "/_db/" + _dbName;
-  }
-  res += _tailUrl;
-  return res;
+
+namespace Header {
+
+class Loader {
+  union {
+    uint8_t _common[sizeof(Common)];
+    uint8_t _single[sizeof(Single)];
+    uint8_t _multi[sizeof(Multi)];
+  } _hdr;
+
+ public:
+  Common& operator()(const uint8_t* ptr);
+};
+}
+}
 }
 
-const ConnectionUrl operator+(const ConnectionUrl& inp,
-                              const std::string& add) {
-  ConnectionUrl res{inp};
-  return res += add;
-}
-
-ConnectionUrl&& operator+(ConnectionUrl&& inp, const std::string& add) {
-  inp += add;
-  return std::move(inp);
-}
-}
-}
+#endif

@@ -2,6 +2,18 @@
 
 add_definitions("-DVELOCYPACK_XXHASH=1")
 
+#
+# Assumes boost is installed
+#
+find_package(Boost
+  COMPONENTS serialization system
+  REQUIRED)
+
+#
+# Ensure threads are not required by Boost ASIO
+#
+add_definitions(-DBOOST_ASIO_DISABLE_THREADS )
+
 include_directories( 
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_SOURCE_DIR}/3rdParty/curlpp2/include
@@ -12,6 +24,7 @@ set(fuerteSRCS
   ConnectionUrl.cpp
   HttpConnection.cpp
   VppConnection.cpp
+  Connection.cpp
   ConOption.cpp
   Server.cpp
   Database.cpp
@@ -19,6 +32,9 @@ set(fuerteSRCS
   Document.cpp
   Cursor.cpp
   Version.cpp
+  HeaderCommon.cpp
+  HeaderMulti.cpp
+  HeaderLoader.cpp
 )
 
 set(velocypackSRCS
@@ -41,6 +57,8 @@ set(velocypackSRCS
   xxhash.cpp
 )
 
+message("${Boost_LIBRARIES}")
+
 add_library(fuerte
   STATIC
   ${fuerteSRCS}
@@ -53,6 +71,9 @@ get_directory_property(CURL_LIBRARIES
   DEFINITION CURL_LIBRARIES
 )
 
-target_link_libraries(fuerte ${CURL_LIBRARIES})
+target_link_libraries(fuerte PUBLIC
+    ${CURL_LIBRARIES}   
+    ${Boost_LIBRARIES}
+)
 
 install(TARGETS fuerte DESTINATION lib)

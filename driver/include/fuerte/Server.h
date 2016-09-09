@@ -55,8 +55,7 @@ class Server {
 };
 
 inline Connection::SPtr Server::makeConnection() const {
-  if (_bVelocyPack)
-  {
+  if (_bVelocyPack) {
     return vppConnection();
   }
   return httpConnection();

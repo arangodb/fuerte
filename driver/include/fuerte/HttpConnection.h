@@ -85,18 +85,7 @@ class HttpConnection : public Connection {
   bool isRunning() const;
   bool bufEmpty() const;
 
-  static std::string json(const VPack& v);
-  static VPack vpack(const uint8_t* data, std::size_t sz);
-
  private:
-  enum class Mode : uint8_t {
-    Clear = 0,
-    AsyncRun = 1,
-    SyncRun = 2,
-    Done = 3,
-    LogicError = 4,
-    RunError = 5
-  };
   typedef std::vector<char> ChrBuf;
   size_t WriteMemoryCallback(char* ptr, size_t size, size_t nmemb);
   template <typename T>

@@ -20,7 +20,7 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <fuerte/Document.h>
+#include "../include/fuerte/Document.h"
 
 #include <velocypack/Builder.h>
 
@@ -151,8 +151,8 @@ void Document::get(const Collection::SPtr& pCol, const Connection::SPtr& pCon,
   matchHeader(conn, opts);
   conn.setUrl(pCol->refDocUrl(_key));
   conn.setGetReq();
-  conn.setBuffer();
   conn.setHeaderOpts();
+  conn.setBuffer();
 }
 
 // Replace a Document with new values in VelocyPack data

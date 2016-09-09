@@ -19,536 +19,424 @@
 ///
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
+#include <iostream>
 
-#include <fuerte/VppConnection.h>
+#include "../include/fuerte/HeaderLoader.h"
+#include "../include/fuerte/VppConnection.h"
 
 namespace arangodb {
 
 namespace dbinterface {
 
-namespace Header
-{
+const char VppConnection::ReqName::reqType[] = "reqtype";
+const char VppConnection::ReqName::request[] = "request";
+const char VppConnection::ReqName::dbName[] = "database";
+const char VppConnection::ReqName::url[] = "url";
+const char VppConnection::ReqName::port[] = "port";
 
-class Common
-{
-public:
-    typedef VppConnection::HeaderType::MsgId MsgId;
-    typedef VppConnection::HeaderType::SzMsg SzMsg;
-    typedef VppConnection::HeaderType::SzChunk SzChunk;
-    typedef VppConnection::HeaderType::ChunkInfo ChunkInfo;
-    typedef VppConnection::Chunk Chunk;
-    Common();
-    Common(const uint8_t *ptr);
-    Common(MsgId id, SzChunk sz);
-    Common(ChunkInfo nChks, MsgId id, SzChunk sz);
-    Common(MsgId id, SzChunk sz, ChunkInfo chnkNo );
-    virtual void headerOut(uint8_t *ptr) const; 
-    SzChunk szChunk() const;
-    virtual bool bFirstChunk() const;
-    virtual bool bSingleChunk() const;
-    virtual ChunkInfo chunkNo() const;
-    virtual ChunkInfo noChunks() const;
-    virtual SzChunk szHeader() const;
-    virtual SzMsg szChunks() const;
-    
-    static ChunkInfo chnkInfo(const uint8_t *ptr);
-    static bool bFirstChunk(ChunkInfo info);
-    static bool bSingleChunk(ChunkInfo info);
+const char VppConnection::ReqName::server[] = "server";
 
-protected:
-    enum : SzChunk { 
-      HeaderSize = 16
-      , SingleChunk = 3
-      , IdxSzChunk = 0
-      , IdxChunkInfo = sizeof(SzChunk)
-      , IdxMsgId = IdxChunkInfo + sizeof(ChunkInfo)
-      , IdxMsgSize = IdxMsgId + sizeof(MsgId)
-    };
-private:
-    SzChunk _szChnk;
-    ChunkInfo _chnkNo;
-    MsgId _msgId;
-};
+Header::Common::MsgId VppConnection::_idKey = std::time(nullptr);
 
-inline Common::Common()
-{
-}
-
-Common::Common(const uint8_t *ptr)
-{
-  _szChnk = *reinterpret_cast<const SzChunk *>(ptr + IdxSzChunk);
-  _chnkNo = *reinterpret_cast<const SzChunk *>(ptr + IdxChunkInfo);
-  _msgId = *reinterpret_cast<const SzMsg *>(ptr + IdxMsgId);
-}
-
-// 
-//  Constructor for header a single chunk message
-// 
-Common::Common(MsgId id, SzChunk sz)
-  :  _szChnk(sz), _chnkNo(SingleChunk), _msgId(id)
-{
-}
-
-// 
-//  Constructor for header for a multiple chunk message
-// 
-Common::Common(ChunkInfo nChks, MsgId id, SzChunk sz)
-  :  _szChnk(sz), _chnkNo(1 + (nChks <<  1)), _msgId(id)
-{
-}
-
-// 
-//  Constructor for header for an extra chunk
-// 
-Common::Common(MsgId id, SzChunk sz, ChunkInfo chnkNo)
-  :  _szChnk(sz), _chnkNo(chnkNo <<  1), _msgId(id)
-{
-}
-
-inline Common::ChunkInfo Common::chnkInfo(const uint8_t *ptr)
-{
-  return *reinterpret_cast<const ChunkInfo *>(ptr + IdxChunkInfo);
-}
-
-void Common::headerOut(uint8_t *ptr) const
-{
-  *reinterpret_cast<SzChunk *>(ptr + IdxSzChunk) = _szChnk;
-  *reinterpret_cast<SzChunk *>(ptr + IdxSzChunk) = _chnkNo;
-  *reinterpret_cast<SzMsg *>(ptr + IdxMsgId) = _msgId;
-}
-
-inline Common::SzChunk Header::Common::szChunk() const
-{
-    return _szChnk;
-}
-
-inline Common::ChunkInfo Header::Common::noChunks() const
-{
-    return 0;
-}
-
-inline bool Common::bFirstChunk(ChunkInfo info)
-{
-    return (info & 0x1) != 0;
-}
-
-inline bool Common::bFirstChunk() const
-{
-    return bFirstChunk(_chnkNo);
-}
-
-inline bool Common::bSingleChunk(ChunkInfo info)
-{
-    return info == SingleChunk;
-}
-
-inline bool Common::bSingleChunk() const
-{
-    return bSingleChunk(_chnkNo) ;
-}
-
-inline Common::ChunkInfo Header::Common::chunkNo() const
-{
-  return _chnkNo >> 1;
-}
-
-Common::SzChunk Common::szHeader() const
-{
-    return HeaderSize;
-}
-
-class Single : public Common
-{
-public:
-    Single();
-    Single(const uint8_t *ptr);
-    Single(MsgId id,  SzChunk szChnk);
-    SzChunk szHeader() const override;
-    ChunkInfo noChunks() const override;
-    ChunkInfo chunkNo() const override;
-
-private:
-    enum :  SzChunk { HeaderSize = 16 };
-};
-
-inline Single::Single() : Common{}
-{
-}
-
-inline Single::Single(const uint8_t *ptr) : Common{ ptr }
-{
-}
-
-Single::Single(MsgId id,  SzChunk szChnk) : Common{ id, szChnk }
-{
-}
-
-inline Common::ChunkInfo Single::chunkNo() const
-{
-  return 0;
-}
-
-inline Common::SzChunk Single::szHeader() const
-{
-    return HeaderSize;
-}
-
-inline Common::ChunkInfo Single::noChunks() const
-{
-    return 1;
-}
-
-class Multi : public Common
-{
-public:
-  Multi();
-  Multi(const uint8_t *ptr);
-  Multi(ChunkInfo noChunks, MsgId msgId, SzChunk szChunk, SzMsg szMsg);
-  SzChunk szHeader() const override;
-  SzMsg szChunks() const override;
-  bool bFirstChunk() const override;
-  bool bSingleChunk() const override;
-  ChunkInfo chunkNo() const override;
-  void headerOut(uint8_t *ptr) const override;
-
-protected:
-  enum : SzChunk { HeaderSize = 24 };
-private:
-  MsgId _szMsg;
-};
-
-inline Multi::Multi() : Common{}
-{
-}
-
- Multi::Multi(ChunkInfo noChunks, MsgId msgId, SzChunk szChunk, SzMsg szMsg)
-   :  Common(noChunks, msgId, szChunk),  _szMsg(szMsg)
-{
-}
-
-Multi::Multi(const uint8_t *ptr) : Common(ptr)
-{
-  _szMsg = *reinterpret_cast<const MsgId *>(ptr + IdxMsgSize);
-}
-
-void Multi::headerOut(uint8_t *ptr) const
-{
-  Common::headerOut(ptr);
-  ptr += Common::HeaderSize;
-  *reinterpret_cast<MsgId *>(ptr) = _szMsg;
-}
-
-inline Common::ChunkInfo Multi::chunkNo() const
-{
-  return 0;
-}
-
-inline bool Multi::bFirstChunk() const
-{
-  return true;
-}
-
-inline bool Multi::bSingleChunk() const
-{
-  return false;
-}
-
-inline Common::SzChunk Multi::szHeader() const
-{
-    return HeaderSize;
-}
-
-Common::SzMsg Multi::szChunks() const
-{
-  MsgId res = noChunks() - 1;
-  res *= Common::HeaderSize;
-  res +=  HeaderSize;
-  return res;
-}
-
-class Loader
-{
-  union 
-  {
-    uint8_t _common[sizeof(Common)];
-    uint8_t _single[sizeof(Single)];
-    uint8_t _multi[sizeof(Multi)];
-  } _hdr;
-  
-public:
-  Common &operator()(VppConnection::Chunk &chnk);
-};
-
-Common &Loader::operator()(VppConnection::Chunk &chnk)
-{
-  uint8_t *ptr = chnk.data();
-  Common::ChunkInfo info{ Common::chnkInfo(ptr) };
-  Common *pHeader;
-  if (Common::bSingleChunk(info))
-  {
-    pHeader = new (_hdr._single) Single{ ptr };
-    return *pHeader;
-  }
-  if (Common::bFirstChunk(info))
-  {
-    pHeader = new (_hdr._multi) Multi{ ptr };
-    return *pHeader;
-  }
-  pHeader = new (_hdr._common) Common{ptr};
-  return *pHeader;
-}
-
-}
-
-namespace ReqName
-{
-
-char request[] = "request";
-char reqtype[] = "reqtype";
-char dbName[] = "database";
-char url[] = "url";
-char port[] = "port";
-char server[] = "server";
-
-};
-
-enum Request : int16_t {
-  Type = 1
-  , Version = 1
-  , Delete = 0
-  , Get = 1
-  , Post = 2
-  , Put = 3
-  , Patch = 5
-};
-
-VppConnection::HeaderType::MsgId  VppConnection::_idKey = std::time(nullptr);
-
-
-VppConnection::HeaderType::MsgId VppConnection::nextID()
-{
+Header::Common::MsgId VppConnection::nextID() {
   static const uint64_t nMagicPrime = 0x00000100000001b3ULL;
   uint64_t nHashVal = 0xcbf29ce484222325ULL;
-  const uint8_t *pFirst = reinterpret_cast<const uint8_t *> ( &_idKey );
-  const uint8_t *const pLast = pFirst + sizeof ( uint64_t );
+  const uint8_t* pFirst = reinterpret_cast<const uint8_t*>(&_idKey);
+  const uint8_t* const pLast = pFirst + sizeof(uint64_t);
 
-  do
-  {
+  do {
     nHashVal ^= *pFirst;
     nHashVal *= nMagicPrime;
-  }
-  while ( ++pFirst != pLast );
+  } while (++pFirst != pLast);
   _idKey = nHashVal;
   return nHashVal;
 }
 
-VppConnection::VppConnection() : Connection()
-    ,_service{}, _socket(_service)
-{
+VppConnection::VppConnection() : Connection(), _service{}, _socket(_service) {
+  _buffer.reserve(BufSize);
 }
 
-void VppConnection::gotConnection(const boost::system::error_code &err,
-                     tcp::resolver::iterator endpoint_iterator)
-{
-  if (err) 
+void VppConnection::setHeaderOpts() {}
+
+Header::Common::SzMsg VppConnection::szVPacks() const {
+  using arangodb::velocypack::Slice;
+  Header::Common::SzMsg sz = 0;
+  for (const VPack& vp : _vpacks) {
+    if (vp) {
+      Slice slice{vp->data()};
+      sz += slice.byteSize();
+    }
+  }
+  return sz;
+}
+
+void VppConnection::writeSingle() {
+  using arangodb::velocypack::Slice;
+  Header::Common::SzChunk szChnk = Header::Single::HeaderSize;
+  _buffer.resize(Header::Single::HeaderSize);
+  for (const VPack vp : _vpacks) {
+    if (vp) {
+      const uint8_t* ptr = vp->data();
+      Slice slice{ptr};
+      uint32_t szVPack = slice.byteSize();
+      szChnk += szVPack;
+      _buffer.insert(_buffer.end(), ptr, ptr + szVPack);
+    }
+  }
+  Header::Single{_msgId, szChnk}.headerOut(_buffer.data());
+  _bufIdx = 0;
+  writeBuffer();
+}
+
+void VppConnection::writeBuffer() {
+  auto bndFn = std::bind(&VppConnection::wroteBuffer, this,
+                         std::placeholders::_1, std::placeholders::_2);
+  auto buf =
+      boost::asio::buffer(_buffer.data() + _bufIdx, _buffer.size() - _bufIdx);
+  _socket.async_write_some(buf, bndFn);
+}
+
+void VppConnection::wroteBuffer(const boost::system::error_code& err,
+                                std::size_t len) {
+  if (err) {
+    //  TODO : handle errors
+    _mode = Mode::RunError;
+    return;
+  }
+  _bufIdx += len;
+  if (_buffer.size() > _bufIdx) {
+    writeBuffer();
+    return;
+  }
+  std::cout << "Buffer out written" << std::endl;
+  getChunks();
+  //  TODO : get response
+}
+
+void VppConnection::getChunks() {
+  _chnks.resize(1);
+  _chnks[0].clear();
+  _buffer.resize(BufSize);
+  getBuffer();
+}
+
+void VppConnection::getBuffer() {
+  auto bndFn = std::bind(&VppConnection::gotBuffer, this, std::placeholders::_1,
+                         std::placeholders::_2);
+  auto buf = boost::asio::buffer(_buffer.data(), _buffer.size());
+  _socket.async_read_some(buf, bndFn);
+}
+
+//
+// NOTE : Assumes chunks arrive in order
+//
+void VppConnection::gotBuffer(const boost::system::error_code& err,
+                              std::size_t len) {
+  typedef Header::Common::Chunk Chunk;
+  typedef Header::Common::SzChunk SzChunk;
+  typedef Header::Common::ChunkInfo ChunkInfo;
+  typedef Header::Common::SzMsg SzMsg;
+  if (err) {
+    // TODO handle error
+    _mode = Mode::RunError;
+    return;
+  }
+  Chunk::const_iterator iData = _buffer.begin();
+  do {
+    Chunk& chnk = _chnks.back();
+    SzChunk szReq = Header::Common::HeaderSize;
+    Header::Common header;
+    if (chnk.size() >= Header::Common::HeaderSize) {
+      header.headerIn(chnk.data());
+      szReq = header.szChunk();
+    }
+    if (len + chnk.size() < szReq) {
+      chnk.insert(chnk.end(), iData, iData + len);
+      break;
+    }
+    szReq -= chnk.size();
+    chnk.insert(chnk.end(), iData, iData + szReq);
+    iData += szReq;
+    len -= szReq;
+    if (chnk.size() == Header::Common::HeaderSize) {
+      continue;
+    }
+    szReq = header.szChunk();
+    if (chnk.size() == szReq) {
+      header.headerIn(_chnks[0].data());
+      if (_chnks.size() == header.chunkNo()) {
+        std::cout << "Chunks received" << std::endl;
+        //  Got all the chunks
+        unpackChunks();
+        _mode = Mode::Done;
+        return;
+      }
+      _chnks.push_back(Chunk{});
+    }
+  } while (len);
+  getBuffer();
+}
+
+void VppConnection::unpackChunks() {
+  if (_chnks.empty()) {
+    return;
+  }
+  _vpacks.clear();
   {
-    _socket.close();
-    if (++endpoint_iterator != tcp::resolver::iterator()) 
-    {
-        // The connection failed. Try the next endpoint in the list.
-        auto bndFn = std::bind(&VppConnection::gotConnection, this,
-                            std::placeholders::_1, endpoint_iterator);
-        _socket.async_connect(*endpoint_iterator, bndFn);
+    //  Consolidate the chunk data
+    Header::Common::Chunks::const_iterator iChnk = _chnks.begin();
+    while (++iChnk != _chnks.end()) {
+      _chnks[0].insert(_chnks[0].end(),
+                       iChnk->begin() + Header::Common::HeaderSize,
+                       iChnk->end());
+    }
+    _chnks.resize(1);
+  }
+  {
+    //  Extract the VPacks
+    Header::Common::ChunkInfo info = Header::Common::chnkInfo(_chnks[0].data());
+    Header::Common::Chunk::const_iterator iData = _chnks[0].begin();
+    if (Header::Common::bSingleChunk(info)) {
+      iData += Header::Single::HeaderSize;
+    } else {
+      iData += Header::Multi::HeaderSize;
+    }
+    while (iData != _chnks[0].end()) {
+      VPack vpack{new VBuffer{}};
+      arangodb::velocypack::Slice slice{&(*iData)};
+      size_t szVPack = slice.byteSize();
+      vpack->append(reinterpret_cast<const char*>(&(*iData)), szVPack);
+      _vpacks.push_back(vpack);
+      std::cout << json(vpack) << std::endl;
+      iData += szVPack;
     }
   }
 }
 
-Connection& VppConnection::reset() 
-{
-    namespace velocypack = arangodb::velocypack;
-    using velocypack::ValueType;
-    using velocypack::Value;
-
-    _request.clear();
-    _request.add(Value(ValueType::Object));
-    
-    return *this;
-}
-
-void VppConnection::setUrl(const Url& inp)
-{
-  namespace velocypack = arangodb::velocypack;
-  using velocypack::ValueType;
-  using velocypack::Value;
-  std:: string url = inp.serverUrl();
-  std:: string port { "80" };
-  std::string::size_type len = url.find("//");
-  _request.add(ReqName::dbName, Value(inp.dbName()));    
-  _request.add(ReqName::request, Value(inp.tailUrl()));
-  if (len !=  std::string::npos)
-  {
-    url = url.substr(len + 2);
-  }
-  len =url.find(':');
-  if (len !=  std::string::npos)
-  {
-    port = url.substr(len +1);
-    url = url.substr(0, len);
-  }
-  _request.add(ReqName::port, Value(port));
-  _request.add(ReqName::server, Value(url));
-  /*
-  if (_socket.is_open())
-  {
-    _socket.close();
-  }
-  boost::asio::ip::tcp::resolver resolver(_service);
-  boost::asio::ip::tcp::resolver::query query(url, port);
-  boost::asio::ip::tcp::resolver::iterator endpoint_iterator =
-      resolver.resolve(query);
-  auto bndFn = std::bind ( &VppConnection::gotConnection, this
-                            , std::placeholders::_1
-                            , endpoint_iterator );
-  _socket.async_connect ( *endpoint_iterator, bndFn );
-  */
-}
-
-void VppConnection::setHeaderOpts()
-{
-    namespace velocypack = arangodb::velocypack;
-    using velocypack::ValueType;
-    using velocypack::Value;
-
-   _request.add("meta", Value(ValueType::Object));
-   for (ConOption &opt : _headers)
-   {
-       _request.add(opt.name(),opt.value());
-   }
-   _request.close();
-}
-
-void VppConnection::setQueryOpts()
-{
-    namespace velocypack = arangodb::velocypack;
-    using velocypack::ValueType;
-    using velocypack::Value;
-
-   _request.add("parameter", Value(ValueType::Object));
-   for (ConOption &opt : _queries)
-   {
-       _request.add(opt.name(),opt.value());
-   }
-   _request.close();
-}
-
-void VppConnection::addHeader(const ConOption& inp)
-{
-    _headers.push_back(inp);
-}
-
-void VppConnection::addQuery(const ConOption& inp) 
-{
-    _queries.push_back(inp);
-}
-
-void VppConnection::addHeader(ConOption&& inp)
-{
-    _headers.push_back(inp);
-}
-
-void VppConnection::addQuery(ConOption&& inp)
-{
-    _queries.push_back(inp);
-}
-
-void VppConnection::setPostReq()
-{
-  namespace velocypack = arangodb::velocypack;
-  using velocypack::Value;
-  _request.add(ReqName::reqtype, Value(RequestType::ReqPost));
-}
-
-void VppConnection::setDeleteReq()
-{
-  namespace velocypack = arangodb::velocypack;
-  using velocypack::Value;
-  _request.add(ReqName::reqtype, Value(Request::Delete));
-}
-
-void VppConnection::setGetReq()
-{
-  namespace velocypack = arangodb::velocypack;
-  using velocypack::Value;
-  _request.add(ReqName::reqtype, Value(RequestType::ReqGet));
-}
-
-void VppConnection::setPutReq()
-{
-  namespace velocypack = arangodb::velocypack;
-  using velocypack::Value;
-  _request.add(ReqName::reqtype, Value(RequestType::ReqPut));
-}
-
-void VppConnection::setPatchReq()
-{
-  namespace velocypack = arangodb::velocypack;
-  using velocypack::Value;
-  _request.add(ReqName::reqtype, Value(RequestType::ReqPatch));
-}
-
-void VppConnection::setPostField(const std::string& inp)
-{
-}
-
-void VppConnection::setPostField(const VPack data) 
-{
-}
-
-void VppConnection::setBuffer()
-{
-  using arangodb::velocypack::Builder;
+void VppConnection::getConnection() {
+  typedef arangodb::velocypack::Builder Builder;
   using arangodb::velocypack::Slice;
   using arangodb::velocypack::Value;
   using arangodb::velocypack::ValueType;
   using arangodb::velocypack::ValueLength;
-  using ReqName::request;
-  using ReqName::reqtype;
-  auto getString = [](Slice &s) ->  std::string
-  {
-    ValueLength len;
-    const char *str = s.getString(len);
-    return std::string{str, len};
-  };
-  Builder b{_request};
-  Slice sObj{b.data()};
-  b.close();
+  typedef boost::asio::ip::tcp::resolver Resolver;
+  Slice sReq{_request.start()};
+  Slice sVal{sReq.get(ReqName::server)};
+  std::string url = sVal.copyString();
+  std::string port;
+  Resolver resolver(_service);
+  sVal = sReq.get(ReqName::port);
+  port = sVal.copyString();
+  Resolver::query query(url, port);
+  Resolver::iterator endpoint_iterator = resolver.resolve(query);
+  auto bndFn = std::bind(&VppConnection::gotConnection, this,
+                         std::placeholders::_1, endpoint_iterator);
+  _socket.async_connect(*endpoint_iterator, bndFn);
+}
+
+void VppConnection::gotConnection(const boost::system::error_code& err,
+                                  tcp::resolver::iterator endpoint_iterator) {
+  if (err) {
+    _socket.close();
+    if (++endpoint_iterator != tcp::resolver::iterator()) {
+      // The connection failed. Try the next endpoint in the list.
+      auto bndFn = std::bind(&VppConnection::gotConnection, this,
+                             std::placeholders::_1, endpoint_iterator);
+      _socket.async_connect(*endpoint_iterator, bndFn);
+      return;
+    }
+    //  TODO : Report the error
+    _mode = Mode::RunError;
+    return;
+  }
+  std::cout << "Connection made" << std::endl;
+  // Connection made so try to write
+  writeSingle();
+}
+
+//
+//
+//
+//
+Connection& VppConnection::reset() {
+  namespace velocypack = arangodb::velocypack;
+  using velocypack::ValueType;
+  using velocypack::Value;
+
+  if (_socket.is_open()) {
+    _socket.cancel();
+    _socket.close();
+  }
+  _mode = Mode::SyncRun;
+  _msgId = nextID();
+  _queries.clear();
+  _headers.clear();
+  _vpacks.resize(2);
+  _vpacks[0] = nullptr;
+  _vpacks[1] = nullptr;
   _request.clear();
-  
+  _request.add(Value(ValueType::Object));
+
+  return *this;
 }
 
-void VppConnection::setAsynchronous(const bool bAsync)
-{
+void VppConnection::setUrl(const Url& inp) {
+  namespace velocypack = arangodb::velocypack;
+  using velocypack::ValueType;
+  using velocypack::Value;
+  std::string url = inp.serverUrl();
+  std::string port{"80"};
+  std::string::size_type len = url.find("//");
+  _request.add(ReqName::dbName, Value(inp.dbName()));
+  if (len != std::string::npos) {
+    url = url.substr(len + 2);
+  }
+  len = url.find(':');
+  if (len != std::string::npos) {
+    port = url.substr(len + 1);
+    url = url.substr(0, len);
+  }
+  _request.add(ReqName::port, Value(port));
+  _request.add(ReqName::server, Value(url));
+  url = inp.tailUrl();
+  _request.add(ReqName::request, Value(url));
 }
 
-void VppConnection::run()
-{
+//
+//  Used to set the Parameter, (REST Queries),  and meta options,  (REST
+//  Headers)
+//
+void VppConnection::setReqOpts(Builder& b, const ConOption::vector& opts) {
+  namespace velocypack = arangodb::velocypack;
+  using velocypack::ValueType;
+  using velocypack::Value;
+
+  b.add(Value(ValueType::Object));
+  for (const ConOption& opt : opts) {
+    b.add(opt.name(), opt.value());
+  }
+  b.close();
 }
 
-bool VppConnection::isRunning() const
-{
-    return true;
+void VppConnection::addHeader(const ConOption& inp) { _headers.push_back(inp); }
+
+void VppConnection::addQuery(const ConOption& inp) { _queries.push_back(inp); }
+
+void VppConnection::addHeader(ConOption&& inp) { _headers.push_back(inp); }
+
+void VppConnection::addQuery(ConOption&& inp) { _queries.push_back(inp); }
+
+void VppConnection::setPostReq() {
+  namespace velocypack = arangodb::velocypack;
+  using velocypack::Value;
+  _request.add(ReqName::reqType, Value(RequestValue::ReqPost));
 }
 
-Connection::VPack VppConnection::result() const
-{
-  return Connection::VPack{};
+void VppConnection::setDeleteReq() {
+  namespace velocypack = arangodb::velocypack;
+  using velocypack::Value;
+  _request.add(ReqName::reqType, Value(RequestValue::ReqDelete));
 }
 
-long VppConnection::responseCode()
-{
-    return 0;
+void VppConnection::setGetReq() {
+  namespace velocypack = arangodb::velocypack;
+  using velocypack::Value;
+  _request.add(ReqName::reqType, Value(RequestValue::ReqGet));
 }
 
-}
+void VppConnection::setPutReq() {
+  namespace velocypack = arangodb::velocypack;
+  using velocypack::Value;
+  _request.add(ReqName::reqType, Value(RequestValue::ReqPut));
 }
 
+void VppConnection::setPatchReq() {
+  namespace velocypack = arangodb::velocypack;
+  using velocypack::Value;
+  _request.add(ReqName::reqType, Value(RequestValue::ReqPatch));
+}
+
+void VppConnection::setPostField(const std::string& inp) {
+  const uint8_t* ptr = reinterpret_cast<const uint8_t*>(&inp.front());
+  std::string::size_type sz = inp.size();
+  _vpacks[VpData] = vpack(ptr, sz);
+}
+
+void VppConnection::setPostField(const VPack data) { _vpacks[VpData] = data; }
+
+//
+//  Create the request VPack
+//
+//  Converts a VPack object to the required VPack array
+//
+void VppConnection::reqVPack() {
+  typedef arangodb::velocypack::Builder Builder;
+  using arangodb::velocypack::Slice;
+  using arangodb::velocypack::Value;
+  using arangodb::velocypack::ValueType;
+  using arangodb::velocypack::ValueLength;
+  Builder b;
+  Slice sReq{_request.start()};
+  Slice sVal{sReq.get(ReqName::dbName)};
+  b.add(Value(ValueType::Array));
+  b.add(Value{RequestValue::ReqVersion});
+  b.add(Value{RequestValue::ReqType});
+  b.add(Value(sVal.copyString()));
+  sVal = sReq.get(ReqName::reqType);
+  b.add(Value{sVal.getInt()});
+  sVal = sReq.get(ReqName::request);
+  b.add(Value(sVal.copyString()));
+  setReqOpts(b, _queries);
+  setReqOpts(b, _headers);
+  b.close();
+  _vpacks[VpRes] = b.steal();
+  std::cout << json(_vpacks[0]) << std::endl;
+}
+
+void VppConnection::setBuffer() {
+  _request.close();
+  reqVPack();
+  getConnection();
+}
+
+void VppConnection::setAsynchronous(const bool bAsync) {
+  _mode = bAsync ? Mode::AsyncRun : Mode::SyncRun;
+}
+
+void VppConnection::run() {
+  switch (_mode) {
+    case Mode::AsyncRun: {
+      _service.run_one();
+      if (_service.stopped()) {
+        _mode = Mode::Done;
+      }
+      break;
+    }
+
+    case Mode::SyncRun: {
+      while (!_service.stopped()) {
+        _service.run();
+      }
+      _mode = Mode::Done;
+      break;
+    }
+
+    default:;
+  }
+}
+
+bool VppConnection::isRunning() const { return _mode == Mode::AsyncRun; }
+
+Connection::VPack VppConnection::result() const { return _vpacks[1]; }
+
+long VppConnection::responseCode() {
+  typedef arangodb::velocypack::Builder Builder;
+  using arangodb::velocypack::Slice;
+  using arangodb::velocypack::Value;
+  using arangodb::velocypack::ValueType;
+  Slice sRes{_vpacks[VpRes]->data()};
+  Slice sObj{sRes[VpResIdx]};
+  return sObj.getInt();
+}
+}
+}

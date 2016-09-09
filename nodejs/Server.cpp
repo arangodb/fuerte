@@ -48,8 +48,7 @@ NAN_MODULE_INIT(Server::Init) {
   Nan::HandleScope scope;
   // Prepare constructor template
   // Create Javascript new Server object template
-  v8::Local<v8::FunctionTemplate> tpl =
-      Nan::New<v8::FunctionTemplate>(New);
+  v8::Local<v8::FunctionTemplate> tpl = Nan::New<v8::FunctionTemplate>(New);
   tpl->SetClassName(Nan::New("Server").ToLocalChecked());
 
   // Only 1 internal field required for this wrapped class
@@ -75,8 +74,7 @@ NAN_MODULE_INIT(Server::Init) {
 //  const Nan::FunctionCallbackInfo<v8::Value> &info)
 NAN_METHOD(Server::version) {
   if (info.Length() != 1) {
-    Nan::ThrowTypeError(
-          "Single Connnection object parameter required");
+    Nan::ThrowTypeError("Single Connnection object parameter required");
     return;
   }
   Server* pSrv = ObjectWrap::Unwrap<Server>(info.Holder());
@@ -106,8 +104,7 @@ NAN_METHOD(Server::makeConnection) {
   Connection::SetReturnValue(info, libConPtr);
 }
 
-Server* Server::Create(
-    const Nan::FunctionCallbackInfo<v8::Value>& info) {
+Server* Server::Create(const Nan::FunctionCallbackInfo<v8::Value>& info) {
   int nArgs = info.Length();
   if (nArgs > 1) {
     Nan::ThrowTypeError("Too many arguments");

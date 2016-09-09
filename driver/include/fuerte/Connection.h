@@ -28,8 +28,8 @@
 #include <velocypack/Buffer.h>
 #include <velocypack/Builder.h>
 
-#include <fuerte/ConOption.h>
-#include <fuerte/ConnectionUrl.h>
+#include "ConOption.h"
+#include "ConnectionUrl.h"
 
 namespace arangodb {
 /*
@@ -40,9 +40,8 @@ class Builder;
 namespace dbinterface {
 // Defines the interfaces required for a connection
 class Connection {
-
-protected:
-enum class Mode : uint8_t {
+ protected:
+  enum class Mode : uint8_t {
     Clear = 0,
     AsyncRun = 1,
     SyncRun = 2,
@@ -56,6 +55,7 @@ enum class Mode : uint8_t {
   typedef arangodb::velocypack::Buffer<uint8_t> VBuffer;
   typedef arangodb::velocypack::Builder Builder;
   typedef std::shared_ptr<VBuffer> VPack;
+  typedef std::vector<VPack> VPacks;
   typedef ConnectionUrl Url;
   enum class Protocol : uint8_t {
     Json = 0,   // Json <=> Json
@@ -68,6 +68,8 @@ enum class Mode : uint8_t {
 
   virtual ~Connection();
 
+  static std::string json(const VPack& v);
+  static VPack vpack(const uint8_t* data, std::size_t sz);
   virtual Connection& operator=(const Protocol in) = 0;
   virtual Connection& reset() = 0;
   virtual void defaultContentType(Format inp) = 0;

@@ -20,7 +20,7 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <fuerte/Collection.h>
+#include "../include/fuerte/Collection.h"
 
 #include <velocypack/Builder.h>
 

@@ -24,102 +24,119 @@
 
 #define VPPCONNECTION_H
 
-#include <vector>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/system/error_code.hpp>
+#include <vector>
 
-#include <fuerte/Connection.h>
+#include "Connection.h"
+#include "HeaderCommon.h"
 
 namespace arangodb {
 
 namespace dbinterface {
 
-
 //
 //  Provide network connection to Arango database using VelocyStream
-//  Hide the underlying use of Boost ASIO for implementation
+//  Hides the underlying use of Boost ASIO for implementation
 //
-class VppConnection : public Connection
-{
-public:
-    struct HeaderType 
-    {
-        typedef uint64_t MsgId;
-        typedef uint64_t SzMsg;
-        typedef uint32_t SzChunk;
-        typedef uint16_t ChunkInfo;
-    };
-    typedef boost::asio::io_service Service;
-    typedef std::shared_ptr<Service> ServicePtr;
-    typedef boost::asio::ip::tcp tcp;
-    typedef ConOption::vector HeaderList;
-    typedef ConOption::vector QueryList;
-    typedef std::vector<uint8_t> Chunk;
-    typedef std::vector<Chunk> Chunks;
+class VppConnection : public Connection {
+ private:
+  typedef boost::asio::io_service Service;
+  typedef std::shared_ptr<Service> ServicePtr;
+  typedef boost::asio::ip::tcp tcp;
+  typedef ConOption::vector HeaderList;
+  typedef ConOption::vector QueryList;
 
-    VppConnection();
-    Connection& operator=(const Protocol in);
-    Connection& reset() ;
-    void defaultContentType(Format inp);
-    void defaultAccept(Format inp);
-    void setUrl(const Url& inp);
-    void setHeaderOpts();
-    void setQueryOpts();
-    void addHeader(const ConOption& inp);
-    void addQuery(const ConOption& inp) ;
-    void addHeader(ConOption&& inp);
-    void addQuery(ConOption&& inp);
-    void setPostReq();
-    void setDeleteReq();
-    void setGetReq() ;
-    void setPutReq();
-    void setPatchReq();
-    void setPostField(const std::string& inp);
-    void setPostField(const VPack data) ;
-    void setBuffer();
-    void setAsynchronous(const bool bAsync = false);
-    void run();
-    bool isRunning() const;
-    VPack result() const;
-    long responseCode();
+ public:
+  typedef std::shared_ptr<VppConnection> SPtr;
+  VppConnection();
+  Connection& operator=(const Protocol in) override;
+  Connection& reset() override;
+  void defaultContentType(Format inp) override;
+  void defaultAccept(Format inp) override;
+  void setUrl(const Url& inp) override;
+  void setHeaderOpts() override;
+  void addHeader(const ConOption& inp) override;
+  void addQuery(const ConOption& inp) override;
+  void addHeader(ConOption&& inp) override;
+  void addQuery(ConOption&& inp) override;
+  void setPostReq() override;
+  void setDeleteReq() override;
+  void setGetReq() override;
+  void setPutReq() override;
+  void setPatchReq() override;
+  void setPostField(const std::string& inp) override;
+  void setPostField(const VPack data) override;
+  void setBuffer() override;
+  void setAsynchronous(const bool bAsync = false) override;
+  void run() override;
+  bool isRunning() const override;
+  VPack result() const override;
+  long responseCode() override;
 
-    static ServicePtr initService();
-private:
-    enum RequestType: uint16_t {    ReqDelete = 0
-        , ReqGet =1
-        , ReqPost = 2
-        , ReqPut = 3
-        , ReqPatch = 5
-    };
+ private:
+  struct ReqName {
+    static const char reqType[];
+    static const char request[];
+    static const char dbName[];
+    static const char url[];
+    static const char port[];
+    static const char server[];
+  };
+  enum VpIdx : uint16_t { VpRes = 0, VpData = 1, VpResIdx = 2 };
+  enum : uint16_t { BufSize = 10000 };
+  enum RequestValue : int16_t {
+    ReqVersion = 1,
+    ReqType = 1,
+    ReqDelete = 0,
+    ReqGet = 1,
+    ReqPost = 2,
+    ReqPut = 3,
+    ReqPatch = 5
+  };
+  static void setReqOpts(Builder& b, const ConOption::vector& opts);
   void setReqType();
-  void gotConnection(const boost::system::error_code &err,
+  void reqVPack();
+  Header::Common::MsgId nextID();
+  Header::Common::SzMsg szVPacks() const;
+  void writeSingle();
+  void getConnection();
+  void gotConnection(const boost::system::error_code& err,
                      tcp::resolver::iterator endpoint_iterator);
-  HeaderType::MsgId nextID();
+  void unpackChunks();
+  void writeBuffer();
+  void wroteBuffer(const boost::system::error_code& err, std::size_t len);
+  void getChunks();
+  void getBuffer();
+  void gotBuffer(const boost::system::error_code& err, std::size_t len);
 
-    static HeaderType::MsgId _idKey;
+  static Header::Common::MsgId _idKey;
 
-    Service _service;
-    tcp::socket _socket;
+  Service _service;
+  tcp::socket _socket;
 
-    HeaderType::MsgId _msgId;
-    HeaderList _headers;
-    QueryList _queries;
-    Mode _mode;
-    Builder _request;
-    Chunks _chnks;
+  Header::Common::MsgId _msgId;
+
+  //  Connection details
+  Builder _request;
+  HeaderList _headers;
+  QueryList _queries;
+
+  Mode _mode;
+
+  Header::Common::Chunks _chnks;
+  Header::Common::Chunk _buffer;
+  Header::Common::Chunk::size_type _bufIdx;
+  VPacks _vpacks;
 };
 
-inline   Connection& VppConnection::operator=(const Protocol)
-{
-    return *this;
-};
+inline Connection& VppConnection::operator=(const Protocol) { return *this; };
 
-inline  void VppConnection::defaultContentType(Format ) {};
+inline void VppConnection::defaultContentType(Format){};
 
-inline  void VppConnection::defaultAccept(Format ) {};
-
+inline void VppConnection::defaultAccept(Format){};
 }
 }
 
-#endif // VPPCONNECTION_H
+#endif  // VPPCONNECTION_H

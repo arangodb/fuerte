@@ -20,28 +20,28 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "../include/fuerte/ConnectionUrl.h"
+#include "../include/fuerte/HeaderLoader.h"
 
 namespace arangodb {
+
 namespace dbinterface {
-std::string ConnectionUrl::httpUrl() const {
-  std::string res = _serverUrl;
-  if (!_dbName.empty()) {
-    res += "/_db/" + _dbName;
+
+namespace Header {
+
+Common& Loader::operator()(const uint8_t* ptr) {
+  Common::ChunkInfo info = Common::chnkInfo(ptr);
+  Common* pHeader;
+  if (Common::bSingleChunk(info)) {
+    pHeader = new (_hdr._single) Single{ptr};
+    return *pHeader;
   }
-  res += _tailUrl;
-  return res;
+  if (Common::bFirstChunk(info)) {
+    pHeader = new (_hdr._multi) Multi{ptr};
+    return *pHeader;
+  }
+  pHeader = new (_hdr._common) Common{ptr};
+  return *pHeader;
 }
-
-const ConnectionUrl operator+(const ConnectionUrl& inp,
-                              const std::string& add) {
-  ConnectionUrl res{inp};
-  return res += add;
-}
-
-ConnectionUrl&& operator+(ConnectionUrl&& inp, const std::string& add) {
-  inp += add;
-  return std::move(inp);
 }
 }
 }

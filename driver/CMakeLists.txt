@@ -2,6 +2,8 @@
 
 cmake_minimum_required(VERSION 2.8)
 
+project(fuerte CXX)
+
 if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release
     CACHE string
@@ -17,8 +19,6 @@ if (NOT (CMAKE_BUILD_TYPE STREQUAL "Debug"
       OR CMAKE_BUILD_TYPE STREQUAL "None"))
   message(FATAL_ERROR "expecting CMAKE_BUILD_TYPE: None Debug Release RelWithDebInfo MinSizeRel, got ${CMAKE_BUILD_TYPE}.")
 endif ()
-
-project(fuerte CXX)
 
 # need c++11
 set(CMAKE_CXX_STANDARD 11)

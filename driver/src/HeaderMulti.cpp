@@ -20,28 +20,33 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "../include/fuerte/ConnectionUrl.h"
+#include "../include/fuerte/HeaderMulti.h"
 
 namespace arangodb {
+
 namespace dbinterface {
-std::string ConnectionUrl::httpUrl() const {
-  std::string res = _serverUrl;
-  if (!_dbName.empty()) {
-    res += "/_db/" + _dbName;
-  }
-  res += _tailUrl;
+
+namespace Header {
+
+Multi::Multi(ChunkInfo noChunks, MsgId msgId, SzChunk szChunk, SzMsg szMsg)
+    : Single(noChunks, msgId, szChunk), _szMsg(szMsg) {}
+
+Multi::Multi(const uint8_t* ptr) : Single(ptr) {
+  _szMsg = *reinterpret_cast<const MsgId*>(ptr + IdxMsgSize);
+}
+
+void Multi::headerOut(uint8_t* ptr) const {
+  Common::headerOut(ptr);
+  *reinterpret_cast<MsgId*>(ptr + Common::HeaderSize) = _szMsg;
+}
+
+Common::SzMsg Multi::szChunks() const {
+  MsgId res = noChunks() - 1;
+  res *= Common::HeaderSize;
+  res += HeaderSize;
+  res + _szMsg;
   return res;
 }
-
-const ConnectionUrl operator+(const ConnectionUrl& inp,
-                              const std::string& add) {
-  ConnectionUrl res{inp};
-  return res += add;
-}
-
-ConnectionUrl&& operator+(ConnectionUrl&& inp, const std::string& add) {
-  inp += add;
-  return std::move(inp);
 }
 }
 }

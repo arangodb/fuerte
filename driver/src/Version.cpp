@@ -20,7 +20,7 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <fuerte/Version.h>
+#include "../include/fuerte/Version.h"
 
 #include <sstream>
 
