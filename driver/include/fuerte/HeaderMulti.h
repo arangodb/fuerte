@@ -44,18 +44,16 @@ class Multi : public Single {
   void headerOut(uint8_t* ptr) const override;
 
   enum : uint16_t { HeaderSize = 24 };
-#define __TMP__ (std::numeric_limits<uint32_t>::max())
   enum : uint64_t {
-    MaxSzMsg = static_cast<uint64_t>(__TMP__ - Common::HeaderSize) *
-                   ((__TMP__ >> 1) - 1) +
-               (__TMP__ - Multi::HeaderSize)
+    MaxSzMsg = Common::MaxSize * ((UINT32_MAX >> 1) - 1) +
+               (UINT32_MAX - Multi::HeaderSize)
   };
-#undef __TMP__
+
  private:
   MsgId _szMsg;
 };
 
-inline Multi::Multi() : Single{} {}
+inline Multi::Multi() : Single{}, _szMsg{0} {}
 
 inline bool Multi::bSingleChunk() const { return false; }
 

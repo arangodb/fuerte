@@ -51,19 +51,19 @@ Connection::Url Database::databaseUrl(const std::string& tail) const {
 }
 
 // Configure to create a Database using the VPack configuration data
-void Database::create(const Connection::SPtr& p, const Connection::VPack& data,
-                      const bool bAsync) {
+void Database::create(const Connection::SPtr& p,
+                      const Connection::VPack& data) {
   Connection::Url val{_server->hostUrl() + httpDbApi};
   Connection& conn = p->reset();
   conn.setUrl(val);
   conn.setPostReq();
   conn.setPostField(data);
   conn.setBuffer();
-  conn.setAsynchronous(bAsync);
+  conn.setHeaderOpts();
 }
 
 // Configure to create a Database using the configured name
-void Database::create(const Connection::SPtr& p, const bool bAsync) {
+void Database::create(const Connection::SPtr& p) {
   Connection& conn = p->reset();
   {
     Connection::Url val{_server->hostUrl() + httpDbApi};
@@ -74,28 +74,28 @@ void Database::create(const Connection::SPtr& p, const bool bAsync) {
     conn.setPostField(val);
   }
   conn.setPostReq();
+  conn.setHeaderOpts();
   conn.setBuffer();
-  conn.setAsynchronous(bAsync);
 }
 
 // Configure to get info on the current Database
-void Database::info(const Connection::SPtr& p, const bool bAsync) {
+void Database::info(const Connection::SPtr& p) {
   Connection::Url url{_server->hostUrl() + httpDbApi + "/current"};
   Connection& conn = p->reset();
   conn.setUrl(url);
   conn.setGetReq();
+  conn.setHeaderOpts();
   conn.setBuffer();
-  conn.setAsynchronous(bAsync);
 }
 
 // Configure to drop a Database using the configured name
-void Database::remove(const Connection::SPtr& p, const bool bAsync) {
+void Database::remove(const Connection::SPtr& p) {
   Connection::Url url{_server->hostUrl() + (httpDbApi + '/' + _name)};
   Connection& conn = p->reset();
   conn.setUrl(url);
   conn.setDeleteReq();
+  conn.setHeaderOpts();
   conn.setBuffer();
-  conn.setAsynchronous(bAsync);
 }
 }
 }

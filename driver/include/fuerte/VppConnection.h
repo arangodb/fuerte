@@ -83,24 +83,30 @@ class VppConnection : public Connection {
     static const char url[];
     static const char port[];
     static const char server[];
+    static const char parameter[];
+    static const char meta[];
   };
   enum VpIdx : uint16_t { VpRes = 0, VpData = 1, VpResIdx = 2 };
   enum : uint16_t { BufSize = 10000 };
   enum RequestValue : int16_t {
     ReqVersion = 1,
     ReqType = 1,
+    RespType = 2,
     ReqDelete = 0,
     ReqGet = 1,
     ReqPost = 2,
     ReqPut = 3,
     ReqPatch = 5
   };
-  static void setReqOpts(Builder& b, const ConOption::vector& opts);
+  void errorHandler(const boost::system::error_code& err);
+  void errorHandler(const std::string& msg);
   void setReqType();
   void reqVPack();
   Header::Common::MsgId nextID();
   Header::Common::SzMsg szVPacks() const;
   void writeSingle();
+  void writeMulti();
+  void writeRequest();
   void getConnection();
   void gotConnection(const boost::system::error_code& err,
                      tcp::resolver::iterator endpoint_iterator);
@@ -110,6 +116,7 @@ class VppConnection : public Connection {
   void getChunks();
   void getBuffer();
   void gotBuffer(const boost::system::error_code& err, std::size_t len);
+  void addToChunks();
 
   static Header::Common::MsgId _idKey;
 
@@ -127,6 +134,7 @@ class VppConnection : public Connection {
 
   Header::Common::Chunks _chnks;
   Header::Common::Chunk _buffer;
+  Header::Common::ChunkInfo _chnkIdx;
   Header::Common::Chunk::size_type _bufIdx;
   VPacks _vpacks;
 };

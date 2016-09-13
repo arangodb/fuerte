@@ -28,11 +28,7 @@ namespace dbinterface {
 
 namespace Header {
 
-Common::Common(const uint8_t* ptr) {
-  _szChnk = *reinterpret_cast<const SzChunk*>(ptr + IdxSzChunk);
-  _chnkNo = *reinterpret_cast<const SzChunk*>(ptr + IdxChunkInfo);
-  _msgId = *reinterpret_cast<const SzMsg*>(ptr + IdxMsgId);
-}
+Common::Common(const uint8_t* ptr) { headerIn(ptr); }
 
 //
 //  Constructor for header a single chunk message

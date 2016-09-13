@@ -83,6 +83,7 @@ void Collection::docs(const Connection::SPtr& pCon, const Options opts) {
   conn.setPutReq();
   conn.setPostField(body);
   conn.setUrl(url);
+  conn.setHeaderOpts();
   conn.setBuffer();
 }
 
@@ -93,6 +94,7 @@ void Collection::create(const Database::SPtr& pDb, const Connection::SPtr& pCon,
   Connection& conn = pCon->reset();
   conn.setUrl(pDb->databaseUrl(httpColApi));
   conn.setPostField(config);
+  conn.setHeaderOpts();
   conn.setBuffer();
 }
 
@@ -102,6 +104,7 @@ void Collection::create(const Connection::SPtr& pCon) {
   Connection& conn = pCon->reset();
   conn.setUrl(httpApi());
   conn.setPostField("{ \"name\":\"" + _name + "\" }");
+  conn.setHeaderOpts();
   conn.setBuffer();
 }
 
@@ -115,6 +118,7 @@ void Collection::collections(const Connection::SPtr& pCon, const Options opts) {
   }
   conn.setUrl(url);
   conn.setGetReq();
+  conn.setHeaderOpts();
   conn.setBuffer();
 }
 
@@ -125,6 +129,7 @@ void Collection::remove(const Connection::SPtr& pCon, const Options  // opts
   Connection& conn = pCon->reset();
   conn.setDeleteReq();
   conn.setUrl(httpApiName());
+  conn.setHeaderOpts();
   conn.setBuffer();
 }
 
@@ -133,6 +138,7 @@ void Collection::about(const Connection::SPtr& pCon, const Options  // opts
   Connection& conn = pCon->reset();
   conn.setGetReq();
   conn.setUrl(httpApiName());
+  conn.setHeaderOpts();
   conn.setBuffer();
 }
 
@@ -144,6 +150,7 @@ void Collection::rename(const Connection::SPtr& pCon, const std::string& name,
   conn.setPutReq();
   conn.setUrl(httpApiName() + "/rename");
   conn.setPostField(data);
+  conn.setHeaderOpts();
   conn.setBuffer();
 }
 
@@ -155,6 +162,7 @@ void Collection::httpInfo(const Connection::SPtr& pCon,
                           const std::string&& info) {
   Connection& conn = pCon->reset();
   conn.setUrl(httpApiName() + info);
+  conn.setHeaderOpts();
   conn.setBuffer();
 }
 
@@ -168,6 +176,7 @@ void Collection::checksum(const Connection::SPtr& pCon, const Options opts) {
     conn.addQuery(ConOption("withData", "true"));
   }
   conn.setUrl(url);
+  conn.setHeaderOpts();
   conn.setBuffer();
 }
 
@@ -177,6 +186,7 @@ void Collection::truncate(const Connection::SPtr& pCon,
   Connection& conn = pCon->reset();
   conn.setPutReq();
   conn.setUrl(httpApiName() + "/truncate");
+  conn.setHeaderOpts();
   conn.setBuffer();
 }
 }

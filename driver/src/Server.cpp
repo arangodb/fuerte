@@ -56,7 +56,6 @@ Connection::SPtr Server::httpConnection() {
 
 Connection::SPtr Server::vppConnection() {
   return Connection::SPtr{new VppConnection{}};
-  // return Connection::SPtr{ nullptr };
 }
 
 // Enables the user to set the host url
@@ -95,13 +94,16 @@ void Server::version(Connection::SPtr p) {
   Connection& conn = p->reset();
   conn.setGetReq();
   conn.setUrl(_host + "/_api/version");
+  conn.setHeaderOpts();
   conn.setBuffer();
 }
 
 // Configure to request the current default Database
 void Server::currentDb(Connection::SPtr p) {
   Connection& conn = p->reset();
+  conn.setGetReq();
   conn.setUrl(_host + "/_api/database/current");
+  conn.setHeaderOpts();
   conn.setBuffer();
 }
 
@@ -110,6 +112,7 @@ void Server::userDbs(Connection::SPtr p) {
   Connection& conn = p->reset();
   conn.setGetReq();
   conn.setUrl(_host + "/_api/database/user");
+  conn.setHeaderOpts();
   conn.setBuffer();
 }
 
@@ -118,6 +121,7 @@ void Server::existingDbs(Connection::SPtr p) {
   Connection& conn = p->reset();
   conn.setGetReq();
   conn.setUrl(_host + "/_api/database");
+  conn.setHeaderOpts();
   conn.setBuffer();
 }
 }

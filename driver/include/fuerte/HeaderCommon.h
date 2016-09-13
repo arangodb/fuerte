@@ -60,6 +60,7 @@ class Common {
   virtual bool bFirstChunk() const;
   virtual bool bSingleChunk() const;
   virtual ChunkInfo chunkNo() const;
+  static ChunkInfo chunkNo(const uint8_t* ptr);
   virtual uint16_t szHeader() const;
   virtual SzMsg szChunks() const;
 
@@ -67,6 +68,7 @@ class Common {
   static bool bFirstChunk(ChunkInfo info);
   static bool bSingleChunk(ChunkInfo info);
   enum : uint16_t { HeaderSize = 16 };
+  enum : uint64_t { MaxSize = UINT32_MAX - HeaderSize };
 
  protected:
   enum : uint16_t {
@@ -83,7 +85,7 @@ class Common {
   MsgId _msgId;
 };
 
-inline Common::Common() {}
+inline Common::Common() : _szChnk{0}, _chnkNo(0), _msgId(0) {}
 
 inline Common::~Common() {}
 
@@ -102,6 +104,10 @@ inline bool Common::bFirstChunk() const { return false; }
 inline bool Common::bSingleChunk(ChunkInfo info) { return info == SingleChunk; }
 
 inline bool Common::bSingleChunk() const { return false; }
+
+inline Common::ChunkInfo Common::chunkNo(const uint8_t* ptr) {
+  return *reinterpret_cast<const ChunkInfo*>(ptr + IdxChunkInfo) >> 1;
+}
 
 inline Common::ChunkInfo Header::Common::chunkNo() const {
   return _chnkNo >> 1;
