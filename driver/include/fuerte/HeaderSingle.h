@@ -64,9 +64,9 @@ inline Single::~Single() {}
 
 inline Single::Single(const uint8_t* ptr) : Common{ptr} {}
 
-inline bool Single::bFirstChunk() const { true; }
+inline bool Single::bFirstChunk() const { return true; }
 
-inline bool Single::bSingleChunk() const { true; }
+inline bool Single::bSingleChunk() const { return true; }
 
 inline Common::ChunkInfo Single::chunkNo() const { return 0; }
 

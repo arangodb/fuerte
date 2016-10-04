@@ -35,12 +35,16 @@ Collection::Collection(const Database::SPtr& db, std::string&& id)
 Collection::~Collection() {}
 
 namespace {
-std::string httpDocApi{"/_api/document"};
-std::string httpColApi{"/_api/collection"};
+const std::string httpDocApi{"/_api/document"};
+const std::string httpColApi{"/_api/collection"};
 }
 
 Connection::Url Collection::refColUrl() const {
-  return _database->databaseUrl(httpDocApi + '/' + _name);
+  std::string tail = httpDocApi;
+  tail += '/';
+  tail += _name;
+  Connection::Url url = _database->databaseUrl(tail);
+  return url;
 }
 
 // Creates the base url required to get and delete a Document
@@ -93,6 +97,7 @@ void Collection::create(const Database::SPtr& pDb, const Connection::SPtr& pCon,
                         const Connection::VPack& config) {
   Connection& conn = pCon->reset();
   conn.setUrl(pDb->databaseUrl(httpColApi));
+  conn.setPostReq();
   conn.setPostField(config);
   conn.setHeaderOpts();
   conn.setBuffer();
@@ -102,6 +107,7 @@ void Collection::create(const Database::SPtr& pDb, const Connection::SPtr& pCon,
 // Database and Collection name
 void Collection::create(const Connection::SPtr& pCon) {
   Connection& conn = pCon->reset();
+  conn.setPostReq();
   conn.setUrl(httpApi());
   conn.setPostField("{ \"name\":\"" + _name + "\" }");
   conn.setHeaderOpts();

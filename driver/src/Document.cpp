@@ -68,14 +68,14 @@ void Document::keepNullQuery(Connection& conn, const Options& opts) {
 void Document::create(const Collection::SPtr& pCol,
                       const Connection::SPtr& pCon, const Options& opts) {
   Connection& conn = pCon->reset();
-  std::string json{"{\"_key\":\"" + _key + "\"}"};
-  { conn.setHeaderOpts(); }
-  {
-    syncQuery(conn, opts);
-    conn.setUrl(pCol->refColUrl());
-  }
-  conn.setPostField(json);
   conn.setPostReq();
+  conn.setPostField("{\"_key\":\"" + _key + "\"}");
+  {
+    ConnectionUrl url = pCol->refColUrl();
+    syncQuery(conn, opts);
+    conn.setUrl(url);
+  }
+  { conn.setHeaderOpts(); }
   conn.setBuffer();
 }
 

@@ -18,3 +18,5 @@ foreach(app ${TestApps})
   add_dependencies(run-tests run-${app})
   add_dependencies(run-${app} ${app})
 endforeach()
+
+add_subdirectory(DevTests)

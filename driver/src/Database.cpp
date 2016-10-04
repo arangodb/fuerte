@@ -36,17 +36,10 @@ Database::Database(const Server::SPtr& srv, std::string&& name)
 
 // Get the core database url
 Connection::Url Database::databaseUrl(const std::string& tail) const {
-#ifdef FUERTE_CONNECTIONURL
   ConnectionUrl res{_server->hostUrl()};
   if (!_name.empty()) {
     res.setDbName(_name);
   }
-#else
-  std::string res = _server->hostUrl();
-  if (!_name.empty()) {
-    res += "/_db/" + _name;
-  }
-#endif
   return res += tail;
 }
 
@@ -58,8 +51,8 @@ void Database::create(const Connection::SPtr& p,
   conn.setUrl(val);
   conn.setPostReq();
   conn.setPostField(data);
-  conn.setBuffer();
   conn.setHeaderOpts();
+  conn.setBuffer();
 }
 
 // Configure to create a Database using the configured name
