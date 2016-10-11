@@ -1,0 +1,3 @@
+[submodule "driver/3rdParty/velocypack"]
+	path = driver/3rdParty/velocypack
+	url = https://github.com/arangodb/velocypack
