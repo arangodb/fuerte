@@ -3,14 +3,10 @@
 ## driver: C++ Driver for ArangoDB
 
 The project to create the fuerte library is located in the subdirectory
-`driver`. It uses `cmake` as build system. In order to build
+`cmake-cxx-driver`. It uses `cmake` as build system. In order to build
 
 ```
-> cd driver
-> mkdir build
-> cd build
-> cmake ..
-> make
+> cd ./build
 ```
 
 The will create the fuerte library. You can install it using
@@ -23,7 +19,7 @@ If you start an ArangoDB server on 127.0.0.1:8259, you can run
 some tests
 
 ```
-> make run-tests
+> cd <build directory> && ctest
 ```
 
 ## Build requirements
@@ -32,14 +28,14 @@ The following development packages need to be installed
 
 - C++ 11 compiler
 - cmake 3.0
-- cURL: https://github.com/curl/curl
+- cURL: https://github.com/curl/curl (needs to be found by FindCURL.cmake)
 
 ## nodejs: a low-level node.js driver
 
 Install node and npm and execute
 
 ```
-> cd nodejs
+> cd cmake-node-driver
 > npm install
 ```
 
