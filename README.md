@@ -6,7 +6,7 @@ The project to create the fuerte library is located in the subdirectory
 `cmake-cxx-driver`. It uses `cmake` as build system. In order to build
 
 ```
-> cd ./build
+> ./build # on linux/unix - usual cmake workflow on windows
 ```
 
 The will create the fuerte library. You can install it using
@@ -19,7 +19,7 @@ If you start an ArangoDB server on 127.0.0.1:8259, you can run
 some tests
 
 ```
-> cd <build directory> && ctest
+> cd <build directory> && ctest -V # build directory should be ../fuerte-build
 ```
 
 ## Build requirements
