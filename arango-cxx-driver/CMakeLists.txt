@@ -1,30 +1,24 @@
-# -*- mode: CMAKE; -*-
 cmake_minimum_required(VERSION 3.0)
 project(fuerte CXX)
+enable_testing()
 
-# CMAKE CXX STANDARD work since cmake 3.1
 # FIXME
-# we need the workaround until we require 3.1
-# at the moment debian stable is at CMAKE 3.0
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-if(UNIX) #required by curlpp which is broken
+#set(CMAKE_CXX_STANDARD 11)
+#set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# workaround pre 3.1 - waiting for debian stable
+if(UNIX)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 endif()
 
-enable_testing()
+
 
 #########################################################################################
 # Configuration
-#########################################################################################
-
 option(FUERTE_TESTS     "Build Tests" OFF)
 option(FUERTE_EXAMPLES "Build EXAMPLES" OFF)
 
 #########################################################################################
 # Dependencies
-#########################################################################################
-
 find_package(Boost COMPONENTS serialization system REQUIRED)
 option(BuildVelocyPackExamples "Build examples" OFF)
 add_subdirectory(3rdParty/velocypack)
@@ -32,10 +26,6 @@ add_subdirectory(3rdParty/curlpp2)
 
 #########################################################################################
 # Main Project
-#########################################################################################
-
-
-##  xxhash.cpp
 add_library(fuerte STATIC
     src/ConnectionUrl.cpp
     src/HttpConnection.cpp
@@ -52,14 +42,18 @@ add_library(fuerte STATIC
     src/HeaderMulti.cpp
     src/HeaderLoader.cpp
 )
+#  xxhash.cpp
 
 target_include_directories(fuerte PUBLIC
     ${Boost_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/curlpp2/include
 )
-target_include_directories(fuerte PRIVATE
-)
+
+# FIXME
+#target_include_directories(fuerte PRIVATE
+#    ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/curlpp2/include
+#)
 
 target_link_libraries(fuerte PUBLIC
     velocypack
@@ -70,33 +64,39 @@ target_compile_definitions(fuerte PUBLIC
     BOOST_ASIO_DISABLE_THREADS
 )
 
+# FIXME -FPIC does not end up in curlpp
 set_target_properties(fuerte velocypack curlpp PROPERTIES POSITION_INDEPENDENT_CODE ON)
 #DVELOCYPACK_XXHASH=1
 
 #########################################################################################
 # Tests
-#########################################################################################
-
 if(FUERTE_TESTS)
 #if(CMAKE_TESTING)
     add_subdirectory(3rdParty/googletest)
     add_subdirectory(tests)
 endif()
 
-
-#add_custom_target(run-tests)
-
 #########################################################################################
 # Examples
-#########################################################################################
- 
 if(FUERTE_EXAMPLES)
     add_subdirectory(examples)
 endif()
 
 #########################################################################################
-# Install
+# Clang Completion
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+#copy compile commands to source dir
+if( EXISTS "${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json" )
+    message(STATUS "copy compile_commands.json")
+    EXECUTE_PROCESS(COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json
+        ${CMAKE_CURRENT_SOURCE_DIR}/compile_commands.json
+    )
+endif()
+
+
 #########################################################################################
+# Install
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     if(UNIX)
         set(CMAKE_INSTALL_PREFIX  "$ENV{HOME}/local")
@@ -112,14 +112,4 @@ install(
     DESTINATION include
 )
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-#copy compile commands to source dir
-if( EXISTS "${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json" )
-    message(STATUS "copy compile_commands.json")
-    EXECUTE_PROCESS(COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json
-        ${CMAKE_CURRENT_SOURCE_DIR}/compile_commands.json
-    )
-endif()
-
-include(CPack)
+include(CPack) #should be last command
