@@ -1,0 +1,10 @@
+#!/bin/bash
+
+check_create_cd(){
+    path="$1"
+    if ! [[ -d $path ]]; then
+        mkdir -p "$path" || exit 3
+    fi
+    cd "$path" || exit 3
+}
+

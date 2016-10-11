@@ -1,0 +1,4 @@
+#!/bin/bash
+. .scripts-common
+check_create_cd "../fuerte-build"
+cmake -DCMAKE_BUILD_TYPE=Release ../fuerte && make -j $(nproc)

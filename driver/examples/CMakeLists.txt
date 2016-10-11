@@ -1,7 +1,10 @@
-set(TestApps
-  FuerteBench
+add_executable(FuerteBench
+    FuerteBench/main.cpp
+    FuerteBench/BucketReadTest.cpp
+    FuerteBench/BucketReadTest.cpp
+    FuerteBench/BucketTest.cpp
+    FuerteBench/BucketVersionTest.cpp
+    FuerteBench/BucketWriteTest.cpp
+    FuerteBench/FuerteBench.cpp
 )
-
-foreach(app ${TestApps})
-  add_subdirectory(${app})
-endforeach()
+target_link_libraries(FuerteBench fuerte gtest)
