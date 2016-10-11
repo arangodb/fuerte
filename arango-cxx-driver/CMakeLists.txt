@@ -12,9 +12,6 @@ if(UNIX) #required by curlpp which is broken
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 endif()
 
-#FIXME use set_target_property instead of messing with global flags!
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
 enable_testing()
 
 #########################################################################################

@@ -1,9 +1,8 @@
 cmake_minimum_required(VERSION 3.0)
-
 # Name of the project (will be the name of the plugin)
 project(node-arangodb)
-add_subdirectory(driver)
-
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC") #curlpp has broken build system
+add_subdirectory(arango-cxx-driver)
 
 # Build a shared library named after the project from the files in `src/`
 add_library(node-arangodb SHARED
