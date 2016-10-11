@@ -31,7 +31,7 @@ some tests
 The following development packages need to be installed
 
 - C++ 11 compiler
-- cmake
+- cmake 3.0
 - cURL: https://github.com/curl/curl
 
 ## nodejs: a low-level node.js driver

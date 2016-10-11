@@ -1,5 +1,5 @@
 {
-  "name": "asymc_arangodb_version",
+  "name": "async_arangodb_version",
   "version": "0.0.0",
   "description": "Node.js tests",
   "main": "getVer.js",
