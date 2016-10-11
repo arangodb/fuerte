@@ -43,7 +43,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include <iostream>
 
-#include "../include/test.h"
+#include "test.h"
 
 #define _VELOCYSTREAM_
 

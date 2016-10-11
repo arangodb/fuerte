@@ -1,5 +1,3 @@
-# -*- mode: CMAKE; -*-
-
 set(TestApps
   FuerteBench
 )

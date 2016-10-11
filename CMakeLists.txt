@@ -1,7 +1,5 @@
 # -*- mode: CMAKE; -*-
-
 cmake_minimum_required(VERSION 3.0)
-
 project(fuerte CXX)
 
 if (NOT CMAKE_BUILD_TYPE)
@@ -24,8 +22,7 @@ endif ()
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(UNIX)
-    #required by curlpp
+if(UNIX) #required by curlpp which is broken
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 endif()
 
@@ -33,15 +30,16 @@ endif()
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
 
+#########################################################################################
+# Dependencies
+#########################################################################################
+
 find_package(Boost
   COMPONENTS serialization system
-  REQUIRED)
+  REQUIRED
+)
 
-
-#########################################################################################
-# Sub-Projects
-#########################################################################################
-set(BuildVelocyPackExamples OFF)
+option(BuildVelocyPackExamples "Build examples" OFF)
 add_subdirectory(driver/3rdParty/velocypack)
 add_subdirectory(driver/3rdParty/googletest)
 add_subdirectory(driver/3rdParty/curlpp2)
@@ -53,15 +51,9 @@ add_subdirectory(driver/3rdParty/curlpp2)
 
 
 add_definitions("-DVELOCYPACK_XXHASH=1")
-add_definitions(-DBOOST_ASIO_DISABLE_THREADS )
 
-include_directories( 
-    ${CMAKE_CURRENT_SOURCE_DIR}/driver/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/driver/3rdParty/curlpp2/include
-)
-    #${CMAKE_CURRENT_SOURCE_DIR}/driver/3rdParty/velocypack/include
-
-set(fuerte_src
+##  xxhash.cpp
+add_library(fuerte STATIC
     driver/src/ConnectionUrl.cpp
     driver/src/HttpConnection.cpp
     driver/src/VppConnection.cpp
@@ -78,33 +70,12 @@ set(fuerte_src
     driver/src/HeaderLoader.cpp
 )
 
-##set(velocypackSRCS
-##  ${PROJECT_SOURCE_DIR}/3rdParty/velocypack/src/AttributeTranslator.cpp
-##  ${PROJECT_SOURCE_DIR}/3rdParty/velocypack/src/Builder.cpp
-##  ${PROJECT_SOURCE_DIR}/3rdParty/velocypack/src/Collection.cpp
-##  ${PROJECT_SOURCE_DIR}/3rdParty/velocypack/src/Dumper.cpp
-##  ${PROJECT_SOURCE_DIR}/3rdParty/velocypack/src/Exception.cpp
-##  ${PROJECT_SOURCE_DIR}/3rdParty/velocypack/src/HexDump.cpp
-##  ${PROJECT_SOURCE_DIR}/3rdParty/velocypack/src/Iterator.cpp
-##  ${PROJECT_SOURCE_DIR}/3rdParty/velocypack/src/Options.cpp
-##  ${PROJECT_SOURCE_DIR}/3rdParty/velocypack/src/Parser.cpp
-##  ${PROJECT_SOURCE_DIR}/3rdParty/velocypack/src/Slice.cpp
-##  ${PROJECT_SOURCE_DIR}/3rdParty/velocypack/src/ValueType.cpp
-##  ${PROJECT_SOURCE_DIR}/3rdParty/velocypack/src/Validator.cpp
-##  ${PROJECT_SOURCE_DIR}/3rdParty/velocypack/src/Version.cpp
-##  ${PROJECT_SOURCE_DIR}/3rdParty/velocypack/src/asm-functions.cpp
-##  ${PROJECT_SOURCE_DIR}/3rdParty/velocypack/src/fpconv.cpp
-##  ${PROJECT_SOURCE_DIR}/3rdParty/velocypack/src/velocypack-common.cpp
-##  xxhash.cpp
-##)
-
-add_library(fuerte
-  STATIC
-  ${fuerte_src}
-)
-
 target_include_directories(fuerte PUBLIC
     ${Boost_INCLUDE_DIRS}
+    ${CMAKE_CURRENT_SOURCE_DIR}/driver/include
+)
+target_include_directories(fuerte PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/driver/3rdParty/curlpp2/include
 )
 
 target_link_libraries(fuerte PUBLIC
@@ -113,12 +84,11 @@ target_link_libraries(fuerte PUBLIC
     ${Boost_LIBRARIES}
 )
 
-# install(TARGETS fuerte DESTINATION lib)
-# 
-# 
-# 
-# add_subdirectory(src)
-# 
+target_compile_definitions(fuerte PUBLIC BOOST_ASIO_DISABLE_THREADS)
+
+
+install(TARGETS fuerte DESTINATION lib)
+
 # install(FILES
 #   include/fuerte/Collection.h
 #   include/fuerte/ConOption.h
@@ -134,16 +104,17 @@ target_link_libraries(fuerte PUBLIC
 #   include/fuerte/fuerte_version.h
 #   DESTINATION include/fuerte
 # )
-# 
-# #########################################################################################
-# # Tests
-# #########################################################################################
-# 
-# add_custom_target(run-tests)
-# add_subdirectory(tests)
-# 
-# #########################################################################################
-# # Examples
-# #########################################################################################
-# 
+
+#########################################################################################
+# Tests
+#########################################################################################
+
+#add_custom_target(run-tests)
+add_subdirectory(driver/tests)
+
+
+#########################################################################################
+# Examples
+#########################################################################################
+ 
 # add_subdirectory(examples)
