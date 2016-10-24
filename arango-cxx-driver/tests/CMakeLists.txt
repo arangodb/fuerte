@@ -1,6 +1,7 @@
 #new tests
 add_executable(test_main
     test_main.cpp
+    BasicTests.cpp
 )
 #target_include_directories(test_main PRIVATE
 #    ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/velocypack/include
