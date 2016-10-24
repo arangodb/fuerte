@@ -1,6 +1,9 @@
+#include "gtest/gtest.h"
 #include <fuerte/Server.h>
 #include <fuerte/Database.h>
 #include <velocypack/Slice.h>
+#include <string>
+#include <utility>
 
 namespace BasicTest {
     typedef arangodb::dbinterface::Server Server;

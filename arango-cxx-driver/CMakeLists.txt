@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 project(fuerte CXX)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 enable_testing()
 
 # FIXME
@@ -84,7 +85,6 @@ endif()
 
 #########################################################################################
 # Clang Completion
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 #copy compile commands to source dir
 if( EXISTS "${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json" )
     message(STATUS "copy compile_commands.json")

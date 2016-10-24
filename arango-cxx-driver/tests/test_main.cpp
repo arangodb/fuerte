@@ -1,8 +1,7 @@
 #include "gtest/gtest.h"
+#include "BasicTests.h"
 #include <vector>
 #include <string>
-
-#include "BasicTests.h"
 
 using namespace std;
 

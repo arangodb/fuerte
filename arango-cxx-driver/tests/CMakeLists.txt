@@ -2,6 +2,10 @@
 add_executable(test_main
     test_main.cpp
 )
+#target_include_directories(test_main PRIVATE
+#    ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/velocypack/include
+#    ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/googletest/googletest/include
+#)
 target_link_libraries(test_main fuerte velocypack gtest)
 add_test(new_test test_main)
 
