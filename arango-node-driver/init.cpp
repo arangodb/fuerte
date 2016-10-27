@@ -41,4 +41,4 @@ void InitAll(v8::Local<v8::Object> exports) {
 // Names the node and the function call to initialise
 // the functionality it will provide
 //
-NODE_MODULE(fuerteNode, arangodb::dbnodejs::InitAll);
+NODE_MODULE(arango_node_driver, arangodb::dbnodejs::InitAll);

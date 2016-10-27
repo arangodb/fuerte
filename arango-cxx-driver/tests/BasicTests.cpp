@@ -14,12 +14,13 @@ namespace BasicTest {
     namespace velocypack = arangodb::velocypack;
 
     inline std::string const& hostUrl(){
-        static const std::string url = "http://127.0.0.1:8529";
+        //static const std::string url = "http://127.0.0.1:8529";
+        static const std::string url = "vstream://127.0.0.1:8529";
         return url;
     }
 
     inline std::string const& dbVersion(){
-        static const std::string ver = "2.8.2";
+        static const std::string ver = "3.1.devel";
         return ver;
     }
 

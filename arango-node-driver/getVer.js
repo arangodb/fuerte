@@ -1,4 +1,4 @@
-var node = require('bindings')('node-arangodb');
+var node = require('bindings')('arango-node-driver');
 
 var server = new node.Server("http://127.0.0.1:8529");
 
