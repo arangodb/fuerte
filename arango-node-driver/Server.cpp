@@ -68,7 +68,7 @@ NAN_MODULE_INIT(Server::Init) {
 //
 // Javascript Server.makeConnection
 //
-// Javascript returns a Connection object
+// Javascript returns a Connection object   -- FIXME it returns nothing
 //
 // void Server::version(
 //  const Nan::FunctionCallbackInfo<v8::Value> &info)
