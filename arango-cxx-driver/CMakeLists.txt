@@ -45,6 +45,7 @@ add_library(fuerte STATIC
 
     src/connection.cpp
     src/database.cpp
+    src/collection.cpp
 )
 #  xxhash.cpp
 

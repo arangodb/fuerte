@@ -39,7 +39,10 @@ class ConnectionBuilder {
   public:
     ConnectionBuilder& host(std::string const&); // takes url in the form  (http|vst)[s]://(ip|hostname):port
                                                  // sets protocol host and port
-    ConnectionBuilder() = delete;
+    //ConnectionBuilder() = delete;
+    //ConnectionBuilder(std::string const& s){
+    //  host(s);
+    //};
 
     std::shared_ptr<Connection> connect(){
       return std::shared_ptr<Connection>( new Connection(_conf)) ;

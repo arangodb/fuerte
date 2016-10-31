@@ -8,8 +8,10 @@
 #include <velocypack/Builder.h>
 #include <string>
 #include <utility>
-#include <fuerte/database.h>
+
 #include <fuerte/connection.h>
+#include <fuerte/collection.h>
+#include <fuerte/database.h>
 
 int main(){
     //init
@@ -38,8 +40,14 @@ int main(){
     Connection::VPack res = conn->result();
   } else {
     using namespace arangocxx;
-    auto conn = ConnectionBuilder().async(false).user("hund").password("arfarf").connect();
-    auto db = conn->getDatabase("fopples");
+    auto conn = ConnectionBuilder().host("http://localhost:8529")
+//                                   .async(true)
+                                   .user("hund")
+                                   .password("arfarf")
+                                   .connect();
+    auto coll = conn->getDatabase("fopples")->getCollection("plastic");
+    coll->insert("fasdfasdfasdfas");
+
 
   }
 
