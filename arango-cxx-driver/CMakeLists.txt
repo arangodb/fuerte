@@ -42,6 +42,9 @@ add_library(fuerte STATIC
     src/HeaderCommon.cpp
     src/HeaderMulti.cpp
     src/HeaderLoader.cpp
+
+    src/connection.cpp
+    src/database.cpp
 )
 #  xxhash.cpp
 

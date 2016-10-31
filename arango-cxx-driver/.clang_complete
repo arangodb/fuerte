@@ -1,4 +1,4 @@
--std=c++17
+-std=c++14
 -I./include
 -I./3rdParty/curlpp2
 -I./3rdParty/googletest
