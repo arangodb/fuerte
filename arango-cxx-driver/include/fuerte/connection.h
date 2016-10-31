@@ -27,17 +27,28 @@ class Connection : public std::enable_shared_from_this<Connection> {
 
 };
 
+
+/** The connection Builder is a class that allows the easy configuration of
+ *  connections. We decided to use the builder pattern because the connections
+ *  have too many options to put them all in a single constructor. When you have
+ *  passed all your options call connect() in order to receive a shared_ptr to a
+ *  connection. Remember to use the "->" operator to access the connections
+ *  members.
+ */
 class ConnectionBuilder {
   public:
+    ConnectionBuilder& host(std::string const&); // takes url in the form  (http|vst)[s]://(ip|hostname):port
+                                                 // sets protocol host and port
+    ConnectionBuilder() = delete;
+
     std::shared_ptr<Connection> connect(){
       return std::shared_ptr<Connection>( new Connection(_conf)) ;
     }
-    void host(std::string const&); // takes url in the form  (http|vst)[s]://(ip|hostname):port
-                                   // sets protocol host and port
-    void async(bool b){ _conf._async = b; }
-    void user(std::string const& u){ _conf._user = u; }
-    void password(std::string const& p){ _conf._password = p; }
-    void maxChunkSize(std::size_t c){ _conf._maxChunkSize = c; }
+
+    ConnectionBuilder& async(bool b){ _conf._async = b; return *this; }
+    ConnectionBuilder& user(std::string const& u){ _conf._user = u; return *this; }
+    ConnectionBuilder& password(std::string const& p){ _conf._password = p; return *this; }
+    ConnectionBuilder& maxChunkSize(std::size_t c){ _conf._maxChunkSize = c; return *this; }
 
   private:
     detail::ConnectionConfiguration _conf;

@@ -5,7 +5,7 @@
 namespace arangocxx {
   using namespace arangocxx::detail;
 
-  void ConnectionBuilder::host(std::string const& str){
+  ConnectionBuilder& ConnectionBuilder::host(std::string const& str){
     std::vector<std::string> strings;
     boost::split(strings, str, boost::is_any_of(":"));
 
@@ -35,20 +35,18 @@ namespace arangocxx {
     _conf._host = strings[1].erase(0,2); //remove '//'
     _conf._port = strings[2];
 
+    return *this;
   }
 
   // get or create?!
   std::shared_ptr<Database> Connection::getDatabase(std::string name){
     return std::shared_ptr<Database> ( new Database(shared_from_this(), name));
-    assert(false);
   }
   std::shared_ptr<Database> Connection::createDatabase(std::string name){
     return std::shared_ptr<Database> ( new Database(shared_from_this(), name));
-    assert(false);
   }
   bool Connection::deleteDatabase(std::string name){
     return false;
-    assert(false);
   }
 
 }

@@ -1,3 +1,4 @@
+// internal header
 #pragma once
 #ifndef ARANGO_CXX_DRIVER_SERVER
 #define ARANGO_CXX_DRIVER_SERVER

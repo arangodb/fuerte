@@ -8,9 +8,12 @@
 #include <velocypack/Builder.h>
 #include <string>
 #include <utility>
+#include <fuerte/database.h>
+#include <fuerte/connection.h>
 
 int main(){
     //init
+  if(false) {
     using namespace arangodb::dbinterface;
     auto server = std::make_shared<Server>("tcp://localhost:8529");
     auto db = std::make_shared<Database>(server, "test_database");
@@ -33,4 +36,13 @@ int main(){
 
     //inspect result
     Connection::VPack res = conn->result();
+  } else {
+    using namespace arangocxx;
+    auto conn = ConnectionBuilder().async(false).user("hund").password("arfarf").connect();
+    auto db = conn->getDatabase("fopples");
+
+  }
+
+
+
 }
