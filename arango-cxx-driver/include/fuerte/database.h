@@ -5,14 +5,13 @@
 #include <memory>
 #include <string>
 #include "common_types.h"
-#include <fuerte/collection.h>
 namespace arangocxx {
 
 class Connection;
 class Collection;
 
 class Database : public std::enable_shared_from_this<Database> {
-    friend class Connection;
+  friend class Connection;
 
   public:
     std::shared_ptr<Collection> getCollection(std::string name);

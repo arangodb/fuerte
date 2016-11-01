@@ -12,9 +12,8 @@ ConOption::ConOption(const ConOption& inp)
   }
 }
 
-template <>
-ConOption::ConOption<std::string>(const std::string& name,
-                                  const std::string& value)
+ConOption::ConOption(const std::string& name
+                    ,const std::string& value)
     : _name{name}, _str{value}, _value{_str} {}
 
 //

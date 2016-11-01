@@ -17,8 +17,11 @@ class ConOption {
   typedef std::vector<ConOption> vector;
   ConOption() = delete;
   ConOption(const ConOption& inp);
+
   template <typename T>
-  explicit ConOption(const std::string& name, const T& value);
+  ConOption(const std::string& name, const T& value);
+  ConOption(const std::string& name, const std::string& value);
+
   ConOption& operator=(const ConOption& inp);
   const std::string headerString() const;
   const std::string queryString() const;
