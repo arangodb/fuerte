@@ -1,4 +1,5 @@
-#include <fuerte/collection.h>
+#include <fuerte/next/collection.h>
+#include <fuerte/next/database.h>
 
 namespace arangocxx {
 

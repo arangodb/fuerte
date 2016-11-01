@@ -1,6 +1,6 @@
-#include <fuerte/database.h>   // datbase and collection need each other - how to resolve the cycle
-#include <fuerte/collection.h> //required by new
-#include <fuerte/connection.h> //required by _conn
+#include <fuerte/next/database.h>   // datbase and collection need each other - how to resolve the cycle
+#include <fuerte/next/collection.h> //required by new
+#include <fuerte/next/connection.h> //required by _conn
 
 namespace arangocxx {
 

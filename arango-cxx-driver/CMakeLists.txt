@@ -43,9 +43,9 @@ add_library(fuerte STATIC
     src/HeaderMulti.cpp
     src/HeaderLoader.cpp
 
-    src/connection.cpp
-    src/database.cpp
-    src/collection.cpp
+    src/next/connection.cpp
+    src/next/database.cpp
+    src/next/collection.cpp
 )
 #  xxhash.cpp
 
@@ -72,6 +72,19 @@ target_compile_definitions(fuerte PUBLIC
 # FIXME -FPIC does not end up in curlpp
 set_target_properties(fuerte velocypack curlpp PROPERTIES POSITION_INDEPENDENT_CODE ON)
 #DVELOCYPACK_XXHASH=1
+
+## fuerte-next
+add_library(fuerte-next STATIC
+    src/next/connection.cpp
+    src/next/database.cpp
+    src/next/collection.cpp
+)
+
+target_include_directories(fuerte-next PUBLIC
+    ${Boost_INCLUDE_DIRS}
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/curlpp2/include
+)
 
 #########################################################################################
 # Tests

@@ -1,5 +1,5 @@
-#include <fuerte/connection.h>
-#include <fuerte/database.h>
+#include <fuerte/next/connection.h>
+#include <fuerte/next/database.h>
 #include <boost/algorithm/string.hpp>
 
 namespace arangocxx {
