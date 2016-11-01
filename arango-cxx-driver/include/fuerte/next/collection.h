@@ -1,6 +1,6 @@
 #pragma once
-#ifndef ARANGO_CXX_DRIVER_DATABASE
-#define ARANGO_CXX_DRIVER_DATABASE
+#ifndef ARANGO_CXX_DRIVER_COLLECTION
+#define ARANGO_CXX_DRIVER_COLLECTION
 
 #include <memory>
 #include <string>
@@ -15,12 +15,12 @@ class Collection : public std::enable_shared_from_this<Collection> {
     typedef std::string Document; //FIXME
 
   public:
-     // bool insert(Document){ return false; }
-     // void drop(Document){}
-     // void update(Document, Document){}
-     // void replace(Document, Document){}
-     // void dropAll(){}
-     // void find(Document){}
+    bool insert(Document){ return false; }
+    void drop(Document){}
+    void update(Document, Document){}
+    void replace(Document, Document){}
+    void dropAll(){}
+    void find(Document){}
 
   private:
     Collection(std::shared_ptr<Database>, std::string name);

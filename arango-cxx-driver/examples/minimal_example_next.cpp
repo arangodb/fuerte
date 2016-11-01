@@ -1,7 +1,10 @@
+namespace arangocxx {
+  class Database;
+}
 
 #include <fuerte/next/connection.h>
-#include <fuerte/next/database.h>
 #include <fuerte/next/collection.h>
+#include <fuerte/next/database.h>
 
 int main(){
     using namespace arangocxx;

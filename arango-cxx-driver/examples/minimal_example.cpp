@@ -1,12 +1,11 @@
-#include "gtest/gtest.h"
-//#include <fuerte/Server.h>
-//#include <fuerte/Database.h>
-//#include <fuerte/Collection.h>
-//#include <fuerte/Document.h>
-//#include <velocypack/Slice.h>
-//#include <velocypack/Builder.h>
-//#include <string>
-//#include <utility>
+#include <fuerte/Server.h>
+#include <fuerte/Database.h>
+#include <fuerte/Collection.h>
+#include <fuerte/Document.h>
+#include <velocypack/Slice.h>
+#include <velocypack/Builder.h>
+#include <string>
+#include <utility>
 
 int main(){
     //init

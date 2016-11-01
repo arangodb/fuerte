@@ -97,6 +97,7 @@ endif()
 #########################################################################################
 # Examples
 if(FUERTE_EXAMPLES)
+    add_subdirectory(3rdParty/googletest)
     add_subdirectory(examples)
 endif()
 
