@@ -1,0 +1,4 @@
+-std=c++14
+-I./node_modules/nan
+-I../arango-cxx-driver/include
+-I/usr/include/nodejs/src

@@ -86,18 +86,17 @@ target_include_directories(fuerte-next PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/curlpp2/include
 )
 
+add_subdirectory(3rdParty/googletest) # should not be required by examples
 #########################################################################################
 # Tests
 if(FUERTE_TESTS)
 #if(CMAKE_TESTING)
-    add_subdirectory(3rdParty/googletest)
     add_subdirectory(tests)
 endif()
 
 #########################################################################################
 # Examples
 if(FUERTE_EXAMPLES)
-    add_subdirectory(3rdParty/googletest)
     add_subdirectory(examples)
 endif()
 

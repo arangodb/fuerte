@@ -85,7 +85,7 @@ NAN_METHOD(Connection::EnumValues) {
 
 NAN_METHOD(Connection::Address) {
   void* ptr = ObjectWrap::Unwrap<Connection>(info.Holder());
-  std::cout << "Address : " << ptr << std::endl;
+  std::cout << "memory location of connection : " << ptr << std::endl;
 }
 
 NAN_METHOD(Connection::SetAsynchronous) {
