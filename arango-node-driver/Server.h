@@ -36,6 +36,7 @@ class Server : public Nan::ObjectWrap {
   static NAN_METHOD(version);
   static NAN_METHOD(makeConnection);
 
+  LibPtr _pServer;
  private:
   Server();
   Server(const std::string url);
@@ -43,7 +44,6 @@ class Server : public Nan::ObjectWrap {
 
   typedef arangodb::dbinterface::Server LibType;
   typedef LibType::SPtr LibPtr;
-  LibPtr _pServer;
   static Nan::Persistent<v8::Function> _constructor;
 };
 }

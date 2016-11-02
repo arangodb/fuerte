@@ -11,14 +11,13 @@ class Database : public Nan::ObjectWrap {
  public:
   // see https://github.com/nodejs/nan/blob/master/doc/object_wrappers.md#api_nan_object_wrap
   // for explanations
-  static NAN_MODULE_INIT(Server::Init) {
+  static NAN_MODULE_INIT(Init) {
     v8::Local<v8::FunctionTemplate> tpl = Nan::New<v8::FunctionTemplate>(New);
     tpl->SetClassName(Nan::New("Database").ToLocalChecked());
 
     // Only 1 internal field required for this wrapped class ( _cppDatabase )
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
-    //Nan::SetPrototypeMethod(tpl, "makeConnection", Server::makeConnection);
     //Nan::SetPrototypeMethod(tpl, "version", Server::version);
 
     constructor().Reset(Nan::GetFunction(tpl).toLocalChecked());
@@ -27,9 +26,8 @@ class Database : public Nan::ObjectWrap {
                , Nan::GetFunction(tpl).toLocalChecked()
                );
   }
-
   static NAN_METHOD(New);
-  //static NAN_METHOD(create);
+
 
  private:
   Database::Database(std::shared_ptr<arangodb::dbinterface::Server> const& server, const std::string name)
