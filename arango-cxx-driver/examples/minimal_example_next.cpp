@@ -1,10 +1,4 @@
-namespace arangocxx {
-  class Database;
-}
-
-#include <fuerte/next/connection.h>
-#include <fuerte/next/collection.h>
-#include <fuerte/next/database.h>
+#include <fuerte/next/arangocxx.h>
 
 int main(){
     using namespace arangocxx;
@@ -14,5 +8,5 @@ int main(){
                                    .password("arfarf")
                                    .connect();
     auto coll = conn->getDatabase("fopples")->getCollection("plastic");
-    coll->insert("fasdfasdfasdfas");
+    coll->insert("coca cola standard fopple");
 }

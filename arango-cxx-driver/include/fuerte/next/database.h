@@ -4,7 +4,7 @@
 
 #include <memory>
 #include <string>
-#include "common_types.h"
+
 namespace arangocxx {
 
 class Connection;

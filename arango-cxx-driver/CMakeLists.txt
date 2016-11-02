@@ -15,7 +15,7 @@ endif()
 
 #########################################################################################
 # Configuration
-option(FUERTE_TESTS     "Build Tests" OFF)
+option(FUERTE_TESTS    "Build Tests" OFF)
 option(FUERTE_EXAMPLES "Build EXAMPLES" OFF)
 
 #########################################################################################
