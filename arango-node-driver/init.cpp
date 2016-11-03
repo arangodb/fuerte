@@ -21,21 +21,21 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include <iostream>
 
+#include "init.h"
 #include "Connection.h"
 #include "Server.h"
-#include "init.h"
+#include "Database.h"
 
-namespace arangodb {
-
-namespace dbnodejs {
+namespace arangodb { namespace dbnodejs {
 
 void InitAll(v8::Local<v8::Object> exports) {
   std::cout << "About to init classes" << std::endl;
   Connection::Init(exports);
   Server::Init(exports);
+  Database::Init(exports);
 }
-}
-}
+
+}}
 
 //
 // Names the node and the function call to initialise

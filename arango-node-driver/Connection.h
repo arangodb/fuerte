@@ -25,9 +25,7 @@
 #include <fuerte/Connection.h>
 #include <nan.h>
 
-namespace arangodb {
-
-namespace dbnodejs {
+namespace arangodb { namespace dbnodejs {
 
 class Connection : public Nan::ObjectWrap {
  private:
@@ -59,7 +57,6 @@ class Connection : public Nan::ObjectWrap {
 inline const Connection::Ptr Connection::libConnection() const {
   return _pConnection;
 }
-}
-}
 
+}}
 #endif  // FUERTE_NODE_CONNECTION_H

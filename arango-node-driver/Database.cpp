@@ -3,6 +3,7 @@
 
 #include "Database.h"
 #include "Server.h"
+#include "Connection.h"
 
 namespace arangodb { namespace dbnodejs {
 
@@ -12,7 +13,9 @@ NAN_METHOD(Database::New) {
       Nan::ThrowTypeError("Not 2 Arguments");
     }
     if (info[0]->IsObject() && info[1]->IsString()){
-      Database* obj = new Database(Nan::ObjectWrap::Unwrap<Server>(info[0])->_pServer , *Nan::Utf8String(info[1]));
+
+
+      Database* obj = new Database(Nan::ObjectWrap::Unwrap<Server>(info[0]->ToObject())->_pServer , *Nan::Utf8String(info[1]));
       obj->Wrap(info.This());
       info.GetReturnValue().Set(info.This());
     } else {
@@ -28,10 +31,17 @@ NAN_METHOD(Database::New) {
       argv[i] = info[i];
     }
     v8::Local<v8::Function> cons = Nan::New(constructor());
-    auto val = cons->NewInstance(argc, argv);
     info.GetReturnValue().Set(Nan::NewInstance(cons,argc,argv).ToLocalChecked());
   }
 }
 
+NAN_METHOD(Database::create) {
+  if (info.Length() !=1 ) {
+    Nan::ThrowTypeError("Not 2 Arguments");
+  }
+  Nan::ObjectWrap::Unwrap<Database>(info.Holder())->_cppDatabase->create(
+    Nan::ObjectWrap::Unwrap<Connection>(info[0]->ToObject())->libConnection()
+  );
+}
 
 }}

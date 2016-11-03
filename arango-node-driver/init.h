@@ -21,10 +21,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include <v8.h>
 
-namespace arangodb {
-
-namespace dbnodejs {
+namespace arangodb { namespace dbnodejs {
 
 void InitAll(v8::Local<v8::Object> exports);
-}
-}
+
+}}

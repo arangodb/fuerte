@@ -30,6 +30,9 @@ namespace arangodb {
 namespace dbnodejs {
 
 class Server : public Nan::ObjectWrap {
+  typedef arangodb::dbinterface::Server LibType;
+  typedef LibType::SPtr LibPtr;
+  static Nan::Persistent<v8::Function> _constructor;
  public:
   static NAN_MODULE_INIT(Init);
   static NAN_METHOD(New);
@@ -42,9 +45,6 @@ class Server : public Nan::ObjectWrap {
   Server(const std::string url);
   static Server* Create(const Nan::FunctionCallbackInfo<v8::Value>& info);
 
-  typedef arangodb::dbinterface::Server LibType;
-  typedef LibType::SPtr LibPtr;
-  static Nan::Persistent<v8::Function> _constructor;
 };
 }
 }
