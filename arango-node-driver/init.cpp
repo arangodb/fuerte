@@ -25,6 +25,7 @@
 #include "Connection.h"
 #include "Server.h"
 #include "Database.h"
+#include "Collection.h"
 
 namespace arangodb { namespace dbnodejs {
 
@@ -33,6 +34,7 @@ void InitAll(v8::Local<v8::Object> exports) {
   Connection::Init(exports);
   Server::Init(exports);
   Database::Init(exports);
+  Collection::Init(exports);
 }
 
 }}

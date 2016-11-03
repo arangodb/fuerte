@@ -9,6 +9,7 @@ namespace arangodb { namespace dbnodejs {
 
 class Database : public Nan::ObjectWrap {
  public:
+  std::shared_ptr<arangodb::dbinterface::Database> _cppDatabase;
   // see https://github.com/nodejs/nan/blob/master/doc/object_wrappers.md#api_nan_object_wrap
   // for explanations
   static NAN_MODULE_INIT(Init) {
@@ -46,7 +47,6 @@ class Database : public Nan::ObjectWrap {
     return ctor;
   }
 
-  std::shared_ptr<arangodb::dbinterface::Database> _cppDatabase;
 };
 
 }}
