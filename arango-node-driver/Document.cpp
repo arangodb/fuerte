@@ -38,8 +38,8 @@ NAN_METHOD(Document::create) {
     Nan::ThrowTypeError("Not 1 Argument");
   }
   Nan::ObjectWrap::Unwrap<Document>(info.Holder())->_cppDocument.create(//col,conn,opts
-    Nan::ObjectWrap::Unwrap<Collection>(info[0]->ToObject())->_cppCollection,
-    Nan::ObjectWrap::Unwrap<Connection>(info[0]->ToObject())->libConnection()
+    Nan::ObjectWrap::Unwrap<Collection>(info[0]->ToObject())->cppClass(),
+    Nan::ObjectWrap::Unwrap<Connection>(info[0]->ToObject())->cppClass()
     //VPack - std::shared_ptr<arangodb::velocypack::Buffer<uint8_t>> optional param
     //options ...
   );

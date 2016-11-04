@@ -55,7 +55,7 @@ class Connection : public Nan::ObjectWrap {
 
  private:
   Ptr _pConnection;
-  static Nan::Persistent<v8::Function> _constructor;
+  static Nan::Persistent<v8::Function> _constructor; //ok to copy persistent?
 };
 
 

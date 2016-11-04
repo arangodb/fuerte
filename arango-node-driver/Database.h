@@ -24,10 +24,14 @@ class Database : public Nan::ObjectWrap {
 
 #ifdef GOOD //but not working
     constructor().Reset(Nan::GetFunction(tpl).ToLocalChecked());
-    target->Set( Nan::New("Database").ToLocalChecked() , Nan::GetFunction(tpl).ToLocalChecked());
+    target->Set( Nan::New("Database").ToLocalChecked()
+               , Nan::GetFunction(tpl).ToLocalChecked()
+               );
 #else
     constructor().Reset(tpl->GetFunction());
-    target->Set( Nan::New("Database").ToLocalChecked() , tpl->GetFunction()); //put in module init?!
+    target->Set( Nan::New("Database").ToLocalChecked()
+               , tpl->GetFunction()
+               ); //put in module init?!
 #endif
 
   }
