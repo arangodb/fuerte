@@ -38,7 +38,7 @@ NAN_METHOD(Database::create) {
     Nan::ThrowTypeError("Not 2 Arguments");
   }
   Nan::ObjectWrap::Unwrap<Database>(info.Holder())->_cppDatabase->create(
-    Nan::ObjectWrap::Unwrap<Connection>(info[0]->ToObject())->libConnection()
+    Nan::ObjectWrap::Unwrap<Connection>(info[0]->ToObject())->cppClass()
   );
 }
 

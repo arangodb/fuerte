@@ -13,7 +13,7 @@ NAN_METHOD(Collection::New) {
       Nan::ThrowTypeError("Not 2 Arguments");
     }
     if (info[0]->IsObject() && info[1]->IsString()){
-      Collection* obj = new Collection(Nan::ObjectWrap::Unwrap<Database>(info[0]->ToObject())->_cppDatabase , *Nan::Utf8String(info[1]));
+      Collection* obj = new Collection(Nan::ObjectWrap::Unwrap<Database>(info[0]->ToObject())->cppClass() , *Nan::Utf8String(info[1]));
       obj->Wrap(info.This());
       info.GetReturnValue().Set(info.This());
     } else {
@@ -38,7 +38,7 @@ NAN_METHOD(Collection::create) {
     Nan::ThrowTypeError("Not 1 Argument");
   }
   Nan::ObjectWrap::Unwrap<Collection>(info.Holder())->_cppCollection->create(
-    Nan::ObjectWrap::Unwrap<Connection>(info[0]->ToObject())->libConnection()
+    Nan::ObjectWrap::Unwrap<Connection>(info[0]->ToObject())->cppClass()
   );
 }
 
