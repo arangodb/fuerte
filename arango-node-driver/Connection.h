@@ -35,7 +35,11 @@ class Connection : public Nan::ObjectWrap {
   typedef PType::SPtr Ptr;
   Connection();
   Connection(const Ptr inp);
-  const Ptr libConnection() const;
+
+  inline const Connection::Ptr cppClass() const {
+    return _pConnection;
+  }
+
   static void SetReturnValue(const Nan::FunctionCallbackInfo<v8::Value>& info,
                              Ptr inp);
   static NAN_METHOD(EnumValues);
@@ -54,9 +58,6 @@ class Connection : public Nan::ObjectWrap {
   static Nan::Persistent<v8::Function> _constructor;
 };
 
-inline const Connection::Ptr Connection::libConnection() const {
-  return _pConnection;
-}
 
 }}
 #endif  // FUERTE_NODE_CONNECTION_H

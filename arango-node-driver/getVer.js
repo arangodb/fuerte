@@ -9,7 +9,9 @@ var con2 = server.makeConnection();
 
 // create database hund
 var database = new node.Database(server, "hund");
+// create  collection
 database.create(con1);
+var collection = new node.Collection(database, "dackel")
 
 // creates some object that is an equivaltent to
 // the format enum in collection.h unfortunatly it

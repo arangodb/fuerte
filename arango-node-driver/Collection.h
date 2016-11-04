@@ -21,7 +21,11 @@ class Collection : public Nan::ObjectWrap {
   static NAN_METHOD(New);
   static NAN_METHOD(create);
 
+  std::shared_ptr<arangodb::dbinterface::Collection>& cppClass() {
+    return _cppCollection;
+  }
  private:
+   std::shared_ptr<arangodb::dbinterface::Collection> _cppCollection;
    Collection(std::shared_ptr<arangodb::dbinterface::Database> const& database, const std::string name)
      : _cppCollection(std::make_shared<arangodb::dbinterface::Collection>(database, name))
      {}
@@ -31,7 +35,6 @@ class Collection : public Nan::ObjectWrap {
     return ctor;
   }
 
-  std::shared_ptr<arangodb::dbinterface::Collection> _cppCollection;
 };
 
 }}

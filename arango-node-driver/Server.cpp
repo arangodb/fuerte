@@ -80,7 +80,7 @@ NAN_METHOD(Server::version) {
   Server* pSrv = ObjectWrap::Unwrap<Server>(info.Holder());
   v8::Local<v8::Object> obj = info[0]->ToObject();
   Connection* pCon = ObjectWrap::Unwrap<Connection>(obj);
-  Connection::Ptr pLibCon = pCon->libConnection();
+  Connection::Ptr pLibCon = pCon->cppClass();
   LibPtr pLibSrv = pSrv->_pServer;
   pLibSrv->version(pLibCon);
 }

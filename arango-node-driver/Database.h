@@ -9,7 +9,6 @@ namespace arangodb { namespace dbnodejs {
 
 class Database : public Nan::ObjectWrap {
  public:
-  std::shared_ptr<arangodb::dbinterface::Database> _cppDatabase;
   // see https://github.com/nodejs/nan/blob/master/doc/object_wrappers.md#api_nan_object_wrap
   // for explanations
   static NAN_MODULE_INIT(Init) {
@@ -36,8 +35,13 @@ class Database : public Nan::ObjectWrap {
   static NAN_METHOD(New);
   static NAN_METHOD(create);
 
+  std::shared_ptr<arangodb::dbinterface::Database>& cppClass() {
+    return _cppDatabase;
+  }
 
  private:
+  std::shared_ptr<arangodb::dbinterface::Database> _cppDatabase;
+
    Database(std::shared_ptr<arangodb::dbinterface::Server> const& server, const std::string name)
      : _cppDatabase(std::make_shared<arangodb::dbinterface::Database>(server, name))
      {}
