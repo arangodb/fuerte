@@ -8,7 +8,8 @@ enable_testing()
 #set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # workaround pre 3.1 - waiting for debian stable
 if(UNIX)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+    # -fPIC here as curlpp is borken
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC")
 endif()
 
 
@@ -46,6 +47,8 @@ add_library(fuerte STATIC
     src/next/connection.cpp
     src/next/database.cpp
     src/next/collection.cpp
+    src/next/request.cpp
+    src/next/response.cpp
 )
 #  xxhash.cpp
 
