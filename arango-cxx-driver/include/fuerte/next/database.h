@@ -24,7 +24,6 @@ class Database : public std::enable_shared_from_this<Database> {
     std::string _name;
 };
 
-
 }
 #endif
 

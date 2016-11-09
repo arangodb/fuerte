@@ -1,5 +1,5 @@
 -std=c++14
 -I./include
--I./3rdParty/curlpp2
+-I./3rdParty/curlpp2/include
 -I./3rdParty/googletest
--I./3rdParty/velocypack
+-I./3rdParty/velocypack/include

@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.0)
+
 project(fuerte CXX)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 enable_testing()
@@ -43,12 +44,6 @@ add_library(fuerte STATIC
     src/HeaderCommon.cpp
     src/HeaderMulti.cpp
     src/HeaderLoader.cpp
-
-    src/next/connection.cpp
-    src/next/database.cpp
-    src/next/collection.cpp
-    src/next/request.cpp
-    src/next/response.cpp
 )
 #  xxhash.cpp
 
@@ -81,6 +76,14 @@ add_library(fuerte-next STATIC
     src/next/connection.cpp
     src/next/database.cpp
     src/next/collection.cpp
+    src/next/request.cpp
+    src/next/vst.cpp
+)
+
+target_link_libraries(fuerte-next PUBLIC
+    velocypack
+    curlpp
+    ${Boost_LIBRARIES}
 )
 
 target_include_directories(fuerte-next PUBLIC
