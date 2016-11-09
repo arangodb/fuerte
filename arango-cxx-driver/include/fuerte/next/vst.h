@@ -7,7 +7,9 @@
 
 namespace arangodb { namespace rest { namespace vst { inline namespace v2 {
 
+class IncompleteMessage;
 using MessageID = uint64_t;
+using MessageLength = std::unordered_map<MessageID, IncompleteMessage>;
 
 static size_t const bufferLength = 4096UL;
 static size_t const chunkMaxBytes = 1000UL;
@@ -36,20 +38,21 @@ struct ReadBufferInfo {
                                  // will be cleaned
   };
 
+struct IncompleteMessage {
+  IncompleteMessage(uint32_t length, std::size_t numberOfChunks)
+    : length(length)
+    , buffer(length)
+    , numberOfChunks(numberOfChunks)
+    , currentChunk(0)
+    {}
 
-//  struct IncompleteVPackMessage {
-//    IncompleteVPackMessage(uint32_t length, std::size_t numberOfChunks)
-//        : _length(length),
-//          _buffer(_length),
-//          _numberOfChunks(numberOfChunks),
-//          _currentChunk(0) {}
-//    uint32_t _length;  // length of total message in bytes
-//    VPackBuffer<uint8_t> _buffer;
-//    std::size_t _numberOfChunks;
-//    std::size_t _currentChunk;
-//  };
-//  std::unordered_map<MessageID, IncompleteVPackMessage> _incompleteMessages;
-//
+  uint32_t length;  // length of total message in bytes
+  VBuffer  buffer;
+  std::size_t numberOfChunks;
+  std::size_t currentChunk;
+};
+
+
 
 
 std::size_t validateAndCount(char const* vpHeaderStart, char const* vpEnd);

@@ -38,25 +38,25 @@ Request createRequest(RestVerb verb
                      ,mapss meta
                      ){
 
-  ReHeader header(0 /*version*/
-                 , ReType::Undefined
-                 , database
-                 , verb
-                 , path
-                 , parameter
-                 , meta
-                 , user
-                 , password
-                 );
-
-  Request request(std::move(header));
+  //version must be set by protocol
+  Request request;
+  request.reHeader.version = 0;
   request.reHeader.type = ReType::Request;
+  request.reHeader.responseCode = 0;
+  request.reHeader.database = database;
+  request.reHeader.requestType = verb;
+  request.reHeader.requestPath = path;
+  request.reHeader.requestPath = path;
+  request.reHeader.parameter = parameter;
+  request.reHeader.meta = meta;
   return request;
 }
 
-Request createResponse(){
+Request createResponse(unsigned code){
   Request request;
+  //version must be set by protocol
   request.reHeader.type = ReType::Response;
+  request.reHeader.responseCode = code;
   return request;
 }
 

@@ -1,33 +1,39 @@
 #pragma once
 #include <fuerte/next/internal_types.h>
+#include <boost/optional.hpp>
 namespace arangodb { namespace rest { inline namespace v2 {
 
   struct ReHeader {
+    //the types should all be optional
     ReHeader(ReHeader const&) = delete;
+    ReHeader() = default;
     ReHeader(ReHeader&&) = default;
-    ReHeader( int version = 0
-            , ReType type = ReType::Undefined
-            , std::string database = "_system"
-            , RestVerb requestType = RestVerb::Get
-            , std::string requestPath = ""
-            , mapss parameter = mapss()
-            , mapss meta = mapss()
-            , std::string user = ""
-            , std::string password = ""
-            )
-            : version(version)
-            , type(type)
-            , database(database)
-            , requestType(requestType)
-            , requestPath(requestPath)
-            , parameter(parameter)
-            , meta(meta)
-            , user(std::move(user))
-            , password(std::move(password))
-            {}
+      //ReHeader( int version = 0
+      //      , ReType type = ReType::Undefined
+      //      , unsigned responseCode = 0
+      //      , std::string database = "_system"
+      //      , RestVerb requestType = RestVerb::Get
+      //      , std::string requestPath = ""
+      //      , mapss parameter = mapss()
+      //      , mapss meta = mapss()
+      //      , std::string user = ""
+      //      , std::string password = ""
+      //      )
+      //      : version(version)
+      //      , type(type)
+      //      , responseCode(responseCode)
+      //      , database(database)
+      //      , requestType(requestType)
+      //      , requestPath(requestPath)
+      //      , parameter(parameter)
+      //      , meta(meta)
+      //      , user(std::move(user))
+      //      , password(std::move(password))
+      //      {}
 
     int version;
     ReType type;
+    unsigned responseCode;
     std::string database;
     RestVerb requestType;
     std::string requestPath;
@@ -41,8 +47,13 @@ namespace arangodb { namespace rest { inline namespace v2 {
     return "foo";
   }
 
-  inline std::string headerToVst(ReHeader const& header){
-    return "foo";
+  inline VBuffer headerToVst(ReHeader const& header){
+    VBuffer  buffer;
+    VBuilder builder(buffer);
+    builder.openArray();
+    builder.add(); ///
+    builder.close();
+    return buffer;
   }
 
   inline ReHeader headerFromHttp(std::string const& body){
