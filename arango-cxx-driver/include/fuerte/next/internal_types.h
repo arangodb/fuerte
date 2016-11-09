@@ -6,6 +6,7 @@
 #include <map>
 #include <vector>
 #include <string>
+#include <cassert>
 
 namespace arangodb { namespace rest { inline namespace v2 {
 

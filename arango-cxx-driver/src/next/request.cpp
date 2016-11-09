@@ -24,13 +24,32 @@ void setHeaderValue(Request request, std::string const& key, std::string const& 
 Request createAuthRequest(std::string const& user, std::string const& password){
   Request request;
   request.reHeader.type = ReType::Authenticaton;
-  request.user=user;
-  request.user=password;
+  request.reHeader.user=user;
+  request.reHeader.password=password;
   return request;
 }
 
-Request createRequest(){
-  Request request;
+Request createRequest(RestVerb verb
+                     ,std::string const& database
+                     ,std::string const& path
+                     ,std::string const& user
+                     ,std::string const& password
+                     ,mapss parameter
+                     ,mapss meta
+                     ){
+
+  ReHeader header(0 /*version*/
+                 , ReType::Undefined
+                 , database
+                 , verb
+                 , path
+                 , parameter
+                 , meta
+                 , user
+                 , password
+                 );
+
+  Request request(std::move(header));
   request.reHeader.type = ReType::Request;
   return request;
 }

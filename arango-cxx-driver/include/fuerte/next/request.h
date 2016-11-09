@@ -21,8 +21,7 @@ namespace arangodb { namespace rest { inline namespace v2 {
       ReHeader reHeader;
       mapss headerStrings;
       std::vector<VBuffer> payload;
-      std::string user;
-      std::string password;
+      uint64_t messageid; //generate by some singleton
 
       void addPayload(VSlice const& slice){
         VBuffer buffer;
