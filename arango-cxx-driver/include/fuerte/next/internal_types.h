@@ -13,6 +13,7 @@ namespace arangodb { namespace rest { inline namespace v2 {
       using VBuffer = arangodb::velocypack::Buffer<uint8_t>;
       using VSlice = arangodb::velocypack::Slice;
       using VBuilder = arangodb::velocypack::Builder;
+      using VValue = arangodb::velocypack::Value;
       using mapss = std::map<std::string,std::string>;
       using NetBuffer = std::string;
 

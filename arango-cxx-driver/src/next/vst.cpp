@@ -5,8 +5,8 @@
 namespace arangodb { namespace rest { namespace vst { inline namespace v2 {
 using VValidator = ::arangodb::velocypack::Validator;
 
-std::size_t validateAndCount(char const* vpHeaderStart
-                            ,char const* vpEnd) {
+std::size_t validateAndCount(uint8_t const* vpHeaderStart
+                            ,uint8_t const* vpEnd) {
   try {
     VValidator validator;
     // check for slice start to the end of Chunk
@@ -35,7 +35,7 @@ std::size_t validateAndCount(char const* vpHeaderStart
 }
 
 
-Header readVstHeader(char const * const bufferBegin, ReadBufferInfo& info) {
+Header readVstHeader(uint8_t const * const bufferBegin, vst::ReadBufferInfo& info) {
   Header header;
 
   auto cursor = bufferBegin + info.readBufferOffset;
@@ -67,11 +67,9 @@ Header readVstHeader(char const * const bufferBegin, ReadBufferInfo& info) {
   return header;
 }
 
-bool isChunkComplete(char* start, char* end, ReadBufferInfo& info) {
-  std::size_t length = std::distance(start, end);
-
+std::size_t isChunkComplete(uint8_t const* start, std::size_t length , ReadBufferInfo& info) {
   if (!info.currentChunkLength && length < sizeof(uint32_t)) {
-    return false;
+    return 0;
   }
   if (!info.currentChunkLength) {
     // read chunk length
@@ -79,10 +77,9 @@ bool isChunkComplete(char* start, char* end, ReadBufferInfo& info) {
   }
   if (length < info.currentChunkLength) {
     // chunk not complete
-    return false;
+    return 0;
   }
-
-  return true;
+  return info.currentChunkLength;
 }
 
 }}}}

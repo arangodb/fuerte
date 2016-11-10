@@ -3,6 +3,7 @@
 #include "internal_types.h"
 #include "header.h"
 
+#include <boost/optional.hpp>
 #include <string>
 #include <vector>
 #include <map>
@@ -25,7 +26,7 @@ namespace arangodb { namespace rest { inline namespace v2 {
 
       void addPayload(VSlice const& slice){
         VBuffer buffer;
-        buffer.append(slice.startAs<char>(), slice.byteSize());
+        buffer.append(slice.start(), slice.byteSize());
         payload.push_back(std::move(buffer));
       }
   };
@@ -33,6 +34,6 @@ namespace arangodb { namespace rest { inline namespace v2 {
   NetBuffer toNetworkVst(Request const&);
   NetBuffer toNetworkHttp(Request const&);
 
-  Request formNetworkVst(NetBuffer const&);
-  Request formNetworkHttp(NetBuffer const&);
+  boost::optional<Request> formNetworkVst(NetBuffer const&);
+  boost::optional<Request> formNetworkHttp(NetBuffer const&);
 }}}

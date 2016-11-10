@@ -9,7 +9,7 @@ namespace arangodb { namespace rest { namespace vst { inline namespace v2 {
 
 class IncompleteMessage;
 using MessageID = uint64_t;
-using MessageLength = std::unordered_map<MessageID, IncompleteMessage>;
+using MessageMap = std::unordered_map<MessageID, IncompleteMessage>;
 
 static size_t const bufferLength = 4096UL;
 static size_t const chunkMaxBytes = 1000UL;
@@ -52,12 +52,17 @@ struct IncompleteMessage {
   std::size_t currentChunk;
 };
 
+Header readVstHeader(uint8_t const * const bufferBegin, ReadBufferInfo& info);
 
+std::size_t isChunkComplete(uint8_t const* start, std::size_t length, ReadBufferInfo& info);
+std::size_t isChunkComplete(uint8_t const* start, uint8_t const* end, ReadBufferInfo& info) {
+  return isChunkComplete(start, std::distance(start, end), info);
+}
 
-
-std::size_t validateAndCount(char const* vpHeaderStart, char const* vpEnd);
-Header readVstHeader(char const * const bufferBegin, ReadBufferInfo& info);
-bool isChunkComplete(char* start, char* end, ReadBufferInfo& info); //should return offset to end when complete
+std::size_t validateAndCount(uint8_t const* vpHeaderStart, uint8_t const* vpEnd);
+std::size_t validateAndCount(uint8_t const* vpHeaderStart, std::size_t len){
+  return validateAndCount(vpHeaderStart, vpHeaderStart + len);
+}
 
 //template <typename T>
 //std::size_t appendToBuffer(basics::StringBuffer* buffer, T& value) {

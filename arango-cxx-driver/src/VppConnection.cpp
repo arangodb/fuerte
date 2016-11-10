@@ -302,7 +302,7 @@ void VppConnection::unpackChunks() {
       VPack vpack{new VBuffer{}};
       arangodb::velocypack::Slice slice{&(*iData)};
       size_t szVPack = slice.byteSize();
-      vpack->append(reinterpret_cast<const char*>(&(*iData)), szVPack);
+      vpack->append(&(*iData), szVPack);
       _vpacks.push_back(vpack);
       iData += szVPack;
     }

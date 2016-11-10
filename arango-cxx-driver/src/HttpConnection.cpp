@@ -375,7 +375,7 @@ Connection::VPack HttpConnection::fromVPData() const {
     return VPack{};
   }
   VPack buf{std::make_shared<VBuffer>(_buf.size())};
-  buf->append(&_buf[0], _buf.size());
+  buf->append(reinterpret_cast<uint8_t const*>(&_buf[0]), _buf.size());
   return buf;
 }
 

@@ -1,4 +1,6 @@
 #include <fuerte/next/request.h>
+#include <fuerte/next/vst.h>
+
 namespace arangodb { namespace rest { inline namespace v2 {
 
 ////helper
@@ -69,15 +71,71 @@ NetBuffer toNetworkHttp(Request const&){
   return "implement me";
 }
 
-Request formNetworkVst(NetBuffer const&){
-  Request request = createResponse();
-  // contains slice?
-  // parse slice
-  return request;
+Request fromBufferVst(uint8_t const* begin, std::size_t length){
+  auto num_slice = vst::validateAndCount(begin, begin + length);
+  // work work
+  return Request{};
 }
 
-Request formNetworkHttp(NetBuffer const&){
-  Request request = createResponse();
+boost::optional<Request>
+formNetworkVst(NetBuffer const& buffer
+              ,vst::ReadBufferInfo& info
+              ,vst::MessageMap& messageMap
+              ){
+
+  auto buff_begin = reinterpret_cast<uint8_t const*>(buffer.data());
+  auto buff_end = buff_begin + buffer.size();
+
+
+  auto chunkEndOffset = vst::isChunkComplete(buff_begin, buff_end, info);
+  if (chunkEndOffset){ //chunk complete yeahy
+    auto header = vst::readVstHeader(buff_begin, info);
+    auto vpack_begin = buff_begin + header.headerLength;
+    if(header.isFirst && header.chunk == 1) { // single chunk (message complete)
+      return fromBufferVst(vpack_begin, chunkEndOffset);
+      auto num_slice = vst::validateAndCount(vpack_begin, vpack_begin + header.messageLength);
+    } else { //multichunk
+      auto message_iter = messageMap.find(header.messageID);
+      if(message_iter == messageMap.end()){
+        //add new message
+        std::pair<typename vst::MessageMap::iterator,bool> emplace_result
+          = messageMap.emplace(header.messageID,vst::IncompleteMessage(header.messageLength,header.chunk));
+        emplace_result.first->second.buffer.append(vpack_begin, header.chunkLength);
+        return boost::none;
+      } else {
+        //continue old message
+        vst::IncompleteMessage& m = message_iter->second;
+        m.buffer.append(vpack_begin, header.chunkLength);
+        message_iter->second.buffer.append(vpack_begin, header.chunkLength);
+        if(m.numberOfChunks == header.chunk){
+          //message is complete
+          auto num_slice = vst::validateAndCount(m.buffer.data()
+                                                ,m.buffer.byteSize()
+                                                );
+        }
+        return boost::none;
+      }
+
+      //add(vpack_begin,vpack_begin+chunkEndOffset)
+      if(/*complete*/ true){
+        auto num_slice = vst::validateAndCount(vpack_begin, vpack_begin + header.messageLength);
+      // add to map
+      // message complete?
+      } else {
+        return boost::none;
+      }
+
+    }
+
+    Request request;
+    // parse slice
+    return request;
+  }
+  return boost::none;
+}
+
+boost::optional<Request> formNetworkHttp(NetBuffer const& buffer){
+  Request request;
   // parse body and convert to vpack
   return request;
 }
