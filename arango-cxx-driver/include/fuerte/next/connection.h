@@ -5,8 +5,9 @@
 #include <memory>
 #include <string>
 #include "common_types.h"
+#include "real_connection.h"
 
-namespace arangocxx {
+namespace arangodb { namespace rest { inline namespace v2 {
 
 class Database;
 
@@ -23,6 +24,7 @@ class Connection : public std::enable_shared_from_this<Connection> {
     bool deleteDatabase(std::string name);
 
   private:
+    std::shared_ptr<RealConnection>  _realConnection;
     detail::ConnectionConfiguration _configuration;
 
 };
@@ -57,5 +59,5 @@ class ConnectionBuilder {
     detail::ConnectionConfiguration _conf;
 };
 
-}
+}}}
 #endif

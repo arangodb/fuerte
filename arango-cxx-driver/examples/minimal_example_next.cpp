@@ -1,7 +1,7 @@
 #include <fuerte/next/arangocxx.h>
 
 int main(){
-    using namespace arangocxx;
+    using namespace arangodb::rest;
     auto conn = ConnectionBuilder().host("http://localhost:8529")
 //                                   .async(true)
                                    .user("hund")

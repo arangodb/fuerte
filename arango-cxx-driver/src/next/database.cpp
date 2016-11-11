@@ -2,9 +2,9 @@
 #include <fuerte/next/collection.h> //required by new
 #include <fuerte/next/connection.h> //required by _conn
 
-namespace arangocxx {
+namespace arangodb { namespace rest { inline namespace v2 {
 
-  using namespace arangocxx::detail;
+  using namespace arangodb::rest::detail;
 
   Database::Database(std::shared_ptr<Connection> conn, std::string name)
     : _conn(conn)
@@ -22,5 +22,4 @@ namespace arangocxx {
     return false;
   }
 
-}
-
+}}}

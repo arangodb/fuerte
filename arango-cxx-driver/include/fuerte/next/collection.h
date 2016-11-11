@@ -6,7 +6,7 @@
 #include <string>
 #include "common_types.h"
 
-namespace arangocxx {
+namespace arangodb { namespace rest { inline namespace v2 {
 
 class Database;
 
@@ -30,7 +30,5 @@ class Collection : public std::enable_shared_from_this<Collection> {
 };
 
 
-}
+}}}
 #endif
-
-

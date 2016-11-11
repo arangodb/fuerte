@@ -4,7 +4,7 @@
 
 #include <string>
 
-namespace arangocxx {
+namespace arangodb { namespace rest { inline namespace v2 {
   namespace detail {
 
     enum class ConnectionType {
@@ -33,6 +33,6 @@ namespace arangocxx {
     };
 
   }
-}
+}}}
 #endif
 

@@ -3,8 +3,8 @@
 #include <boost/algorithm/string.hpp>
 #include <vector>
 
-namespace arangocxx {
-  using namespace arangocxx::detail;
+namespace arangodb { namespace rest { inline namespace v2 {
+  using namespace arangodb::rest::detail;
 
   ConnectionBuilder& ConnectionBuilder::host(std::string const& str){
     std::vector<std::string> strings;
@@ -50,4 +50,4 @@ namespace arangocxx {
     return false;
   }
 
-}
+}}}

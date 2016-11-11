@@ -5,7 +5,7 @@
 #include <memory>
 #include <string>
 
-namespace arangocxx {
+namespace arangodb { namespace rest { inline namespace v2 {
 
 class Connection;
 class Collection;
@@ -24,6 +24,5 @@ class Database : public std::enable_shared_from_this<Database> {
     std::string _name;
 };
 
-}
+}}}
 #endif
-
