@@ -78,10 +78,11 @@ Request fromBufferVst(uint8_t const* begin, std::size_t length){
 }
 
 boost::optional<Request>
-formNetworkVst(NetBuffer const& buffer
+fromNetworkVst(NetBuffer const& buffer
               ,vst::ReadBufferInfo& info
               ,vst::MessageMap& messageMap
               ){
+
   auto buff_begin = reinterpret_cast<uint8_t const*>(buffer.data());
   auto buff_end = buff_begin + buffer.size();
   auto chunkEndOffset = vst::isChunkComplete(buff_begin, buff_end, info);
@@ -108,11 +109,12 @@ formNetworkVst(NetBuffer const& buffer
       }
     }
   // todo store in info how much of the buffer we have processed
+  // so the calling job can update its buffer
   }
   return boost::none;
 }
 
-boost::optional<Request> formNetworkHttp(NetBuffer const& buffer){
+boost::optional<Request> fromNetworkHttp(NetBuffer const& buffer){
   Request request;
   // parse body and convert to vpack
   return request;

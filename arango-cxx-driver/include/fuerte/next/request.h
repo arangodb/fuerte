@@ -34,6 +34,6 @@ namespace arangodb { namespace rest { inline namespace v2 {
   NetBuffer toNetworkVst(Request const&);
   NetBuffer toNetworkHttp(Request const&);
 
-  boost::optional<Request> formNetworkVst(NetBuffer const&);
-  boost::optional<Request> formNetworkHttp(NetBuffer const&);
+  boost::optional<Request> fromNetworkVst(NetBuffer const&);
+  boost::optional<Request> fromNetworkHttp(NetBuffer const&);
 }}}

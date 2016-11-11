@@ -71,11 +71,13 @@ set_target_properties(fuerte velocypack curlpp PROPERTIES POSITION_INDEPENDENT_C
 
 ## fuerte-next
 add_library(fuerte-next STATIC
-    src/next/connection.cpp
     src/next/database.cpp
     src/next/collection.cpp
     src/next/request.cpp
+    src/next/connection.cpp
     src/next/vst.cpp
+    src/next/server.cpp
+    src/next/asio.cpp
 )
 
 target_link_libraries(fuerte-next PUBLIC
