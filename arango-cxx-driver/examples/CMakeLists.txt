@@ -1,8 +1,8 @@
+add_executable(minimal_example_old minimal_example_old.cpp)
+target_link_libraries(minimal_example_old fuerte)
+
 add_executable(minimal_example minimal_example.cpp)
 target_link_libraries(minimal_example fuerte)
-
-add_executable(minimal_example_next minimal_example_next.cpp)
-target_link_libraries(minimal_example_next fuerte-next)
 
 add_executable(FuerteBench
     FuerteBench/main.cpp
