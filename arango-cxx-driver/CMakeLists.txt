@@ -27,25 +27,25 @@ add_subdirectory(3rdParty/curlpp2)
 
 #########################################################################################
 # Main Project
-add_library(fuerte STATIC
-    src/ConnectionUrl.cpp
-    src/HttpConnection.cpp
-    src/VppConnection.cpp
-    src/Connection.cpp
-    src/ConOption.cpp
-    src/Server.cpp
-    src/Database.cpp
-    src/Collection.cpp
-    src/Document.cpp
-    src/Cursor.cpp
-    src/Version.cpp
-    src/HeaderCommon.cpp
-    src/HeaderMulti.cpp
-    src/HeaderLoader.cpp
+add_library(fuerte-old STATIC
+    src/old/ConnectionUrl.cpp
+    src/old/HttpConnection.cpp
+    src/old/VppConnection.cpp
+    src/old/Connection.cpp
+    src/old/ConOption.cpp
+    src/old/Server.cpp
+    src/old/Database.cpp
+    src/old/Collection.cpp
+    src/old/Document.cpp
+    src/old/Cursor.cpp
+    src/old/Version.cpp
+    src/old/HeaderCommon.cpp
+    src/old/HeaderMulti.cpp
+    src/old/HeaderLoader.cpp
 )
 #  xxhash.cpp
 
-target_include_directories(fuerte PUBLIC
+target_include_directories(fuerte-old PUBLIC
     ${Boost_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/curlpp2/include
@@ -56,37 +56,37 @@ target_include_directories(fuerte PUBLIC
 #    ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/curlpp2/include
 #)
 
+target_link_libraries(fuerte-old PUBLIC
+    velocypack
+    curlpp
+    ${Boost_LIBRARIES}
+)
+target_compile_definitions(fuerte-old PUBLIC
+    BOOST_ASIO_DISABLE_THREADS
+)
+
+# FIXME -FPIC does not end up in curlpp
+set_target_properties(fuerte-old velocypack curlpp PROPERTIES POSITION_INDEPENDENT_CODE ON)
+#DVELOCYPACK_XXHASH=1
+
+## fuerte-next
+add_library(fuerte STATIC
+    src/database.cpp
+    src/collection.cpp
+    src/request.cpp
+    src/connection.cpp
+    src/vst.cpp
+    src/server.cpp
+    src/asio.cpp
+)
+
 target_link_libraries(fuerte PUBLIC
     velocypack
     curlpp
     ${Boost_LIBRARIES}
 )
-target_compile_definitions(fuerte PUBLIC
-    BOOST_ASIO_DISABLE_THREADS
-)
 
-# FIXME -FPIC does not end up in curlpp
-set_target_properties(fuerte velocypack curlpp PROPERTIES POSITION_INDEPENDENT_CODE ON)
-#DVELOCYPACK_XXHASH=1
-
-## fuerte-next
-add_library(fuerte-next STATIC
-    src/next/database.cpp
-    src/next/collection.cpp
-    src/next/request.cpp
-    src/next/connection.cpp
-    src/next/vst.cpp
-    src/next/server.cpp
-    src/next/asio.cpp
-)
-
-target_link_libraries(fuerte-next PUBLIC
-    velocypack
-    curlpp
-    ${Boost_LIBRARIES}
-)
-
-target_include_directories(fuerte-next PUBLIC
+target_include_directories(fuerte PUBLIC
     ${Boost_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/curlpp2/include
