@@ -25,9 +25,9 @@
 
 #include <gtest/gtest.h>
 
-#include <fuerte/Server.h>
-#include <fuerte/Database.h>
-#include <fuerte/Collection.h>
+#include <fuerte/old/Server.h>
+#include <fuerte/old/Database.h>
+#include <fuerte/old/Collection.h>
 
 class ColTest : public testing::Test {
  public:

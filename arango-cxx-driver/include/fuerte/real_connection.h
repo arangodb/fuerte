@@ -1,6 +1,6 @@
 #pragma once
 
-#include <fuerte/next/request.h>
+#include "request.h"
 namespace arangodb { namespace rest { inline namespace v2 {
 
 using RequestCallback = std::function<void(Request)>;

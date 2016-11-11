@@ -20,16 +20,16 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <fuerte/Server.h>
+#include <fuerte/old/Server.h>
+#include <fuerte/old/Database.h>
+#include <fuerte/old/HttpConnection.h>
+#include <fuerte/old/VppConnection.h>
 
 #include <algorithm>
 #include <sstream>
 
 #include <curlpp/cURLpp.hpp>
 
-#include "../include/fuerte/Database.h"
-#include "../include/fuerte/HttpConnection.h"
-#include "../include/fuerte/VppConnection.h"
 
 namespace arangodb {
 namespace dbinterface {

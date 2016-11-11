@@ -1,4 +1,4 @@
-#include <fuerte/next/vst.h>
+#include <fuerte/vst.h>
 
 #include <velocypack/Validator.h>
 

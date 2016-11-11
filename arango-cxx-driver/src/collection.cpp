@@ -1,5 +1,5 @@
-#include <fuerte/next/collection.h>
-#include <fuerte/next/database.h>
+#include <fuerte/collection.h>
+#include <fuerte/database.h>
 
 namespace arangodb { namespace rest { inline namespace v2 {
 

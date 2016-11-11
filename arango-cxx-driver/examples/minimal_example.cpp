@@ -1,4 +1,4 @@
-#include <fuerte/next/arangocxx.h>
+#include <fuerte/arangocxx.h>
 
 int main(){
     using namespace arangodb::rest;

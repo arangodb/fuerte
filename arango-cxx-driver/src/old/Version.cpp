@@ -20,14 +20,13 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "../include/fuerte/Version.h"
-
 #include <sstream>
-
-#include <fuerte/fuerte_version.h>
+#include <fuerte/old/fuerte_version.h>
+#include <fuerte/old/Version.h>
 
 namespace arangodb {
 namespace dbinterface {
+
 const uint16_t Version::_major = (VERSION_MAJOR);
 const uint16_t Version::_minor = (VERSION_MINOR);
 const uint16_t Version::_patch = (VERSION_PATCH);

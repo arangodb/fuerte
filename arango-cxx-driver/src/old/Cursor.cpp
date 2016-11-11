@@ -20,7 +20,7 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "../include/fuerte/Cursor.h"
+#include <fuerte/old/Cursor.h>
 
 #include <sstream>
 

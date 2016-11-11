@@ -23,7 +23,7 @@
 #ifndef FUERTE_HTTPCONNECTION_H
 #define FUERTE_HTTPCONNECTION_H 1
 
-#include <fuerte/Connection.h>
+#include <fuerte/old/Connection.h>
 
 #include <list>
 #include <vector>

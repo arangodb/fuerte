@@ -2,7 +2,7 @@
 #define SRVTEST_H
 
 #include <gtest/gtest.h>
-#include "arangodbcpp/Server.h"
+#include "fuerte/old/Server.h"
 
 class SrvTest : public testing::Test {
  public:

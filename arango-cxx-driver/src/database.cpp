@@ -1,6 +1,6 @@
-#include <fuerte/next/database.h>
-#include <fuerte/next/collection.h> //required by new
-#include <fuerte/next/connection.h> //required by _conn
+#include <fuerte/database.h>
+#include <fuerte/collection.h> //required by new
+#include <fuerte/connection.h> //required by _conn
 
 namespace arangodb { namespace rest { inline namespace v2 {
 

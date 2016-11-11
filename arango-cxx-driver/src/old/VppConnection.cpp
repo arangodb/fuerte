@@ -21,8 +21,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include <iostream>
 
-#include "../include/fuerte/HeaderLoader.h"
-#include "../include/fuerte/VppConnection.h"
+#include <fuerte/old/HeaderLoader.h>
+#include <fuerte/old/VppConnection.h>
 
 namespace arangodb {
 

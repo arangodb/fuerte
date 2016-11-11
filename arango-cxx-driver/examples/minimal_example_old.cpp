@@ -1,7 +1,8 @@
-#include <fuerte/Server.h>
-#include <fuerte/Database.h>
-#include <fuerte/Collection.h>
-#include <fuerte/Document.h>
+#include <fuerte/old/Server.h>
+#include <fuerte/old/Database.h>
+#include <fuerte/old/Collection.h>
+#include <fuerte/old/Connection.h>
+#include <fuerte/old/Document.h>
 #include <velocypack/Slice.h>
 #include <velocypack/Builder.h>
 #include <string>

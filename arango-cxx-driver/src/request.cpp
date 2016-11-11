@@ -1,5 +1,5 @@
-#include <fuerte/next/request.h>
-#include <fuerte/next/vst.h>
+#include <fuerte/request.h>
+#include <fuerte/vst.h>
 
 namespace arangodb { namespace rest { inline namespace v2 {
 

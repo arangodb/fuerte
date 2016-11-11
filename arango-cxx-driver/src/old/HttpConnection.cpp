@@ -20,7 +20,7 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "../include/fuerte/HttpConnection.h"
+#include <fuerte/old/HttpConnection.h>
 
 #include <algorithm>
 

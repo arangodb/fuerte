@@ -25,8 +25,8 @@
 
 #include <gtest/gtest.h>
 
-#include <fuerte/Server.h>
-#include <fuerte/Database.h>
+#include <fuerte/old/Server.h>
+#include <fuerte/old/Database.h>
 
 #include <velocypack/Slice.h>
 

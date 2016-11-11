@@ -23,7 +23,7 @@
 #ifndef FUERTE_CURSOR_H
 #define FUERTE_CURSOR_H 1
 
-#include <fuerte/Database.h>
+#include "Database.h"
 
 namespace arangodb {
 namespace dbinterface {

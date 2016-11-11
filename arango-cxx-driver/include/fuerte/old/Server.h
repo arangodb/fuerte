@@ -26,7 +26,7 @@
 #include <string.h>
 #include <memory>
 
-#include <fuerte/Connection.h>
+#include <fuerte/old/Connection.h>
 
 namespace arangodb {
 namespace dbinterface {

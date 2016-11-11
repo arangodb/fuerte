@@ -1,5 +1,5 @@
 
-#include "../include/fuerte/Connection.h"
+#include <fuerte/old/Connection.h>
 
 #include <velocypack/Dumper.h>
 #include <velocypack/Parser.h>

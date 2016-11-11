@@ -25,7 +25,7 @@
 
 #include <memory>
 
-#include <fuerte/Server.h>
+#include "Server.h"
 
 namespace arangodb {
 namespace dbinterface {

@@ -22,7 +22,7 @@
 
 #include "ColTest.h"
 
-#include <fuerte/Document.h>
+#include <fuerte/old/Document.h>
 
 #include "TestApp.h"
 

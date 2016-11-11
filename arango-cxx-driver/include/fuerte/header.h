@@ -1,5 +1,5 @@
 #pragma once
-#include <fuerte/next/internal_types.h>
+#include <fuerte/internal_types.h>
 #include <boost/optional.hpp>
 namespace arangodb { namespace rest { inline namespace v2 {
 

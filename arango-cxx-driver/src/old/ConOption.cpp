@@ -1,4 +1,4 @@
-#include "../include/fuerte/ConOption.h"
+#include <fuerte/old/ConOption.h>
 
 namespace arangodb {
 

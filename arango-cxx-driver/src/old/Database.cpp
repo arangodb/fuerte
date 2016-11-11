@@ -20,7 +20,8 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "../include/fuerte/Database.h"
+#include <fuerte/old/Database.h>
+#include <fuerte/old/Connection.h>
 
 #include <sstream>
 

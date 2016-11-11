@@ -18,7 +18,7 @@ add_executable(AqlTests
     AqlTests/AqlTest.cpp
 )
 target_link_libraries(AqlTests
-    fuerte
+    fuerte-old
     gtest
 )
 add_test(aql AqlTests "http://127.0.0.1:8529")
@@ -29,7 +29,7 @@ add_executable(ColTests
     ColTests/TestApp.cpp
     ColTests/ColTest.cpp
 )
-target_link_libraries(ColTests fuerte gtest)
+target_link_libraries(ColTests fuerte-old gtest)
 add_test(col ColTests "http://127.0.0.1:8529")
 
 # doc
@@ -38,9 +38,9 @@ add_executable(DocTests
     DocTests/TestApp.cpp
     DocTests/DocTest.cpp
 )
-target_link_libraries(DocTests fuerte gtest)
+target_link_libraries(DocTests fuerte-old gtest)
 add_test(doc DocTests "http://127.0.0.1:8529")
 
 # dev
 add_executable(DevTests DevTests/main.cpp DevTests/test.cpp)
-target_link_libraries(DevTests fuerte)
+target_link_libraries(DevTests fuerte-old)

@@ -24,7 +24,7 @@
 
 #include <iostream>
 
-#include <fuerte/Server.h>
+#include <fuerte/old/Server.h>
 
 void Test() {}
 

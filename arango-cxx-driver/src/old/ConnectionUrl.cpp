@@ -20,7 +20,7 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "../include/fuerte/ConnectionUrl.h"
+#include <fuerte/old/ConnectionUrl.h>
 
 namespace arangodb {
 namespace dbinterface {

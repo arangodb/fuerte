@@ -23,7 +23,7 @@
 #ifndef FUERTE_COLLECTION_H
 #define FUERTE_COLLECTION_H 1
 
-#include <fuerte/Database.h>
+#include "Database.h"
 
 namespace arangodb {
 namespace velocypack {

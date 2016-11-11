@@ -23,8 +23,8 @@
 #ifndef FUERTE_DOCUMENT_H
 #define FUERTE_DOCUMENT_H 1
 
-#include <fuerte/Collection.h>
-#include <fuerte/DocOptions.h>
+#include "Collection.h"
+#include "DocOptions.h"
 
 namespace arangodb {
 namespace velocypack {

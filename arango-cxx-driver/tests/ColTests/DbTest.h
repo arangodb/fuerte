@@ -3,8 +3,8 @@
 
 #include <gtest/gtest.h>
 
-#include "arangodbcpp/Server.h"
-#include "arangodbcpp/Database.h"
+#include "fuerte/old/Server.h"
+#include "fuerte/old/Database.h"
 
 class DbTest : public testing::Test {
  public:

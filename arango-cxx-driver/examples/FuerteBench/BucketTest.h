@@ -27,10 +27,10 @@
 #include <chrono>
 #include <vector>
 
-#include <fuerte/Server.h>
-#include <fuerte/Database.h>
-#include <fuerte/Collection.h>
-#include <fuerte/Document.h>
+#include <fuerte/old/Server.h>
+#include <fuerte/old/Database.h>
+#include <fuerte/old/Collection.h>
+#include <fuerte/old/Document.h>
 
 class BucketTest {
  protected:

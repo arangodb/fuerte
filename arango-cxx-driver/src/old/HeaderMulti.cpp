@@ -20,7 +20,7 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "../include/fuerte/HeaderMulti.h"
+#include <fuerte/old/HeaderMulti.h>
 
 namespace arangodb {
 

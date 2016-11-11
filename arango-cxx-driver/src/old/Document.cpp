@@ -20,7 +20,8 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "../include/fuerte/Document.h"
+#include <fuerte/old/Document.h>
+#include <fuerte/old/Connection.h>
 
 #include <velocypack/Builder.h>
 
