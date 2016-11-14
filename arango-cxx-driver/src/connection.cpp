@@ -1,10 +1,16 @@
 #include <fuerte/connection.h>
 #include <fuerte/database.h>
+
 #include <boost/algorithm/string.hpp>
 #include <vector>
 
 namespace arangodb { namespace rest { inline namespace v2 {
   using namespace arangodb::rest::detail;
+
+  Connection::Connection(detail::ConnectionConfiguration conf):
+    _realConnection(nullptr),
+    _configuration(conf)
+    {};
 
   ConnectionBuilder& ConnectionBuilder::host(std::string const& str){
     std::vector<std::string> strings;
@@ -13,19 +19,19 @@ namespace arangodb { namespace rest { inline namespace v2 {
     //get protocol
     std::string const& proto = strings[0];
     if (proto == "vst"){
-      _conf._connType = ConnectionType::vst;
+      _conf._connType = TransportType::Vst;
       _conf._ssl = false;
     }
     else if (proto == "vsts"){
-      _conf._connType = ConnectionType::vst;
+      _conf._connType = TransportType::Vst;
       _conf._ssl = true;
     }
     else if (proto == "http"){
-      _conf._connType = ConnectionType::http;
+      _conf._connType = TransportType::Http;
       _conf._ssl = false;
     }
     else if (proto == "https"){
-      _conf._connType = ConnectionType::http;
+      _conf._connType = TransportType::Http;
       _conf._ssl = true;
     }
     else {

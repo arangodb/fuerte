@@ -76,7 +76,7 @@ add_library(fuerte STATIC
     src/request.cpp
     src/connection.cpp
     src/vst.cpp
-    src/server.cpp
+    src/loop.cpp
     src/asio.cpp
 )
 

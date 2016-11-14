@@ -1,9 +1,10 @@
 #pragma once
-#include "internal_types.h"
+#include "common_types.h"
 
 #include <string>
 #include <memory>
 #include <stdexcept>
+#include <unordered_map>
 
 namespace arangodb { namespace rest { namespace vst { inline namespace v2 {
 

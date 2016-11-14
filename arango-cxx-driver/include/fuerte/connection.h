@@ -14,17 +14,22 @@ class Database;
 class Connection : public std::enable_shared_from_this<Connection> {
   friend class ConnectionBuilder;
 
-    Connection(detail::ConnectionConfiguration conf):
-    _configuration(conf)
-    {};
+    Connection(detail::ConnectionConfiguration conf);
 
   public:
     std::shared_ptr<Database> getDatabase(std::string name);
     std::shared_ptr<Database> createDatabase(std::string name);
     bool deleteDatabase(std::string name);
 
+    Request sendRequest(Request&& r){
+      return _realConnection->sendRequest(std::move(r));
+    };
+    void sendRequest(Request r, ErrorCallback e, RequestCallback c){
+      return _realConnection->sendRequest(std::move(r), e, c);
+    };
+
   private:
-    std::shared_ptr<RealConnection>  _realConnection;
+    std::shared_ptr<ConnectionImplInterface>  _realConnection;
     detail::ConnectionConfiguration _configuration;
 
 };
