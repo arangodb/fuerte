@@ -2,10 +2,11 @@
 #ifndef ARANGO_CXX_DRIVER_CONNECTION
 #define ARANGO_CXX_DRIVER_CONNECTION
 
+#include "common_types.h"
+#include "connection_interface.h"
+
 #include <memory>
 #include <string>
-#include "common_types.h"
-#include "real_connection.h"
 
 namespace arangodb { namespace rest { inline namespace v2 {
 

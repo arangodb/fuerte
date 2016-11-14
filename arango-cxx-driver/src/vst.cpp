@@ -2,7 +2,7 @@
 
 #include <velocypack/Validator.h>
 
-namespace arangodb { namespace rest { namespace vst { inline namespace v2 {
+namespace arangodb { namespace rest { inline namespace v2 { namespace vst {
 using VValidator = ::arangodb::velocypack::Validator;
 
 std::size_t validateAndCount(uint8_t const* vpHeaderStart

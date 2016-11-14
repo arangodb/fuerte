@@ -1,7 +1,6 @@
 #pragma once
 
-#include "internal_types.h"
-#include "header.h"
+#include "common_types.h"
 
 #include <boost/optional.hpp>
 #include <string>
@@ -10,6 +9,29 @@
 
 
 namespace arangodb { namespace rest { inline namespace v2 {
+
+  struct ReHeader {
+    //the types should all be optional
+    ReHeader(ReHeader const&) = delete;
+    ReHeader() = default;
+    ReHeader(ReHeader&&) = default;
+
+    ::boost::optional<int> version;
+    ::boost::optional<ReType> type;
+    ::boost::optional<unsigned> responseCode;
+    ::boost::optional<std::string> database;
+    ::boost::optional<RestVerb> requestType;
+    ::boost::optional<std::string> requestPath;
+    ::boost::optional<mapss> parameter;
+    ::boost::optional<mapss> meta;
+    ::boost::optional<std::string> user;
+    ::boost::optional<std::string> password;
+  };
+
+  inline std::string headerToHttp(ReHeader const& header);
+  inline VBuffer headerToVst(ReHeader const& header);
+  inline ReHeader headerFromHttp(std::string const& body);
+  inline ReHeader headerFromSlice(VSlice const& header_slice);
 
   class Request {
     public:
