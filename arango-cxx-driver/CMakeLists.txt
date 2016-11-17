@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.6)
 
 project(fuerte CXX)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -19,10 +19,14 @@ option(FUERTE_EXAMPLES "Build EXAMPLES" OFF)
 
 #########################################################################################
 # Dependencies
-#set(CMAKE_BOOST_USE_SYSTEM_BOOST ON CACHE BOOL "use boost provided by system")
-set(CMAKE_BOOST_COMPONENTS "system" CACHE STRING "list of componets to build")
-add_subdirectory(3rdParty/cmake-for-boost)
-#find_package(Boost COMPONENTS serialization system REQUIRED)
+set(CMAKE_BOOST_COMPONENTS "system")
+find_package(Boost COMPONENTS ${CMAKE_BOOST_COMPONENTS})
+if(Boost_FOUND)
+    message(STATUS "== Using Boost provided by your system")
+else()
+    add_subdirectory(3rdParty/cmake-for-boost)
+endif()
+
 option(BuildVelocyPackExamples "Build examples" OFF)
 add_subdirectory(3rdParty/velocypack)
 add_subdirectory(3rdParty/curlpp2)
