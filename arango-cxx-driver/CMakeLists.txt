@@ -4,13 +4,12 @@ project(fuerte CXX)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 enable_testing()
 
-# FIXME
-#set(CMAKE_CXX_STANDARD 11)
-#set(CMAKE_CXX_STANDARD_REQUIRED ON)
-# workaround pre 3.1 - waiting for debian stable
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 if(UNIX)
     # -fPIC here as curlpp is borken
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC")
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 endif()
 
 #########################################################################################
@@ -20,14 +19,17 @@ option(FUERTE_EXAMPLES "Build EXAMPLES" OFF)
 
 #########################################################################################
 # Dependencies
-find_package(Boost COMPONENTS serialization system REQUIRED)
+#set(CMAKE_BOOST_USE_SYSTEM_BOOST ON CACHE BOOL "use boost provided by system")
+set(CMAKE_BOOST_COMPONENTS "system" CACHE STRING "list of componets to build")
+add_subdirectory(3rdParty/cmake-for-boost)
+#find_package(Boost COMPONENTS serialization system REQUIRED)
 option(BuildVelocyPackExamples "Build examples" OFF)
 add_subdirectory(3rdParty/velocypack)
 add_subdirectory(3rdParty/curlpp2)
 
 #########################################################################################
 # Main Project
-add_library(fuerte-old STATIC
+add_library(fuerte-old STATIC EXCLUDE_FROM_ALL
     src/old/ConnectionUrl.cpp
     src/old/HttpConnection.cpp
     src/old/VppConnection.cpp
@@ -46,7 +48,6 @@ add_library(fuerte-old STATIC
 #  xxhash.cpp
 
 target_include_directories(fuerte-old PUBLIC
-    ${Boost_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/curlpp2/include
 )
@@ -59,7 +60,7 @@ target_include_directories(fuerte-old PUBLIC
 target_link_libraries(fuerte-old PUBLIC
     velocypack
     curlpp
-    ${Boost_LIBRARIES}
+    Boost::system
 )
 target_compile_definitions(fuerte-old PUBLIC
     BOOST_ASIO_DISABLE_THREADS
@@ -83,26 +84,28 @@ add_library(fuerte STATIC
 target_link_libraries(fuerte PUBLIC
     velocypack
     curlpp
-    ${Boost_LIBRARIES}
+    Boost::system
 )
 
 target_include_directories(fuerte PUBLIC
-    ${Boost_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/curlpp2/include
 )
 
-add_subdirectory(3rdParty/googletest) # should not be required by examples
 #########################################################################################
 # Tests
 if(FUERTE_TESTS)
 #if(CMAKE_TESTING)
+    add_subdirectory(3rdParty/googletest)
     add_subdirectory(tests)
 endif()
 
 #########################################################################################
 # Examples
 if(FUERTE_EXAMPLES)
+    if(not TARGET gtest)
+        add_subdirectory(3rdParty/googletest) # should not be required by examples
+    endif()
     add_subdirectory(examples)
 endif()
 

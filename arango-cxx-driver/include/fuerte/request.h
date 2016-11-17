@@ -12,7 +12,7 @@ namespace arangodb { namespace rest { inline namespace v2 {
 
   struct ReHeader {
     //the types should all be optional
-    ReHeader(ReHeader const&) = delete;
+    ReHeader(ReHeader const&) = default;
     ReHeader() = default;
     ReHeader(ReHeader&&) = default;
 
