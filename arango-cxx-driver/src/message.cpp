@@ -25,7 +25,7 @@ void setHeaderValue(Message request, std::string const& key, std::string const& 
 //// external interface
 Message createAuthMessage(std::string const& user, std::string const& password){
   Message request;
-  request.messageHeader.type = MessageType::Authenticaton;
+  request.messageHeader.type = MessageType::Authentication;
   request.messageHeader.user=user;
   request.messageHeader.password=password;
   return request;

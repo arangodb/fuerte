@@ -1,5 +1,6 @@
 #include <fuerte/connection.h>
 #include <fuerte/database.h>
+#include "HttpConnection.h"
 
 #include <boost/algorithm/string.hpp>
 #include <vector>
@@ -10,7 +11,14 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
   Connection::Connection(detail::ConnectionConfiguration conf):
     _realConnection(nullptr),
     _configuration(conf)
-    {};
+    {
+      if (_configuration._connType == TransportType::Vst){
+        //_realConnection = std::make_shared<VstConnection>(ioservice, _configuration)
+      } else {
+        auto communicator = std::make_shared<http::HttpCommunicator>();
+        _realConnection = std::make_shared<http::HttpConnection>(communicator, _configuration);
+      }
+    };
 
   ConnectionBuilder& ConnectionBuilder::host(std::string const& str){
     std::vector<std::string> strings;
@@ -45,15 +53,16 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
     return *this;
   }
 
-  // get or create?!
-  std::shared_ptr<Database> Connection::getDatabase(std::string name){
-    return std::shared_ptr<Database> ( new Database(shared_from_this(), name));
-  }
-  std::shared_ptr<Database> Connection::createDatabase(std::string name){
-    return std::shared_ptr<Database> ( new Database(shared_from_this(), name));
-  }
-  bool Connection::deleteDatabase(std::string name){
-    return false;
-  }
+  // TODO add back later as soon basic functionality has been provided
+  // // get or create?!
+  // std::shared_ptr<Database> Connection::getDatabase(std::string name){
+  //   return std::shared_ptr<Database> ( new Database(shared_from_this(), name));
+  // }
+  // std::shared_ptr<Database> Connection::createDatabase(std::string name){
+  //   return std::shared_ptr<Database> ( new Database(shared_from_this(), name));
+  // }
+  // bool Connection::deleteDatabase(std::string name){
+  //   return false;
+  // }
 
 }}}

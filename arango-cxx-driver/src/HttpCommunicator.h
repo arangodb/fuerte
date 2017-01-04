@@ -24,10 +24,12 @@
 #ifndef ARANGO_CXX_DRIVER_HTTP_COMMUNICATOR_H
 #define ARANGO_CXX_DRIVER_HTTP_COMMUNICATOR_H 1
 
-#include <fuerte/Request.h>
-#include <fuerte/types.h>
+#include <fuerte/message.h>
+#include <fuerte/common_types.h>
 
 #include <curl/curl.h>
+#include <chrono>
+#include <mutex>
 
 #include "FuerteLogger.h"
 

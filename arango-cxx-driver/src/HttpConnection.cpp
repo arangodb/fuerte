@@ -35,20 +35,20 @@ HttpConnection::HttpConnection(std::shared_ptr<HttpCommunicator> communicator,
     : _communicator(std::move(communicator)), _configuration(configuration) {}
 
 void HttpConnection::sendRequest(std::unique_ptr<Request> request,
-                                 OnSuccessCallback onSuccess,
-                                 OnErrorCallback onError) {
+                                 OnErrorCallback onError,
+                                 OnSuccessCallback onSuccess){
   Callbacks callbacks(onSuccess, onError);
 
   Destination destination =
       (_configuration._ssl ? "https://" : "http://") + _configuration._host +
-      ":" + std::to_string(_configuration._port) + request->_header._path;
+      ":" + std::to_string(_configuration._port) + request->messageHeader.requestPath;
 
-  auto const& parameter = request->_header._parameter;
+  auto const& parameter = request->messageHeader.parameter;
 
-  if (!parameter.empty()) {
+  if (parameter && !parameter.get().empty()) {
     std::string sep = "?";
 
-    for (auto p : parameter) {
+    for (auto p : parameter.get()) {
 #warning TODO url encode
       destination += sep + p.first + "=" + p.second;
       sep = "&";

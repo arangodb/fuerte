@@ -23,15 +23,16 @@ class Connection : public std::enable_shared_from_this<Connection> {
     bool deleteDatabase(std::string name);
 
     Message sendRequest(std::unique_ptr<Request> r){
-      return _realConnection->sendMessage(std::move(r));
+      return _realConnection->sendRequest(std::move(r));
     };
 
-    void sendRequest(std::unique_ptr<Request> r, ErrorCallback e, MessageCallback c){
-      return _realConnection->sendMessage(std::move(r), e, c);
+    void sendRequest(std::unique_ptr<Request> r, OnErrorCallback e, OnSuccessCallback c){
+      return _realConnection->sendRequest(std::move(r), e, c);
     };
+
 
   private:
-    std::shared_ptr<ConnectionImplInterface>  _realConnection;
+    std::shared_ptr<ConnectionInterface>  _realConnection;
     detail::ConnectionConfiguration _configuration;
 
 };

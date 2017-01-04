@@ -24,9 +24,7 @@
 #include "HttpCommunicator.h"
 
 #include <fcntl.h>
-
-#include <fuerte/Request.h>
-#include <fuerte/Response.h>
+#include <fuerte/message.h>
 
 namespace arangodb {
 namespace fuerte {

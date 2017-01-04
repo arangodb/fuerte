@@ -29,7 +29,7 @@
 using ConnectionBuilder = arangodb::fuerte::ConnectionBuilder;
 //using LoopProvider = arangodb::fuerte::LoopProvider;
 using Request = arangodb::fuerte::Request;
-using MessageHeader = arangodb::fuerte::MessageCallback;
+using MessageHeader = arangodb::fuerte::MessageHeader;
 using Response = arangodb::fuerte::Response;
 using RestVerb = arangodb::fuerte::RestVerb;
 

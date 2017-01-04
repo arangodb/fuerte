@@ -25,7 +25,7 @@
 #ifndef ARANGO_CXX_DRIVER_HTTP_CONNECTION_H
 #define ARANGO_CXX_DRIVER_HTTP_CONNECTION_H 1
 
-#include <fuerte/ConnectionInterface.h>
+#include <fuerte/connection_interface.h>
 
 #include "HttpCommunicator.h"
 
@@ -41,8 +41,8 @@ class HttpConnection : public ConnectionInterface {
  public:
   void start() override {}
 
-  void sendRequest(std::unique_ptr<Request>, OnSuccessCallback,
-                   OnErrorCallback) override;
+  void sendRequest(std::unique_ptr<Request>, OnErrorCallback,
+                   OnSuccessCallback) override;
 
  private:
   std::shared_ptr<HttpCommunicator> _communicator;

@@ -26,6 +26,7 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
     ::boost::optional<mapss> meta;
     ::boost::optional<std::string> user;
     ::boost::optional<std::string> password;
+    ::boost::optional<ContentType> contentType;
   };
 
   inline std::string headerToHttp(MessageHeader const& header);
@@ -51,6 +52,8 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
         buffer.append(slice.start(), slice.byteSize());
         payload.push_back(std::move(buffer));
       }
+
+      ContentType contentType(){ return messageHeader.contentType.get(); }
   };
 
   class Request : public Message {
