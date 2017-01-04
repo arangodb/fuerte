@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <unordered_map>
 
-namespace arangodb { namespace rest { inline namespace v2 { namespace vst {
+namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
 class IncompleteMessage;
 using MessageID = uint64_t;

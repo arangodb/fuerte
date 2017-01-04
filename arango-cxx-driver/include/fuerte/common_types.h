@@ -11,7 +11,7 @@
 #include <string>
 #include <cassert>
 
-namespace arangodb { namespace rest { inline namespace v2 {
+namespace arangodb { namespace fuerte { inline namespace v1 {
 
 using VBuffer = arangodb::velocypack::Buffer<uint8_t>;
 using VSlice = arangodb::velocypack::Slice;
@@ -30,7 +30,7 @@ enum class RestVerb
 , Optons = 6
 };
 
-enum class ReType
+enum class MessageType
 { Undefined = 0
 , Request = 1
 , Response = 2

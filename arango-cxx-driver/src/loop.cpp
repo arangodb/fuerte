@@ -1,6 +1,6 @@
 #include "asio.h"
 #include "loop.h"
-namespace arangodb { namespace rest { inline namespace v2 {
+namespace arangodb { namespace fuerte { inline namespace v1 {
   LoopProvider::LoopProvider()
     :_asioLoop(new asio::Loop{})
     {}

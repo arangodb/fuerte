@@ -4,8 +4,8 @@
 #include <boost/algorithm/string.hpp>
 #include <vector>
 
-namespace arangodb { namespace rest { inline namespace v2 {
-  using namespace arangodb::rest::detail;
+namespace arangodb { namespace fuerte { inline namespace v1 {
+  using namespace arangodb::fuerte::detail;
 
   Connection::Connection(detail::ConnectionConfiguration conf):
     _realConnection(nullptr),

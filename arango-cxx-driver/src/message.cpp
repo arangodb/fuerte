@@ -1,10 +1,10 @@
-#include <fuerte/request.h>
+#include <fuerte/message.h>
 #include <fuerte/vst.h>
 
-namespace arangodb { namespace rest { inline namespace v2 {
+namespace arangodb { namespace fuerte { inline namespace v1 {
 
 ////helper
-static bool specialHeader(Request& request, std::string const&, std::string const&){
+static bool specialHeader(Message& request, std::string const&, std::string const&){
   //static std::regex -- test
   if (/* maching condition*/ false ){
     //do special stuff on
@@ -15,7 +15,7 @@ static bool specialHeader(Request& request, std::string const&, std::string cons
 }
 
 //set value in the header
-void setHeaderValue(Request request, std::string const& key, std::string const& val){
+void setHeaderValue(Message request, std::string const& key, std::string const& val){
   if(!specialHeader(request, key, val)){
     request.headerStrings.emplace(key,val);
   }
@@ -23,15 +23,15 @@ void setHeaderValue(Request request, std::string const& key, std::string const& 
 
 
 //// external interface
-Request createAuthRequest(std::string const& user, std::string const& password){
-  Request request;
-  request.reHeader.type = ReType::Authenticaton;
-  request.reHeader.user=user;
-  request.reHeader.password=password;
+Message createAuthMessage(std::string const& user, std::string const& password){
+  Message request;
+  request.messageHeader.type = MessageType::Authenticaton;
+  request.messageHeader.user=user;
+  request.messageHeader.password=password;
   return request;
 }
 
-Request createRequest(RestVerb verb
+Message createRequest(RestVerb verb
                      ,std::string const& database
                      ,std::string const& path
                      ,std::string const& user
@@ -41,43 +41,43 @@ Request createRequest(RestVerb verb
                      ){
 
   //version must be set by protocol
-  Request request;
-  request.reHeader.version = 0;
-  request.reHeader.type = ReType::Request;
-  request.reHeader.responseCode = 0;
-  request.reHeader.database = database;
-  request.reHeader.requestType = verb;
-  request.reHeader.requestPath = path;
-  request.reHeader.requestPath = path;
-  request.reHeader.parameter = parameter;
-  request.reHeader.meta = meta;
+  Message request;
+  request.messageHeader.version = 0;
+  request.messageHeader.type = MessageType::Request;
+  request.messageHeader.responseCode = 0;
+  request.messageHeader.database = database;
+  request.messageHeader.requestType = verb;
+  request.messageHeader.requestPath = path;
+  request.messageHeader.requestPath = path;
+  request.messageHeader.parameter = parameter;
+  request.messageHeader.meta = meta;
   return request;
 }
 
-Request createResponse(unsigned code){
-  Request request;
+Message createResponse(unsigned code){
+  Message request;
   //version must be set by protocol
-  request.reHeader.type = ReType::Response;
-  request.reHeader.responseCode = code;
+  request.messageHeader.type = MessageType::Response;
+  request.messageHeader.responseCode = code;
   return request;
 }
 
 ///
-NetBuffer toNetworkVst(Request const&){
+NetBuffer toNetworkVst(Message const&){
   return "implement me";
 }
 
-NetBuffer toNetworkHttp(Request const&){
+NetBuffer toNetworkHttp(Message const&){
   return "implement me";
 }
 
-Request fromBufferVst(uint8_t const* begin, std::size_t length){
+Message fromBufferVst(uint8_t const* begin, std::size_t length){
   auto num_slice = vst::validateAndCount(begin, begin + length);
   // work work
-  return Request{};
+  return Message{};
 }
 
-boost::optional<Request>
+boost::optional<Message>
 fromNetworkVst(NetBuffer const& buffer
               ,vst::ReadBufferInfo& info
               ,vst::MessageMap& messageMap
@@ -114,8 +114,8 @@ fromNetworkVst(NetBuffer const& buffer
   return boost::none;
 }
 
-boost::optional<Request> fromNetworkHttp(NetBuffer const& buffer){
-  Request request;
+boost::optional<Message> fromNetworkHttp(NetBuffer const& buffer){
+  Message request;
   // parse body and convert to vpack
   return request;
 }

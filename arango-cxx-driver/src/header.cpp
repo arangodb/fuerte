@@ -1,15 +1,15 @@
 #pragma once
 #include <fuerte/common_types.h>
-#include <fuerte/request.h>
+#include <fuerte/message.h>
 
 
-namespace arangodb { namespace rest { inline namespace v2 {
+namespace arangodb { namespace fuerte { inline namespace v1 {
 
-inline std::string headerToHttp(ReHeader const& header){
+inline std::string headerToHttp(MessageHeader const& header){
   return "foo";
 }
 
-inline VBuffer headerToVst(ReHeader const& header){
+inline VBuffer headerToVst(MessageHeader const& header){
   VBuffer  buffer;
   VBuilder builder(buffer);
   builder.openArray();
@@ -45,16 +45,16 @@ inline VBuffer headerToVst(ReHeader const& header){
 }
 
 // helper --  could go into /src
-inline ReHeader headerFromHttp(std::string const& body){
-  return ReHeader{};
+inline MessageHeader headerFromHttp(std::string const& body){
+  return MessageHeader{};
 }
 
-inline ReHeader headerFromSlice(VSlice const& header_slice){
+inline MessageHeader headerFromSlice(VSlice const& header_slice){
   assert(header_slice.isArray());
-  ReHeader header;
+  MessageHeader header;
 
   header.version = header_slice.at(0).getNumber<int>(); //version
-  header.type = static_cast<ReType>(header_slice.at(1).getNumber<int>()); //type
+  header.type = static_cast<MessageType>(header_slice.at(1).getNumber<int>()); //type
   switch (header.type.get()){
     case ReType::Authenticaton:
       //header.encryption = header_slice.at(6); //encryption (plain) should be 2

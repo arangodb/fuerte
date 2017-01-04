@@ -10,7 +10,7 @@
 #include <utility>
 #include <memory>
 
-namespace arangodb { namespace rest { inline namespace v2 {
+namespace arangodb { namespace fuerte { inline namespace v1 {
 namespace asio{
   class Loop;
 }

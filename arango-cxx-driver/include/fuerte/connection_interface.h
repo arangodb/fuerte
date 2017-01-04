@@ -1,11 +1,11 @@
 #pragma once
 
-#include "request.h"
-namespace arangodb { namespace rest { inline namespace v2 {
+#include "message.h"
+namespace arangodb { namespace fuerte { inline namespace v1 {
 
-using RequestCallback = std::function<void(Request)>;
-using Error = std::size_t;
-using ErrorCallback = std::function<void(Error)>;
+using MessageCallback = std::function<void(std::unique_ptr<Request>, std::unique_ptr<Response>)>;
+using Error = std::uint32_t;
+using ErrorCallback = std::function<void(Error, std::unique_ptr<Request>, std::unique_ptr<Response>)>;
 
 
 class ConnectionImplInterface {
@@ -13,8 +13,8 @@ class ConnectionImplInterface {
 public:
   ConnectionImplInterface(){};
 
-  virtual Request sendRequest(Request) = 0;
-  virtual void sendRequest(Request, ErrorCallback, RequestCallback) = 0;
+  virtual Message sendMessage(std::unique_ptr<Message>) = 0;
+  virtual void sendMessage(std::unique_ptr<Message>, ErrorCallback, MessageCallback) = 0;
 };
 
 

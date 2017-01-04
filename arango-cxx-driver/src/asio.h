@@ -7,7 +7,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/system/error_code.hpp>
 
-namespace arangodb { namespace rest { inline namespace v2 { namespace asio {
+namespace arangodb { namespace fuerte { inline namespace v1 { namespace asio {
 class Loop{
 public:
   Loop()

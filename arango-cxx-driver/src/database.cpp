@@ -2,9 +2,9 @@
 #include <fuerte/collection.h> //required by new
 #include <fuerte/connection.h> //required by _conn
 
-namespace arangodb { namespace rest { inline namespace v2 {
+namespace arangodb { namespace fuerte { inline namespace v1 {
 
-  using namespace arangodb::rest::detail;
+  using namespace arangodb::fuerte::detail;
 
   Database::Database(std::shared_ptr<Connection> conn, std::string name)
     : _conn(conn)
