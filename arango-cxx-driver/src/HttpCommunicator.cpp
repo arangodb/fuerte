@@ -460,6 +460,7 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
   if(!request->payload.empty()){
     try{
       body = VSlice(request->payload[0].data()).toJson();
+      std::cout << body << std::endl;
     } catch (std::exception const&e) {
       body = e.what();
     }

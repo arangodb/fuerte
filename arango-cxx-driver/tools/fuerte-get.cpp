@@ -159,6 +159,7 @@ int main(int argc, char* argv[]) {
     header.meta = meta;
 
     try {
+      header.contentType = arangodb::fuerte::ContentType::Json;
       std::unique_ptr<Request> request = std::unique_ptr<Request>(new Request(std::move(header)));
       arangodb::fuerte::VBuffer buffer;
       arangodb::fuerte::VBuilder builder(buffer);
