@@ -10,8 +10,8 @@
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
+  // mabye get rid of optional
   struct MessageHeader {
-    //the types should all be optional
     MessageHeader(MessageHeader const&) = default;
     MessageHeader() = default;
     MessageHeader(MessageHeader&&) = default;
@@ -34,6 +34,8 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
   inline MessageHeader headerFromHttp(std::string const& body);
   inline MessageHeader headerFromSlice(VSlice const& header_slice);
 
+
+  // TODO SPLIT MESSAGE INTO REQEST / RESPONSE
   class Message {
     public:
       Message(MessageHeader&& messageHeader = MessageHeader()

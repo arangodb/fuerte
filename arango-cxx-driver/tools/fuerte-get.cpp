@@ -25,6 +25,7 @@
 #include <fuerte/connection.h>
 #include <iostream>
 #include <fuerte/message.h>
+#include <fuerte/loop.h>
 
 using ConnectionBuilder = arangodb::fuerte::ConnectionBuilder;
 //using LoopProvider = arangodb::fuerte::LoopProvider;
@@ -129,8 +130,7 @@ int main(int argc, char* argv[]) {
   builder.user(user);
   builder.password(password);
 
-  //auto loop = std::make_shared<LoopProvider>();
-  auto connection = builder.connect(); //loop);  #RE ADD LOOP
+  auto connection = builder.connect();
 
   auto resCallback = [](std::unique_ptr<Request>,
                         std::unique_ptr<Response> response) {
@@ -162,8 +162,7 @@ int main(int argc, char* argv[]) {
   }
 
   try {
-    //loop->run();
-    //loop->shutdown();
+    arangodb::fuerte::runHttpLoopInThisThread();
   } catch (std::exception const& ex) {
     std::cerr << "exception: " << ex.what() << std::endl;
     exit(EXIT_FAILURE);

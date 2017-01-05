@@ -35,8 +35,7 @@ inline namespace v1 {
 namespace http {
 class HttpConnection : public ConnectionInterface {
  public:
-  HttpConnection(std::shared_ptr<HttpCommunicator>,
-                 detail::ConnectionConfiguration);
+  HttpConnection(detail::ConnectionConfiguration);
 
  public:
   void start() override {}
@@ -46,7 +45,6 @@ class HttpConnection : public ConnectionInterface {
 
   std::unique_ptr<Response> sendRequest(std::unique_ptr<Request>) override {
     return std::unique_ptr<Response>(nullptr);
-
   }
 
  private:

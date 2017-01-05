@@ -23,6 +23,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "HttpConnection.h"
+#include "helper.h"
+#include <fuerte/loop.h>
 
 namespace arangodb {
 namespace fuerte {
@@ -30,9 +32,8 @@ inline namespace v1 {
 namespace http {
 using namespace arangodb::fuerte::detail;
 
-HttpConnection::HttpConnection(std::shared_ptr<HttpCommunicator> communicator,
-                               ConnectionConfiguration configuration)
-    : _communicator(std::move(communicator)), _configuration(configuration) {}
+HttpConnection::HttpConnection( ConnectionConfiguration configuration)
+    : _communicator(LoopProvider::getProvider().getHttpLoop()), _configuration(configuration) {}
 
 void HttpConnection::sendRequest(std::unique_ptr<Request> request,
                                  OnErrorCallback onError,
@@ -40,8 +41,6 @@ void HttpConnection::sendRequest(std::unique_ptr<Request> request,
   Callbacks callbacks(onSuccess, onError);
 
   Destination destination =
-      //(_configuration._ssl ? "https://" : "http://") + _configuration._host +
-      //":" + std::to_string(_configuration._port) + request->header.requestPath;
       (_configuration._ssl ? "https://" : "http://") + _configuration._host +
       ":" + _configuration._port + request->header.requestPath.get();
 
@@ -51,12 +50,10 @@ void HttpConnection::sendRequest(std::unique_ptr<Request> request,
     std::string sep = "?";
 
     for (auto p : parameter.get()) {
-#warning TODO url encode
-      destination += sep + p.first + "=" + p.second;
+      destination += sep + urlEncode(p.first) + "=" + urlEncode(p.second);
       sep = "&";
     }
 
-#warning TODO set header
 #warning TODO authentication
   }
 

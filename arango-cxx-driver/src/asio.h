@@ -20,6 +20,11 @@ public:
     _service = service;
   }
 
+  void setIoServiceTakeOwnership(::boost::asio::io_service* service){
+    _serviceSharedPtr.reset(service);
+    _service = service;
+  }
+
 private:
   std::shared_ptr<::boost::asio::io_service> _serviceSharedPtr;
   ::boost::asio::io_service* _service;

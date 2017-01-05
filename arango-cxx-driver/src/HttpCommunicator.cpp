@@ -22,9 +22,10 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "HttpCommunicator.h"
-
 #include <fcntl.h>
 #include <fuerte/message.h>
+#include <fuerte/internal_types.h>
+#include <velocypack/Parser.h>
 
 namespace arangodb {
 namespace fuerte {
@@ -262,7 +263,48 @@ size_t HttpCommunicator::readBody(void* data, size_t size, size_t nitems,
 
 void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
                                        std::string&& responseBody,
-                                       Response* response) {}
+                                       Response* response) {
+  response->headerStrings = responseHeaders;
+
+  if(responseBody.length()){
+
+    switch (response->contentType()){
+
+      case ContentType::Text: {
+        VBuffer buffer;
+        VBuilder builder(buffer);
+        builder.add(VValue(responseBody));
+        response->payload.push_back(std::move(buffer));
+        break;
+      }
+
+      case ContentType::Json: {
+        VBuffer buffer;
+        auto builder = std::make_shared<VBuilder>(buffer);
+        ::arangodb::velocypack::Parser parser(builder, nullptr);
+        parser.parse(responseBody);
+        response->payload.push_back(buffer);
+        break;
+      }
+
+      case ContentType::VPack: {
+        auto slice = VSlice(responseBody.c_str());
+        VBuffer buffer;
+        VBuilder builder(buffer);
+        builder.add(slice);
+        response->payload.push_back(buffer);
+
+        break;
+      }
+
+      default: {
+        throw std::logic_error("unsuported content type giveven");
+      }
+
+    }
+  }
+
+}
 
 std::string HttpCommunicator::createSafeDottedCurlUrl(
     std::string const& originalUrl) {
@@ -402,9 +444,16 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
       break;
   }
 
-  //TODO -- vpacl to http body
-  //auto& body = request->payload;
-  auto body = std::string("implement vpack to http body"); //request->payload;
+  std::string empty("");
+  std::string& body = empty;
+  //how to hanle multiple buffers
+  if(!request->payload.empty()){
+    try{
+      body = VSlice(request->payload[0].data()).toJson();
+    } catch (std::exception const&e) {
+      body = e.what();
+    }
+  }
 
   if (body.size() > 0) {
     curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, body.size());
