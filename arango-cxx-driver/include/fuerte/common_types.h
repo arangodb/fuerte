@@ -10,6 +10,7 @@
 #include <vector>
 #include <string>
 #include <cassert>
+#include <algorithm>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
@@ -30,8 +31,20 @@ using VValue = arangodb::velocypack::Value;
 using mapss = std::map<std::string,std::string>;
 using NetBuffer = std::string;
 
-
-
+//move to some other place
+class VpackInit {
+    std::unique_ptr<arangodb::velocypack::AttributeTranslator> _translator;
+  public:
+    VpackInit() : _translator(new arangodb::velocypack::AttributeTranslator){
+      _translator->add("_key", uint8_t(1));
+      _translator->add("_rev", uint8_t(2));
+      _translator->add("_id", uint8_t(3));
+      _translator->add("_from", uint8_t(4));
+      _translator->add("_to", uint8_t(5));
+      _translator->seal();
+      arangodb::velocypack::Options::Defaults.attributeTranslator = _translator.get();
+    }
+};
 
 
 // -----------------------------------------------------------------------------
@@ -76,7 +89,8 @@ enum class RestVerb
 };
 
 
-inline RestVerb to_RestVerb(std::string const& val) {
+inline RestVerb to_RestVerb(std::string& val) {
+  std::transform(val.begin(), val.end(), val.begin(), ::tolower );
   auto p = val.c_str();
 
   if (strcasecmp(p, "delete") == 0) {
@@ -109,6 +123,12 @@ inline RestVerb to_RestVerb(std::string const& val) {
 
   return RestVerb::Illegal;
 }
+
+inline RestVerb to_RestVerb(std::string const& valin) {
+  std::string val(valin);
+  return to_RestVerb(val);
+}
+
 
 inline std::string to_string(RestVerb type) {
   switch (type) {
@@ -201,6 +221,24 @@ inline std::string to_string(TransportType type) {
 // -----------------------------------------------------------------------------
 
 enum class ContentType { Unset, Custom, VPack, Dump, Json, Html, Text };
+
+inline ContentType to_ContentType(std::string const& val) {
+  auto p = val.c_str();
+
+  if (strcasecmp(p, "") == 0) {
+    return ContentType::Unset;
+  }
+
+  if (val.find("application/json") != std::string::npos) {
+    return ContentType::Json;
+  }
+
+  //TODO add missing!!!!
+
+
+  return ContentType::Custom;
+}
+
 
 inline std::string to_string(ContentType type) {
   switch (type) {

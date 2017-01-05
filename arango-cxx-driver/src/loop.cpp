@@ -1,7 +1,13 @@
 #include "asio.h"
 #include <fuerte/loop.h>
 #include "HttpCommunicator.h"
+
+
+
 namespace arangodb { namespace fuerte { inline namespace v1 {
+
+  static VpackInit init;
+
   LoopProvider::LoopProvider()
     :_asioLoop(new asio::Loop{})
     ,_httpLoop(new http::HttpCommunicator())

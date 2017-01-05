@@ -140,7 +140,7 @@ class HttpCommunicator {
  private:
   void createRequestInProgress(NewRequest);
   void handleResult(CURL*, CURLcode);
-  void transformResult(CURL*, mapss&&, std::string&&, Response*);
+  void transformResult(CURL*, mapss&&, std::string const&, Response*);
 
   /// @brief curl will strip standalone ".". ArangoDB allows using . as a key
   /// so this thing will analyse the url and urlencode any unsafe .'s

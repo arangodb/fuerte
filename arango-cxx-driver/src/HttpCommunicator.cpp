@@ -262,12 +262,19 @@ size_t HttpCommunicator::readBody(void* data, size_t size, size_t nitems,
 }
 
 void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
-                                       std::string&& responseBody,
+                                       std::string const& responseBody,
                                        Response* response) {
-  response->headerStrings = responseHeaders;
+
+  std::cout << "header START" << std::endl;
+  for(auto& p : responseHeaders){
+    std::cout << p.first << "  " <<p.second << std::endl;
+  }
+  std::cout << "header END" << std::endl;
+
+  // no available - response->header.requestType
+  response->header.contentType = to_ContentType(responseHeaders["content-type"]);
 
   if(responseBody.length()){
-
     switch (response->contentType()){
 
       case ContentType::Text: {
@@ -281,9 +288,9 @@ void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
       case ContentType::Json: {
         VBuffer buffer;
         auto builder = std::make_shared<VBuilder>(buffer);
-        ::arangodb::velocypack::Parser parser(builder, nullptr);
+        ::arangodb::velocypack::Parser parser(builder);
         parser.parse(responseBody);
-        response->payload.push_back(buffer);
+        response->payload.push_back(std::move(buffer));
         break;
       }
 
@@ -292,17 +299,20 @@ void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
         VBuffer buffer;
         VBuilder builder(buffer);
         builder.add(slice);
-        response->payload.push_back(buffer);
+        response->payload.push_back(std::move(buffer));
 
         break;
       }
 
       default: {
-        throw std::logic_error("unsuported content type giveven");
+        throw std::logic_error("unsuported content type given");
       }
 
     }
   }
+
+  response->headerStrings = std::move(responseHeaders);
+
 
 }
 

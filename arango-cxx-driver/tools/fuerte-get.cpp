@@ -26,6 +26,7 @@
 #include <iostream>
 #include <fuerte/message.h>
 #include <fuerte/loop.h>
+#include "../src/vpack.h"
 
 using ConnectionBuilder = arangodb::fuerte::ConnectionBuilder;
 //using LoopProvider = arangodb::fuerte::LoopProvider;
@@ -63,8 +64,7 @@ static std::string parseString(int argc, char* argv[], int& i) {
 }
 
 static RestVerb parseMethod(int argc, char* argv[], int& i) {
-  //return arangodb::fuerte::to_RestVerb(parseString(argc, argv, i));
-  return arangodb::fuerte::RestVerb::Get;
+  return arangodb::fuerte::to_RestVerb(parseString(argc, argv, i));
 }
 
 int main(int argc, char* argv[]) {
@@ -90,6 +90,7 @@ int main(int argc, char* argv[]) {
         return EXIT_SUCCESS;
       } else if (allowFlags && (isOption(p, "-X") || isOption(p, "--method"))) {
         method = parseMethod(argc, argv, i);
+
       } else if (allowFlags && (isOption(p, "-H") || isOption(p, "--host"))) {
         host = parseString(argc, argv, i);
       } else if (allowFlags && (isOption(p, "-p") || isOption(p, "--path"))) {
@@ -132,16 +133,21 @@ int main(int argc, char* argv[]) {
 
   auto connection = builder.connect();
 
-  auto resCallback = [](std::unique_ptr<Request>,
+  auto resCallback = [](std::unique_ptr<Request> request,
                         std::unique_ptr<Response> response) {
+    std::cout << "--------------------------------------------------------------------------" << std::endl;
     std::cout << "received result:\n"
-              << "request\n"
-              << "response" << std::endl;
+              << arangodb::fuerte::payloadToString(request->payload, std::string("request"))
+              << arangodb::fuerte::payloadToString(response->payload, std::string("response"))
+              << std::endl;
   };
 
-  auto errCallback = [](uint32_t err, std::unique_ptr<Request>,
+  auto errCallback = [](uint32_t err, std::unique_ptr<Request> request,
                         std::unique_ptr<Response> response) {
-    std::cout << "received error: " << err << std::endl;
+    std::cout << "--------------------------------------------------------------------------" << std::endl;
+    std::cout << "received error: " << err << std::endl
+              << arangodb::fuerte::payloadToString(request->payload, std::string("request"))
+              << std::endl;
   };
 
   for (size_t i = 0; i < 1; ++i) {
@@ -154,6 +160,13 @@ int main(int argc, char* argv[]) {
 
     try {
       std::unique_ptr<Request> request = std::unique_ptr<Request>(new Request(std::move(header)));
+      arangodb::fuerte::VBuffer buffer;
+      arangodb::fuerte::VBuilder builder(buffer);
+      builder.openObject();
+      builder.add("name",arangodb::velocypack::Value("superdb"));
+      builder.close();
+      request->payload.push_back(std::move(buffer));
+
       connection->sendRequest(std::move(request), errCallback, resCallback);
     } catch (std::exception const& ex) {
       std::cerr << "exception: " << ex.what() << std::endl;
