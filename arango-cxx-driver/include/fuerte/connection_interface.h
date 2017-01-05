@@ -8,7 +8,7 @@ class ConnectionInterface {
 public:
   ConnectionInterface(){};
 
-  virtual Message sendRequest(std::unique_ptr<Request>) = 0;
+  virtual std::unique_ptr<Response> sendRequest(std::unique_ptr<Request>) = 0;
   virtual void sendRequest(std::unique_ptr<Request>, OnErrorCallback, OnSuccessCallback) = 0;
   virtual void start() = 0;
 };

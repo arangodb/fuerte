@@ -44,6 +44,11 @@ class HttpConnection : public ConnectionInterface {
   void sendRequest(std::unique_ptr<Request>, OnErrorCallback,
                    OnSuccessCallback) override;
 
+  std::unique_ptr<Response> sendRequest(std::unique_ptr<Request>) override {
+    return std::unique_ptr<Response>(nullptr);
+
+  }
+
  private:
   std::shared_ptr<HttpCommunicator> _communicator;
   detail::ConnectionConfiguration _configuration;

@@ -39,10 +39,10 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
       Message(MessageHeader&& messageHeader = MessageHeader()
              ,mapss&& headerStrings = mapss()
              )
-             :messageHeader(std::move(messageHeader))
+             :header(std::move(messageHeader))
              ,headerStrings(std::move(headerStrings))
              {}
-      MessageHeader messageHeader;
+      MessageHeader header;
       mapss headerStrings;
       std::vector<VBuffer> payload;
       uint64_t messageid; //generate by some singleton
@@ -53,7 +53,7 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
         payload.push_back(std::move(buffer));
       }
 
-      ContentType contentType(){ return messageHeader.contentType.get(); }
+      ContentType contentType(){ return header.contentType.get(); }
   };
 
   class Request : public Message {

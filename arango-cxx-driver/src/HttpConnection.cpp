@@ -40,10 +40,12 @@ void HttpConnection::sendRequest(std::unique_ptr<Request> request,
   Callbacks callbacks(onSuccess, onError);
 
   Destination destination =
+      //(_configuration._ssl ? "https://" : "http://") + _configuration._host +
+      //":" + std::to_string(_configuration._port) + request->header.requestPath;
       (_configuration._ssl ? "https://" : "http://") + _configuration._host +
-      ":" + std::to_string(_configuration._port) + request->messageHeader.requestPath;
+      ":" + _configuration._port + request->header.requestPath.get();
 
-  auto const& parameter = request->messageHeader.parameter;
+  auto const& parameter = request->header.parameter;
 
   if (parameter && !parameter.get().empty()) {
     std::string sep = "?";

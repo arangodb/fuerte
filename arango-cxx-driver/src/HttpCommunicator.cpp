@@ -322,7 +322,7 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
       break;
   }
 
-  for (auto const& header : request->headers()) {
+  for (auto const& header : request->headerStrings) {
     std::string thisHeader(header.first + ": " + header.second);
     requestHeaders = curl_slist_append(requestHeaders, thisHeader.c_str());
   }
@@ -364,7 +364,7 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
       static_cast<long>(rip->_request._options.requestTimeout * 1000));
   curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT, connectTimeout);
 
-  auto verb = request->_header._type;
+  auto verb = request->header.requestType.get();
 
   switch (verb) {
     case RestVerb::Post:
@@ -402,7 +402,9 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
       break;
   }
 
-  auto& body = request->body();
+  //TODO -- vpacl to http body
+  //auto& body = request->payload;
+  auto body = std::string("implement vpack to http body"); //request->payload;
 
   if (body.size() > 0) {
     curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, body.size());
@@ -446,8 +448,9 @@ void HttpCommunicator::handleResult(CURL* handle, CURLcode rc) {
         long httpStatusCode = 200;
         curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &httpStatusCode);
 
-        std::unique_ptr<Response> response(
-            new Response(static_cast<unsigned int>(httpStatusCode)));
+        std::unique_ptr<Response> response(new Response());
+            //new Response(static_cast<unsigned int>(httpStatusCode)));
+        response->header.responseCode = static_cast<unsigned>(httpStatusCode);
 
         transformResult(handle, std::move(rip->_responseHeaders),
                         std::move(rip->_responseBody),

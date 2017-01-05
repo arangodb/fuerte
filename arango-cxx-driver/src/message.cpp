@@ -25,9 +25,9 @@ void setHeaderValue(Message request, std::string const& key, std::string const& 
 //// external interface
 Message createAuthMessage(std::string const& user, std::string const& password){
   Message request;
-  request.messageHeader.type = MessageType::Authentication;
-  request.messageHeader.user=user;
-  request.messageHeader.password=password;
+  request.header.type = MessageType::Authentication;
+  request.header.user=user;
+  request.header.password=password;
   return request;
 }
 
@@ -42,23 +42,23 @@ Message createRequest(RestVerb verb
 
   //version must be set by protocol
   Message request;
-  request.messageHeader.version = 0;
-  request.messageHeader.type = MessageType::Request;
-  request.messageHeader.responseCode = 0;
-  request.messageHeader.database = database;
-  request.messageHeader.requestType = verb;
-  request.messageHeader.requestPath = path;
-  request.messageHeader.requestPath = path;
-  request.messageHeader.parameter = parameter;
-  request.messageHeader.meta = meta;
+  request.header.version = 0;
+  request.header.type = MessageType::Request;
+  request.header.responseCode = 0;
+  request.header.database = database;
+  request.header.requestType = verb;
+  request.header.requestPath = path;
+  request.header.requestPath = path;
+  request.header.parameter = parameter;
+  request.header.meta = meta;
   return request;
 }
 
 Message createResponse(unsigned code){
   Message request;
   //version must be set by protocol
-  request.messageHeader.type = MessageType::Response;
-  request.messageHeader.responseCode = code;
+  request.header.type = MessageType::Response;
+  request.header.responseCode = code;
   return request;
 }
 

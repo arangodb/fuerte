@@ -22,7 +22,7 @@ class Connection : public std::enable_shared_from_this<Connection> {
     std::shared_ptr<Database> createDatabase(std::string name);
     bool deleteDatabase(std::string name);
 
-    Message sendRequest(std::unique_ptr<Request> r){
+    std::unique_ptr<Response> sendRequest(std::unique_ptr<Request> r){
       return _realConnection->sendRequest(std::move(r));
     };
 
