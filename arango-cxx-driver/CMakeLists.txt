@@ -39,16 +39,19 @@ add_subdirectory(3rdParty/curlpp2)
 
 ## fuerte
 add_library(fuerte STATIC
-    src/database.cpp
-    src/collection.cpp
-    src/message.cpp
-    src/connection.cpp
-    src/vst.cpp
-    src/loop.cpp
-    src/asio/asio.cpp
-    src/helper.cpp
     src/HttpCommunicator.cpp
     src/HttpConnection.cpp
+    src/asio/Socket.cpp
+    src/asio/SocketTcp.cpp
+    src/asio/SocketUnixDomain.cpp
+    src/asio/asio.cpp
+    src/collection.cpp
+    src/connection.cpp
+    src/database.cpp
+    src/helper.cpp
+    src/loop.cpp
+    src/message.cpp
+    src/vst.cpp
 )
 
 target_link_libraries(fuerte PUBLIC
