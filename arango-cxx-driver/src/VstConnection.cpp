@@ -19,46 +19,36 @@
 ///
 /// @author Frank Celler
 /// @author Jan Uhde
-/// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "HttpConnection.h"
+#include "VstConnection.h"
 #include "helper.h"
 #include <fuerte/loop.h>
 
-namespace arangodb {
-namespace fuerte {
-inline namespace v1 {
-namespace http {
+namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
 using namespace arangodb::fuerte::detail;
 
 HttpConnection::HttpConnection( ConnectionConfiguration configuration)
-    : _communicator(LoopProvider::getProvider().getHttpLoop()), _configuration(configuration) {}
+    : _asioLoop(LoopProvider::getProvider().getAsioLoop())
+    , _ioService(_asioLoop->getIoService())
+    , _configuration(configuration)
+    {
+  _configuration._ssl
+  _configuration._port //remote
+  _configuration._host //remote
+
+
+}
 
 void HttpConnection::sendRequest(std::unique_ptr<Request> request,
                                  OnErrorCallback onError,
                                  OnSuccessCallback onSuccess){
   Callbacks callbacks(onSuccess, onError);
 
-  Destination destination =
-      (_configuration._ssl ? "https://" : "http://") + _configuration._host +
-      ":" + _configuration._port + request->header.path.get();
+  //_communicator->queueRequest(destination, std::move(request), callbacks);
+  //
 
-  auto const& parameter = request->header.parameter;
+}
 
-  if (parameter && !parameter.get().empty()) {
-    std::string sep = "?";
-
-    for (auto p : parameter.get()) {
-      destination += sep + urlEncode(p.first) + "=" + urlEncode(p.second);
-      sep = "&";
-    }
-  }
-  #warning TODO authentication
-  _communicator->queueRequest(destination, std::move(request), callbacks);
-}
-}
-}
-}
-}
+}}}}

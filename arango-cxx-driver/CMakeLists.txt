@@ -45,7 +45,7 @@ add_library(fuerte STATIC
     src/connection.cpp
     src/vst.cpp
     src/loop.cpp
-    src/asio.cpp
+    src/asio/asio.cpp
     src/helper.cpp
     src/HttpCommunicator.cpp
     src/HttpConnection.cpp

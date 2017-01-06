@@ -30,6 +30,7 @@ public:
   }
 
   std::shared_ptr<asio::Loop> getAsioLoop(){
+    _sealed = true;
     return _asioLoop;
   }
 
@@ -45,6 +46,7 @@ public:
 private:
   std::shared_ptr<asio::Loop> _asioLoop;
   std::shared_ptr<http::HttpCommunicator> _httpLoop;
+  bool _sealed;
 
 };
 

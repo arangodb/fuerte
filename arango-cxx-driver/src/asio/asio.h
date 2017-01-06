@@ -25,6 +25,10 @@ public:
     _service = service;
   }
 
+  boost::asio::io_service* getIoService(){
+    return _service;
+  }
+
 private:
   std::shared_ptr<::boost::asio::io_service> _serviceSharedPtr;
   ::boost::asio::io_service* _service;
