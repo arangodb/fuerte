@@ -42,7 +42,7 @@ void HttpConnection::sendRequest(std::unique_ptr<Request> request,
 
   Destination destination =
       (_configuration._ssl ? "https://" : "http://") + _configuration._host +
-      ":" + _configuration._port + request->header.requestPath.get();
+      ":" + _configuration._port + request->header.path.get();
 
   auto const& parameter = request->header.parameter;
 

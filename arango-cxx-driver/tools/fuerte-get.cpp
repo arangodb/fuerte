@@ -26,6 +26,7 @@
 #include <iostream>
 #include <fuerte/message.h>
 #include <fuerte/loop.h>
+#include <fuerte/requests.h>
 #include "../src/vpack.h"
 
 using ConnectionBuilder = arangodb::fuerte::ConnectionBuilder;
@@ -150,24 +151,14 @@ int main(int argc, char* argv[]) {
               << std::endl;
   };
 
+  arangodb::fuerte::VBuilder vbuilder;
+  vbuilder.openObject();
+  vbuilder.add("name",arangodb::velocypack::Value("superdb"));
+  vbuilder.close();
+
   for (size_t i = 0; i < 1; ++i) {
-    arangodb::fuerte::v1::MessageHeader header;
-
-    header.requestType = method;
-    header.requestPath = path;
-    header.parameter = parameter;
-    header.meta = meta;
-
     try {
-      header.contentType = arangodb::fuerte::ContentType::Json;
-      std::unique_ptr<Request> request = std::unique_ptr<Request>(new Request(std::move(header)));
-      arangodb::fuerte::VBuffer buffer;
-      arangodb::fuerte::VBuilder builder(buffer);
-      builder.openObject();
-      builder.add("name",arangodb::velocypack::Value("superdb"));
-      builder.close();
-      request->payload.push_back(std::move(buffer));
-
+      auto request = arangodb::fuerte::createRequest(method, path, parameter, vbuilder.slice());
       connection->sendRequest(std::move(request), errCallback, resCallback);
     } catch (std::exception const& ex) {
       std::cerr << "exception: " << ex.what() << std::endl;

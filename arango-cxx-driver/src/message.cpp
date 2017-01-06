@@ -46,9 +46,8 @@ Message createRequest(RestVerb verb
   request.header.type = MessageType::Request;
   request.header.responseCode = 0;
   request.header.database = database;
-  request.header.requestType = verb;
-  request.header.requestPath = path;
-  request.header.requestPath = path;
+  request.header.restVerb = verb;
+  request.header.path = path;
   request.header.parameter = parameter;
   request.header.meta = meta;
   return request;

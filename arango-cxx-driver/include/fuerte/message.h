@@ -20,8 +20,8 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
     ::boost::optional<MessageType> type;
     ::boost::optional<unsigned> responseCode;
     ::boost::optional<std::string> database;
-    ::boost::optional<RestVerb> requestType;
-    ::boost::optional<std::string> requestPath;
+    ::boost::optional<RestVerb> restVerb;
+    ::boost::optional<std::string> path;
     ::boost::optional<mapss> parameter;
     ::boost::optional<mapss> meta;
     ::boost::optional<std::string> user;
@@ -44,6 +44,13 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
              :header(std::move(messageHeader))
              ,headerStrings(std::move(headerStrings))
              {}
+
+      Message(MessageHeader const& messageHeader
+             ,mapss const& headerStrings
+             )
+             :header(messageHeader)
+             ,headerStrings(headerStrings)
+             {}
       MessageHeader header;
       mapss headerStrings;
       std::vector<VBuffer> payload;
@@ -63,6 +70,10 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
       Request(MessageHeader&& messageHeader = MessageHeader()
              ,mapss&& headerStrings = mapss()
              ): Message(std::move(messageHeader), std::move(headerStrings))
+             {}
+      Request(MessageHeader const& messageHeader
+             ,mapss const& headerStrings
+             ): Message(messageHeader, headerStrings)
              {}
   };
 

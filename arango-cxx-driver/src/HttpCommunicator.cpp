@@ -416,7 +416,7 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
       static_cast<long>(rip->_request._options.requestTimeout * 1000));
   curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT, connectTimeout);
 
-  auto verb = request->header.requestType.get();
+  auto verb = request->header.restVerb.get();
 
   switch (verb) {
     case RestVerb::Post:
@@ -456,7 +456,9 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
 
   std::string empty("");
   std::string& body = empty;
-  //how to hanle multiple buffers
+  // TODO how to hanle multiple buffers
+  // - append?
+  // - multipart body?
   if(!request->payload.empty()){
     try{
       body = VSlice(request->payload[0].data()).toJson();
@@ -467,8 +469,10 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
   }
 
   if (body.size() > 0) {
+    // https://curl.haxx.se/libcurl/c/CURLOPT_COPYPOSTFIELDS.html
+    // DO NOT CHANGE BODY SIZE LATER!!
     curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, body.size());
-    curl_easy_setopt(handle, CURLOPT_POSTFIELDS, body.c_str());
+    curl_easy_setopt(handle, CURLOPT_COPYPOSTFIELDS, body.c_str());
   }
 
   handleInProgress->_rip->_startTime = std::chrono::steady_clock::now();
