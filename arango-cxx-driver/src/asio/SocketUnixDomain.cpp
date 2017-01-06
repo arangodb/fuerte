@@ -22,9 +22,9 @@
 
 #include "SocketUnixDomain.h"
 
-using namespace arangodb;
+using namespace arangodb::fuerte::v1::asio;
 
-size_t SocketUnixDomain::write(StringBuffer* buffer, boost::system::error_code& ec) {
+size_t SocketUnixDomain::write(std::string const& buffer, boost::system::error_code& ec) {
   return socketcommon::doWrite(_socket, buffer, ec);
 }
 void SocketUnixDomain::asyncWrite(boost::asio::mutable_buffers_1 const& buffer, AsyncHandler const& handler) {

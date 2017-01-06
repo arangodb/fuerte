@@ -27,7 +27,8 @@
 
 #include <boost/asio/ip/tcp.hpp>
 
-namespace arangodb {
+namespace arangodb { namespace fuerte { inline namespace v1 { namespace asio {
+
 class SocketTcp final : public Socket {
   public:
     SocketTcp(boost::asio::io_service& ioService,
@@ -51,7 +52,7 @@ class SocketTcp final : public Socket {
 
     bool sslHandshake() override { return socketcommon::doSslHandshake(_sslSocket); }
 
-    size_t write(basics::StringBuffer* buffer, boost::system::error_code& ec) override;
+    size_t write(std::string const& buffer, boost::system::error_code& ec) override;
 
     void asyncWrite(boost::asio::mutable_buffers_1 const& buffer, AsyncHandler const& handler) override;
 
@@ -74,6 +75,6 @@ class SocketTcp final : public Socket {
 
     boost::asio::ip::tcp::acceptor::endpoint_type _peerEndpoint;
 };
-}
+}}}}
 
 #endif

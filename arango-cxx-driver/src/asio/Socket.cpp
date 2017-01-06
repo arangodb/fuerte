@@ -22,7 +22,7 @@
 
 #include "Socket.h"
 
-using namespace arangodb;
+using namespace arangodb::fuerte::v1::asio;
 
 bool Socket::handshake() {
   if (!_encrypted) {

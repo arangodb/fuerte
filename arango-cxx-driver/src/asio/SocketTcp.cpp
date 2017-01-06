@@ -22,9 +22,9 @@
 
 #include "SocketTcp.h"
 
-using namespace arangodb;
+using namespace arangodb::fuerte::v1::asio;
 
-size_t SocketTcp::write(basics::StringBuffer* buffer, boost::system::error_code& ec) {
+size_t SocketTcp::write(std::string const& buffer, boost::system::error_code& ec) {
   if (_encrypted) {
     return socketcommon::doWrite(_sslSocket, buffer, ec);
   } else {

@@ -29,7 +29,7 @@
 #include <chrono>
 #include "../FuerteLogger.h"
 
-namespace arangodb {
+namespace arangodb { namespace fuerte { inline namespace v1 { namespace asio {
 
 typedef std::function<void(const boost::system::error_code& ec,
                            std::size_t transferred)>
@@ -41,13 +41,13 @@ bool doSslHandshake(T& socket) {
   boost::system::error_code ec;
 
   uint64_t tries = 0;
-  std::chrono::time_point<std::chrono::high_resolution_clock,std::chrono::milliseconds> start;
+  std::chrono::time_point<std::chrono::high_resolution_clock> start;
 
   while (true) {
-    ec.assign(boost::system::errc::success,
-	boost::system::generic_category());
-    socket.handshake(
-	boost::asio::ssl::stream_base::handshake_type::server, ec);
+    ec.assign(boost::system::errc::success
+             ,boost::system::generic_category()
+             );
+    socket.handshake(boost::asio::ssl::stream_base::handshake_type::server, ec);
 
     if (ec.value() != boost::asio::error::would_block) {
       break;
@@ -99,10 +99,9 @@ bool doSslHandshake(T& socket) {
 }
 
 template <typename T>
-size_t doWrite(T& socket, basics::StringBuffer* buffer,
+size_t doWrite(T& socket, std::string const& buffer,
                boost::system::error_code& ec) {
-  return socket.write_some(
-      boost::asio::buffer(buffer->begin(), buffer->length()), ec);
+  return socket.write_some(boost::asio::buffer(buffer), ec);
 }
 template <typename T>
 void doAsyncWrite(T& socket, boost::asio::mutable_buffers_1 const& buffer,
@@ -137,7 +136,7 @@ class Socket {
   virtual std::string peerAddress() = 0;
   virtual int peerPort() = 0;
   bool handshake();
-  virtual size_t write(basics::StringBuffer* buffer,
+  virtual size_t write(std::string const& buffer,
                        boost::system::error_code& ec) = 0;
   virtual void asyncWrite(boost::asio::mutable_buffers_1 const& buffer,
                           AsyncHandler const& handler) = 0;
@@ -160,6 +159,6 @@ class Socket {
   bool _encrypted;
   bool _handshakeDone = false;
 };
-}
+}}}}
 
 #endif
