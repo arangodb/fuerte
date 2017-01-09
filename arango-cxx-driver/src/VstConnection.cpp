@@ -32,22 +32,26 @@ namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
 using namespace arangodb::fuerte::detail;
 
-VstConnection::VstConnection( ConnectionConfiguration configuration)
+//client connection
+template<typename T>
+VstConnection<T>::VstConnection( ConnectionConfiguration configuration)
     : _asioLoop(LoopProvider::getProvider().getAsioLoop())
     , _ioService(_asioLoop->getIoService())
     , _configuration(configuration)
-    , _peer(nullptr)
+    , _socket(nullptr)
 {
     ::boost::asio::ip::tcp::resolver resolver(*_ioService);
-    auto endpoint_iterator = resolver.resolve({"foo","bar"});
-    _peer = std::unique_ptr<asio::Socket>(new asio::SocketTcp(
+    auto endpoint_iterator = resolver.resolve({configuration._host,configuration._port});
+    _socket = std::unique_ptr<asio::Socket>(new SocketType(
           *_ioService,
           ::boost::asio::ssl::context(::boost::asio::ssl::context::method::sslv23),
-          _configuration._ssl)
+          _configuration._ssl,
+          endpoint_iterator)
     );
 }
 
-void VstConnection::sendRequest(std::unique_ptr<Request> request,
+template<typename T>
+void VstConnection<T>::sendRequest(std::unique_ptr<Request> request,
                                  OnErrorCallback onError,
                                  OnSuccessCallback onSuccess){
   Callbacks callbacks(onSuccess, onError);

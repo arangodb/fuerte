@@ -40,8 +40,7 @@ class SocketTcp final : public Socket {
           _isServer(true),
           _sslSocket(ioService, _context),
           _socket(_sslSocket.next_layer()),
-          _connectEndpoint(),
-          _acceptEndpoint() {}
+          _peerEndpoint() {}
 
     SocketTcp(boost::asio::io_service& ioService
              ,boost::asio::ssl::context&& context
@@ -52,12 +51,10 @@ class SocketTcp final : public Socket {
           _isServer(false),
           _sslSocket(ioService, _context),
           _socket(_sslSocket.next_layer()),
-          _connectEndpoint(),
-          _acceptEndpoint()
-    {
+          _peerEndpoint(){
       auto endpoint = boost::asio::connect(_socket, endpoint_iterator);
       if(endpoint != EndpointItr()){
-        _connectEndpoint = *endpoint;
+        _peerEndpoint = *endpoint;
       } else {
         throw std::runtime_error("could not connect to any endpoint!");
       }
@@ -71,9 +68,9 @@ class SocketTcp final : public Socket {
 
     void setNonBlocking(bool v) override { _socket.non_blocking(v); }
 
-    std::string peerAddress() override { return _acceptEndpoint.address().to_string(); }
+    std::string peerAddress() override { return _peerEndpoint.address().to_string(); }
 
-    int peerPort() override { return _acceptEndpoint.port(); }
+    int peerPort() override { return _peerEndpoint.port(); }
 
     bool sslHandshake() override { return socketcommon::doSslHandshake(_sslSocket); }
 
@@ -98,8 +95,7 @@ class SocketTcp final : public Socket {
     bool _isServer;
     boost::asio::ssl::stream<boost::asio::ip::tcp::socket> _sslSocket;
     boost::asio::ip::tcp::socket& _socket;
-    boost::asio::ip::tcp::endpoint _connectEndpoint;
-    boost::asio::ip::tcp::acceptor::endpoint_type _acceptEndpoint;
+    boost::asio::ip::tcp::endpoint _peerEndpoint;
 };
 }}}}
 

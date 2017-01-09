@@ -26,6 +26,7 @@
 #include <boost/asio/basic_stream_socket.hpp>
 #include <boost/asio/serial_port_service.hpp>
 #include <boost/asio/ssl.hpp>
+#include <boost/asio/read_until.hpp>
 #include <chrono>
 #include "../FuerteLogger.h"
 
@@ -118,6 +119,22 @@ void doAsyncRead(T& socket, boost::asio::mutable_buffers_1 const& buffer,
                  AsyncHandler const& handler) {
   return socket.async_read_some(buffer, handler);
 }
+
+template <typename T,
+          typename AsyncReadStream,
+          typename Allocator,
+          typename MatchCondition,
+          typename ReadHandler>
+void doAsyncReadUntil(
+    T& socket,
+    AsyncReadStream & s,
+    boost::asio::basic_streambuf< Allocator > & b,
+    MatchCondition match_condition,
+    ReadHandler handler)
+{
+    socket.async_read_until(s, b, match_condition, handler);
+}
+
 }
 
 class Socket {

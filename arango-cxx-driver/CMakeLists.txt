@@ -41,6 +41,7 @@ add_subdirectory(3rdParty/curlpp2)
 add_library(fuerte STATIC
     src/HttpCommunicator.cpp
     src/HttpConnection.cpp
+    src/VstConnection.cpp
     src/asio/Socket.cpp
     src/asio/SocketTcp.cpp
     src/asio/SocketUnixDomain.cpp
