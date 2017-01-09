@@ -18,6 +18,7 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author Andreas Streichardt
+/// @author Jan Christoph Uhde
 ////////////////////////////////////////////////////////////////////////////////
 
 #ifndef ARANGOD_SCHEDULER_SOCKET_TCP_H
@@ -26,17 +27,41 @@
 #include "Socket.h"
 
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/connect.hpp>
 
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace asio {
 
 class SocketTcp final : public Socket {
   public:
+    using EndpointItr = ::boost::asio::ip::tcp::resolver::iterator;
     SocketTcp(boost::asio::io_service& ioService,
            boost::asio::ssl::context&& context, bool encrypted)
         : Socket(ioService, std::move(context), encrypted),
+          _isServer(true),
           _sslSocket(ioService, _context),
           _socket(_sslSocket.next_layer()),
-          _peerEndpoint() {}
+          _connectEndpoint(),
+          _acceptEndpoint() {}
+
+    SocketTcp(boost::asio::io_service& ioService
+             ,boost::asio::ssl::context&& context
+             ,bool encrypted
+             ,EndpointItr endpoint_iterator
+             )
+        : Socket(ioService, std::move(context), encrypted),
+          _isServer(false),
+          _sslSocket(ioService, _context),
+          _socket(_sslSocket.next_layer()),
+          _connectEndpoint(),
+          _acceptEndpoint()
+    {
+      auto endpoint = boost::asio::connect(_socket, endpoint_iterator);
+      if(endpoint != EndpointItr()){
+        _connectEndpoint = *endpoint;
+      } else {
+        throw std::runtime_error("could not connect to any endpoint!");
+      }
+    }
 
     SocketTcp(SocketTcp&& that) = default;
 
@@ -46,9 +71,9 @@ class SocketTcp final : public Socket {
 
     void setNonBlocking(bool v) override { _socket.non_blocking(v); }
 
-    std::string peerAddress() override { return _peerEndpoint.address().to_string(); }
+    std::string peerAddress() override { return _acceptEndpoint.address().to_string(); }
 
-    int peerPort() override { return _peerEndpoint.port(); }
+    int peerPort() override { return _acceptEndpoint.port(); }
 
     bool sslHandshake() override { return socketcommon::doSslHandshake(_sslSocket); }
 
@@ -70,10 +95,11 @@ class SocketTcp final : public Socket {
     int available(boost::system::error_code& ec) override;
 
   public:
+    bool _isServer;
     boost::asio::ssl::stream<boost::asio::ip::tcp::socket> _sslSocket;
     boost::asio::ip::tcp::socket& _socket;
-
-    boost::asio::ip::tcp::acceptor::endpoint_type _peerEndpoint;
+    boost::asio::ip::tcp::endpoint _connectEndpoint;
+    boost::asio::ip::tcp::acceptor::endpoint_type _acceptEndpoint;
 };
 }}}}
 

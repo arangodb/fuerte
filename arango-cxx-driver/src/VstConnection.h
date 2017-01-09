@@ -25,13 +25,14 @@
 #define ARANGO_CXX_DRIVER_VST_CONNECTION_H 1
 
 #include <fuerte/connection_interface.h>
-#include "asio.h"
+#include "asio/asio.h"
+#include "asio/Socket.h"
 
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
-class HttpConnection : public ConnectionInterface {
+class VstConnection : public ConnectionInterface {
  public:
-  HttpConnection(detail::ConnectionConfiguration);
+  VstConnection(detail::ConnectionConfiguration);
 
  public:
   void start() override {}
@@ -48,8 +49,7 @@ class HttpConnection : public ConnectionInterface {
   std::shared_ptr<asio::Loop> _asioLoop;
   ::boost::asio::io_service* _ioService;
   detail::ConnectionConfiguration _configuration;
-
-  //std::unique_ptr<Socket> _peer;
+  std::unique_ptr<asio::Socket> _peer;
   //boost::posix_time::milliseconds _keepAliveTimeout;
   //boost::asio::deadline_timer _keepAliveTimer;
   //bool const _useKeepAliveTimer;

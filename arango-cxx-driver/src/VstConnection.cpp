@@ -24,24 +24,30 @@
 #include "VstConnection.h"
 #include "helper.h"
 #include <fuerte/loop.h>
+#include "asio/Socket.h"
+#include "asio/SocketTcp.h"
+#include "asio/SocketUnixDomain.h"
 
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
 using namespace arangodb::fuerte::detail;
 
-HttpConnection::HttpConnection( ConnectionConfiguration configuration)
+VstConnection::VstConnection( ConnectionConfiguration configuration)
     : _asioLoop(LoopProvider::getProvider().getAsioLoop())
     , _ioService(_asioLoop->getIoService())
     , _configuration(configuration)
-    {
-  _configuration._ssl
-  _configuration._port //remote
-  _configuration._host //remote
-
-
+    , _peer(nullptr)
+{
+    ::boost::asio::ip::tcp::resolver resolver(*_ioService);
+    auto endpoint_iterator = resolver.resolve({"foo","bar"});
+    _peer = std::unique_ptr<asio::Socket>(new asio::SocketTcp(
+          *_ioService,
+          ::boost::asio::ssl::context(::boost::asio::ssl::context::method::sslv23),
+          _configuration._ssl)
+    );
 }
 
-void HttpConnection::sendRequest(std::unique_ptr<Request> request,
+void VstConnection::sendRequest(std::unique_ptr<Request> request,
                                  OnErrorCallback onError,
                                  OnSuccessCallback onSuccess){
   Callbacks callbacks(onSuccess, onError);
