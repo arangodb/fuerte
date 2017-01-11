@@ -1,6 +1,7 @@
 #include <fuerte/connection.h>
 #include <fuerte/database.h>
 #include "HttpConnection.h"
+#include "VstConnection.h"
 
 #include <boost/algorithm/string.hpp>
 #include <vector>
@@ -13,9 +14,8 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
     _configuration(conf)
     {
       if (_configuration._connType == TransportType::Vst){
-        //_realConnection = std::make_shared<VstConnection>(_configuration)
+        _realConnection = std::make_shared<vst::VstConnection>(_configuration);
       } else {
-        auto communicator = std::make_shared<http::HttpCommunicator>();
         _realConnection = std::make_shared<http::HttpConnection>(_configuration);
       }
     };

@@ -42,23 +42,24 @@ class SocketTcp final : public Socket {
           _socket(_sslSocket.next_layer()),
           _peerEndpoint() {}
 
-    SocketTcp(boost::asio::io_service& ioService
-             ,boost::asio::ssl::context&& context
-             ,bool encrypted
-             ,EndpointItr endpoint_iterator
-             )
-        : Socket(ioService, std::move(context), encrypted),
-          _isServer(false),
-          _sslSocket(ioService, _context),
-          _socket(_sslSocket.next_layer()),
-          _peerEndpoint(){
-      auto endpoint = boost::asio::connect(_socket, endpoint_iterator);
-      if(endpoint != EndpointItr()){
-        _peerEndpoint = *endpoint;
-      } else {
-        throw std::runtime_error("could not connect to any endpoint!");
-      }
-    }
+    // //connect as function in socket common?!
+    // SocketTcp(boost::asio::io_service& ioService
+    //          ,boost::asio::ssl::context&& context
+    //          ,bool encrypted
+    //          ,EndpointItr endpoint_iterator
+    //          )
+    //     : Socket(ioService, std::move(context), encrypted),
+    //       _isServer(false),
+    //       _sslSocket(ioService, _context),
+    //       _socket(_sslSocket.next_layer()),
+    //       _peerEndpoint(){
+    //   auto endpoint = boost::asio::connect(_socket, endpoint_iterator);
+    //   if(endpoint != EndpointItr()){
+    //     _peerEndpoint = *endpoint;
+    //   } else {
+    //     throw std::runtime_error("could not connect to any endpoint!");
+    //   }
+    // }
 
     SocketTcp(SocketTcp&& that) = default;
 

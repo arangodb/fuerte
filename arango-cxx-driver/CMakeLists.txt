@@ -19,6 +19,10 @@ option(FUERTE_EXAMPLES "Build EXAMPLES" OFF)
 
 #########################################################################################
 # Dependencies
+
+find_package(OpenSSL REQUIRED)
+find_package(Threads REQUIRED)
+
 set(CMAKE_BOOST_COMPONENTS "system")
 find_package(Boost COMPONENTS ${CMAKE_BOOST_COMPONENTS})
 if(Boost_FOUND)
@@ -59,6 +63,8 @@ target_link_libraries(fuerte PUBLIC
     velocypack
     curlpp
     Boost::system
+    ${OPENSSL_LIBRARIES}
+    ${CMAKE_THREAD_LIBS_INIT}
 )
 
 target_include_directories(fuerte PUBLIC

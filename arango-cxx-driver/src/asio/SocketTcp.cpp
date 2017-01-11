@@ -65,10 +65,10 @@ int SocketTcp::available(boost::system::error_code& ec) {
   return static_cast<int>(_socket.available(ec));
 }
 
-void SocketTcp::asyncRead(boost::asio::mutable_buffers_1 const& buffer, AsyncHandler const& handler) {
+void SocketTcp::asyncRead(boost::asio::mutable_buffers_1 const& buffer, AsyncHandler const& readHandler) {
   if (_encrypted) {
-    return socketcommon::doAsyncRead(_sslSocket, buffer, handler);
+    return socketcommon::doAsyncRead(_sslSocket, buffer, readHandler);
   } else {
-    return socketcommon::doAsyncRead(_socket, buffer, handler);
+    return socketcommon::doAsyncRead(_socket, buffer, readHandler);
   }
 }

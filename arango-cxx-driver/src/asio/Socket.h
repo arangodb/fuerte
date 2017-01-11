@@ -109,30 +109,22 @@ void doAsyncWrite(T& socket, boost::asio::mutable_buffers_1 const& buffer,
                   AsyncHandler const& handler) {
   return boost::asio::async_write(socket, buffer, handler);
 }
+
 template <typename T>
 size_t doRead(T& socket, boost::asio::mutable_buffers_1 const& buffer,
               boost::system::error_code& ec) {
   return socket.read_some(buffer, ec);
 }
+
 template <typename T>
 void doAsyncRead(T& socket, boost::asio::mutable_buffers_1 const& buffer,
                  AsyncHandler const& handler) {
   return socket.async_read_some(buffer, handler);
 }
 
-template <typename T,
-          typename AsyncReadStream,
-          typename Allocator,
-          typename MatchCondition,
-          typename ReadHandler>
-void doAsyncReadUntil(
-    T& socket,
-    AsyncReadStream & s,
-    boost::asio::basic_streambuf< Allocator > & b,
-    MatchCondition match_condition,
-    ReadHandler handler)
-{
-    socket.async_read_until(s, b, match_condition, handler);
+template <typename T, typename Endpoint, typename ConnectHandler>
+void doAsyncConnect(T& socket , Endpoint const &endpoint, ConnectHandler handler) {
+  socket.async_connect(endpoint, handler);
 }
 
 }

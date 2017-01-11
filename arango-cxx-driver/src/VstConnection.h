@@ -25,51 +25,27 @@
 #define ARANGO_CXX_DRIVER_VST_CONNECTION_H 1
 
 #include <functional>
+#include <atomic>
+#include <mutex>
 #include <fuerte/connection_interface.h>
 #include "asio/asio.h"
 #include "asio/Socket.h"
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/asio/streambuf.hpp>
+#include <boost/asio/connect.hpp>
+#include <boost/asio/ssl.hpp>
+
+
+// naming in this file will be closer to asio for internal functions and types
+// functions that are exposed to other classes follow ArangoDB conding conventions
 
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
-class isChunkComplete
-{
+class VstConnection : public std::enable_shared_from_this<VstConnection>, public ConnectionInterface {
 public:
-  explicit isChunkComplete(){}
-  template <typename Iterator>
-  //is iterator a random access iterator?
-  std::pair<Iterator, bool> operator()(Iterator begin, Iterator end) const
-  {
-    auto len = std::distance(begin, end);
-    if(len > sizeof(uint32_t)){
-      std::size_t clen;
-      //what is the iterator exactly????
-      std::memcpy(&clen, &*begin, sizeof(uint32_t));
-      if(len >= clen){
-        return std::make_pair(begin+clen, true);
-      }
-    }
-    return std::make_pair(end, false);
-  }
-};
-
-}}}}
-
-namespace boost { namespace asio {
-  template <> struct is_match_condition<::arangodb::fuerte::v1::vst::isChunkComplete>
-    : public boost::true_type {};
-}}
-
-namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
-
-template <typename T>
-class VstConnection : public ConnectionInterface {
- public:
-  using SocketType = T;
   VstConnection(detail::ConnectionConfiguration);
 
- public:
+public:
   void start() override {}
 
   void sendRequest(std::unique_ptr<Request>
@@ -80,35 +56,52 @@ class VstConnection : public ConnectionInterface {
     return std::unique_ptr<Response>(nullptr);
   }
 
- //handler to be posted to loop
- //this handler call their handle counterpart on completeion
- void startWrite(){}
- void startRead(){
-   // Set a deadline for the read operation.
-   _deadline.expires_from_now(boost::posix_time::seconds(30));
+private:
+  // SOCKET HANDLING /////////////////////////////////////////////////////////
+  void init_socket();
+  void shutdown_socket();
 
-   // Start an asynchronous operation to read a until a vst message/chunk is complete
-   asio::socketcommon::doAsyncReadUntil(_socket, _input_buffer, isChunkComplete() /*add memeber*/,
-                        std::bind(&VstConnection::handleRead, this, std::placeholders::_1));
+  //handler to be posted to loop
+  //this handler call their handle counterpart on completeion
 
- }
+  // establishes connection and initiates handshake
+  void startConnect(boost::asio::ip::tcp::resolver::iterator);
+  void handleConnect(const boost::system::error_code& ec, boost::asio::ip::tcp::resolver::iterator);
 
- void handleRead(){}
- void handleWrite(){}
+  // does handshake and starts async read and write
+  void startHandshake();
+  void handleHandshake();
 
- private:
+  // reads data from socket and filles task queue
+  void startRead();
+  void handleRead(const boost::system::error_code&, std::size_t transferred);
+
+  // writes data form task queue to network
+  void startWrite();
+  void handleWrite(const boost::system::error_code&, std::size_t transferred);
+
+  // TASK HANDLING /////////////////////////////////////////////////////////
+
+  // TO BE CREATED
+
+private:
   std::shared_ptr<asio::Loop> _asioLoop;
   ::boost::asio::io_service* _ioService;
   detail::ConnectionConfiguration _configuration;
-  std::unique_ptr<asio::Socket> _socket;
+  ::std::atomic_int _handlercount;
+  ::std::shared_ptr<::boost::asio::ip::tcp::socket> _socket;
+  ::boost::asio::ssl::context _context;
+  ::std::shared_ptr<::boost::asio::ssl::stream<::boost::asio::ip::tcp::socket&>> _sslSocket;
+  ::std::atomic_bool _pleaseStop;
+  ::std::atomic_bool _stopped;
   ::boost::asio::deadline_timer _deadline;
+  ::boost::asio::ip::tcp::endpoint _peer;
   ::boost::asio::streambuf _input_buffer;
+  ::boost::asio::streambuf _output_buffer;
   //boost::posix_time::milliseconds _keepAliveTimeout;
   //boost::asio::deadline_timer _keepAliveTimer;
   //bool const _useKeepAliveTimer;
   //bool _keepAliveTimerActive;
-  //bool _closeRequested;
-  //std::atomic_bool _abandoned;
 
 };
 
