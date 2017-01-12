@@ -29,8 +29,7 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
     ::boost::optional<ContentType> contentType;
   };
 
-  inline std::string headerToHttp(MessageHeader const& header);
-  inline VBuffer headerToVst(MessageHeader const& header);
+  inline VBuffer headerToVPack(MessageHeader const& header);
   inline MessageHeader headerFromHttp(std::string const& body);
   inline MessageHeader headerFromSlice(VSlice const& header_slice);
 
@@ -86,9 +85,4 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
 
   };
 
-  NetBuffer toNetworkVst(Message const&);
-  NetBuffer toNetworkHttp(Message const&);
-
-  //boost::optional<Message> fromNetworkVst(NetBuffer const&);
-  //boost::optional<Message> fromNetworkHttp(NetBuffer const&);
 }}}

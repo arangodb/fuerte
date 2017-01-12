@@ -61,15 +61,6 @@ Message createResponse(unsigned code){
   return request;
 }
 
-///
-NetBuffer toNetworkVst(Message const&){
-  return "implement me";
-}
-
-NetBuffer toNetworkHttp(Message const&){
-  return "implement me";
-}
-
 Message fromBufferVst(uint8_t const* begin, std::size_t length){
   auto num_slice = vst::validateAndCount(begin, begin + length);
   // work work

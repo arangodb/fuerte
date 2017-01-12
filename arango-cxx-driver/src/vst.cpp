@@ -1,8 +1,46 @@
+#include <fuerte/common_types.h>
 #include <fuerte/vst.h>
-
 #include <velocypack/Validator.h>
+#include <sstream>
 
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
+
+static void addVstHeader(VBuffer& buffer, VBuffer const& header, std::size_t payloadLen){
+
+}
+
+
+//sending vst
+std::shared_ptr<VBuffer> toNetwork(Request const& request){
+  std::stringstream ss;
+  //overview
+  //
+  // - set all required header fileds
+  // - create vpack representation of header
+  // - a list of vpacks representing the payload
+  // - add vst header
+
+  VBuffer headerBuffer;
+  VBuilder builder(headerBuffer);
+  builder.isOpenObject();
+  builder.close(); //close object
+
+  auto buffer = std::make_shared<VBuffer>();
+  std::size_t payloadLen = 0;
+  for(auto const& pbuff : request.payload){
+   payloadLen += pbuff.byteSize();
+  }
+
+  addVstHeader(*buffer, headerBuffer, payloadLen);
+
+  for(auto const& pbuff : request.payload){
+   buffer->append(pbuff.data(),pbuff.byteSize());
+  }
+
+  return std::move(buffer);
+}
+
+//receifing vst
 using VValidator = ::arangodb::velocypack::Validator;
 
 std::size_t validateAndCount(uint8_t const* vpHeaderStart

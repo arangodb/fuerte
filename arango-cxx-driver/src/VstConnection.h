@@ -32,8 +32,9 @@
 #include "asio/Socket.h"
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/asio/streambuf.hpp>
-#include <boost/asio/connect.hpp>
 #include <boost/asio/ssl.hpp>
+#include <map>
+#include <fuerte/vst.h>
 
 
 // naming in this file will be closer to asio for internal functions and types
@@ -43,6 +44,18 @@ namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
 class VstConnection : public std::enable_shared_from_this<VstConnection>, public ConnectionInterface {
 public:
+  using QRequest = std::unique_ptr<Request>;
+  using QResponse = std::unique_ptr<Request>;
+  using Lock = std::lock_guard<std::mutex>;
+
+  struct MapItem {
+    std::unique_ptr<Request> _request;
+    std::unique_ptr<Response> _response;
+    OnErrorCallback _onError;
+    OnSuccessCallback _onSuccess;
+    MessageID _messageId;
+  };
+
   VstConnection(detail::ConnectionConfiguration);
 
 public:
@@ -66,7 +79,7 @@ private:
 
   // establishes connection and initiates handshake
   void startConnect(boost::asio::ip::tcp::resolver::iterator);
-  void handleConnect(const boost::system::error_code& ec, boost::asio::ip::tcp::resolver::iterator);
+  void handleConnect(boost::system::error_code const& ec, boost::asio::ip::tcp::resolver::iterator);
 
   // does handshake and starts async read and write
   void startHandshake();
@@ -74,11 +87,11 @@ private:
 
   // reads data from socket and filles task queue
   void startRead();
-  void handleRead(const boost::system::error_code&, std::size_t transferred);
+  void handleRead(boost::system::error_code const&, std::size_t transferred);
 
   // writes data form task queue to network
-  void startWrite();
-  void handleWrite(const boost::system::error_code&, std::size_t transferred);
+  void startWrite(MessageID, Request const&);
+  void handleWrite(boost::system::error_code const&, std::size_t transferred, MessageID);
 
   // TASK HANDLING /////////////////////////////////////////////////////////
 
@@ -89,6 +102,7 @@ private:
   ::boost::asio::io_service* _ioService;
   detail::ConnectionConfiguration _configuration;
   ::std::atomic_int _handlercount;
+  ::std::atomic_uint_least64_t _messageId;
   ::std::shared_ptr<::boost::asio::ip::tcp::socket> _socket;
   ::boost::asio::ssl::context _context;
   ::std::shared_ptr<::boost::asio::ssl::stream<::boost::asio::ip::tcp::socket&>> _sslSocket;
@@ -96,8 +110,10 @@ private:
   ::std::atomic_bool _stopped;
   ::boost::asio::deadline_timer _deadline;
   ::boost::asio::ip::tcp::endpoint _peer;
-  ::boost::asio::streambuf _input_buffer;
-  ::boost::asio::streambuf _output_buffer;
+  ::boost::asio::streambuf _receiveBuffer;
+  ::std::mutex _mapMutex;
+  ::std::mutex _receiveMutex;
+  ::std::map<MessageID,MapItem> _messageMap;
   //boost::posix_time::milliseconds _keepAliveTimeout;
   //boost::asio::deadline_timer _keepAliveTimer;
   //bool const _useKeepAliveTimer;

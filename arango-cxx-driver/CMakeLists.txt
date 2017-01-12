@@ -46,9 +46,6 @@ add_library(fuerte STATIC
     src/HttpCommunicator.cpp
     src/HttpConnection.cpp
     src/VstConnection.cpp
-    src/asio/Socket.cpp
-    src/asio/SocketTcp.cpp
-    src/asio/SocketUnixDomain.cpp
     src/asio/asio.cpp
     src/collection.cpp
     src/connection.cpp

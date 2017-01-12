@@ -6,6 +6,8 @@
 #include <stdexcept>
 #include <unordered_map>
 
+#include <fuerte/message.h>
+
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
 class IncompleteMessage;
@@ -14,6 +16,10 @@ using MessageMap = std::unordered_map<MessageID, IncompleteMessage>;
 
 static size_t const bufferLength = 4096UL;
 static size_t const chunkMaxBytes = 1000UL;
+
+
+std::shared_ptr<VBuffer> toNetwork(Request const&);
+inline boost::optional<Message> fromNetwork(NetBuffer const&){ return boost::none; };
 
 //vst protocol header
 struct Header {
@@ -56,12 +62,12 @@ struct IncompleteMessage {
 Header readVstHeader(uint8_t const * const bufferBegin, ReadBufferInfo& info);
 
 std::size_t isChunkComplete(uint8_t const* start, std::size_t length, ReadBufferInfo& info);
-std::size_t isChunkComplete(uint8_t const* start, uint8_t const* end, ReadBufferInfo& info) {
+inline std::size_t isChunkComplete(uint8_t const* start, uint8_t const* end, ReadBufferInfo& info) {
   return isChunkComplete(start, std::distance(start, end), info);
 }
 
 std::size_t validateAndCount(uint8_t const* vpHeaderStart, uint8_t const* vpEnd);
-std::size_t validateAndCount(uint8_t const* vpHeaderStart, std::size_t len){
+inline std::size_t validateAndCount(uint8_t const* vpHeaderStart, std::size_t len){
   return validateAndCount(vpHeaderStart, vpHeaderStart + len);
 }
 

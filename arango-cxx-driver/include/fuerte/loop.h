@@ -4,6 +4,7 @@
 #define ARANGO_CXX_DRIVER_SERVER
 
 #include <boost/asio/io_service.hpp>
+#include <boost/asio/connect.hpp>
 
 //#include "asio.h"
 
