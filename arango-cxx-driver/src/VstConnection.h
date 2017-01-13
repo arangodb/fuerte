@@ -74,8 +74,10 @@ public:
 
 private:
   // SOCKET HANDLING /////////////////////////////////////////////////////////
-  void init_socket();
-  void shutdown_socket();
+  void initSocket(boost::asio::ip::tcp::resolver::iterator);
+  void shutdownSocket();
+  void shutdownConnection();
+  void restartConnection();
 
   //handler to be posted to loop
   //this handler call their handle counterpart on completeion
@@ -104,6 +106,7 @@ private:
   std::shared_ptr<asio::Loop> _asioLoop;
   ::boost::asio::io_service* _ioService;
   detail::ConnectionConfiguration _configuration;
+  ::boost::asio::ip::tcp::resolver::iterator _endpoints;
   ::std::atomic_int _handlercount;
   ::std::atomic_uint_least64_t _messageId;
   ::std::shared_ptr<::boost::asio::ip::tcp::socket> _socket;

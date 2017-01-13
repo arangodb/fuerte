@@ -66,6 +66,7 @@ void VstConnection::sendRequest(std::unique_ptr<Request> request,
     doWrite = _sendQueue.empty();
     _sendQueue.push_back(item);
   }
+
   if(doWrite){
     auto self = shared_from_this();
     // this allows sendRequest to return immediatly and
@@ -120,18 +121,20 @@ VstConnection::VstConnection(ConnectionConfiguration configuration)
     , _deadline(*_ioService)
 {
     bt::resolver resolver(*_ioService);
-    auto endpoint_iterator = resolver.resolve({configuration._host,configuration._port});
-    startConnect(endpoint_iterator);
+    _endpoints = resolver.resolve({configuration._host,configuration._port});
+    // check if endpoints are empty - and throw TODO
+    initSocket(_endpoints);
 }
 
-void VstConnection::init_socket(){
+void VstConnection::initSocket(bt::resolver::iterator endpoints){
   _pleaseStop = false;
   _socket.reset(new bt::socket(*_ioService));
   _sslSocket.reset(new bs::stream<bt::socket&>(*_socket, _context));
   _stopped = false;
+  startConnect(endpoints);
 }
 
-void VstConnection::shutdown_socket(){
+void VstConnection::shutdownSocket(){
   _pleaseStop = true;
   _deadline.cancel();
   while(true){
@@ -141,13 +144,31 @@ void VstConnection::shutdown_socket(){
   }
   _sslSocket->shutdown();
   _socket->shutdown(bt::socket::shutdown_both);
-  //_socket->close(); will be closed on deconstruction
 
   //delete requests in flight
   //reset streams
   _stopped = true; // create a timer that periodically checks this variable
                    // and reinitalises the loop - this way we avoid deeper stacks
-  init_socket();   // replace this call with the help of _stopped variable as described above
+
+  //_socket->close(); will be closed on deconstruction
+  _socket->close();
+}
+
+void VstConnection::shutdownConnection(){
+  shutdownSocket();
+
+  Lock mapLock(_mapMutex);
+  for(auto& item : _messageMap){
+    // answer requests TODO
+    item.second->_onError(100,std::move(item.second->_request),nullptr);
+  }
+  _messageMap.clear();
+
+}
+
+void VstConnection::restartConnection(){
+  shutdownConnection();
+  initSocket(_endpoints);
 }
 
 void VstConnection::startConnect(bt::resolver::iterator endpointItr){
@@ -163,18 +184,16 @@ void VstConnection::startConnect(bt::resolver::iterator endpointItr){
     auto self = shared_from_this();
     ba::async_connect(*_socket
                      ,endpointItr
-                     ,[this,self](boost::system::error_code const& error, bt::resolver::iterator endpointItr){
+                     ,[this,self](BoostEC const& error, bt::resolver::iterator endpointItr){
                         handleConnect(error,endpointItr);
                       }
                      );
-  } else {
-    // There are no more endpoints to try. Shut down the client.
-    shutdown_socket();
   }
 }
 
-void VstConnection::handleConnect(boost::system::error_code const& error, bt::resolver::iterator endpointItr){
+void VstConnection::handleConnect(BoostEC const& error, bt::resolver::iterator endpointItr){
   assert(_handlercount);
+  --_handlercount;
   if(!error){
     //if success - start async handshake
     if(_configuration._ssl){
@@ -189,13 +208,11 @@ void VstConnection::handleConnect(boost::system::error_code const& error, bt::re
     //so we need to check for the end endpoint
 
     //if (endpointItr != boost::asio::ip::tcp::resolver::iterator()){
-      // There are no more endpoints to try. Shut down the client.
-      --_handlercount;
-      shutdown_socket();
-      return;
+    // There are no more endpoints to try. Shut down the client.
+    shutdownSocket();
+    return;
     //}
   }
-  --_handlercount;
 }
 
 
@@ -205,8 +222,8 @@ void VstConnection::startHandshake(){
 
 void VstConnection::handleHandshake(){
   assert(_handlercount);
-  startRead();
   --_handlercount;
+  startRead();
 }
 
 void VstConnection::startRead(){
@@ -217,8 +234,8 @@ void VstConnection::startRead(){
   // gets data from network and fill
   _deadline.expires_from_now(boost::posix_time::seconds(30));
 
-  ++_handlercount;
   auto self = shared_from_this();
+  ++_handlercount;
   ba::async_read(*_socket
                 ,_receiveBuffer
                 ,[this,self](const boost::system::error_code& error, std::size_t transferred){
@@ -229,12 +246,12 @@ void VstConnection::startRead(){
 
 void VstConnection::handleRead(const boost::system::error_code& error, std::size_t transferred){
   assert(_handlercount);
+  --_handlercount;
   // get data form receive buffer
   // remove data from buffer
   startRead(); //start next read -- no locking required
   // create message from data
   // call callback
-  --_handlercount;
 }
 
 void VstConnection::startWrite(){
@@ -242,57 +259,60 @@ void VstConnection::startWrite(){
     return;
   }
 
-  while(true){
-    assert(!_sendQueue.empty()); //the queue can not be empty
-    // no lock required here to accesse the first element as it can not change
-    // front will be only modified at the end of this function
-    auto next = _sendQueue.front();
-    {
-      Lock mapLock(_mapMutex);
-      _messageMap.emplace(next->_messageId,next);
-    }
-
-    // make sure we are connected and handshake has been done
-    auto self = shared_from_this();
-    auto data = vst::toNetwork(*next->_request);
-    ++_handlercount;
-    ba::async_write(*_socket
-                   ,ba::buffer(data->data(),data->byteSize())
-                   ,[this,self,next,data](const boost::system::error_code& error, std::size_t transferred){
-                      handleWrite(error,transferred, next);
-                    }
-                   );
-
-    // remove item when work is done;
-    // so the queue does not get empty in between wich could
-    // trigger another parallel wirte that is not allowed
-    // the caller of async_write has to make sure that there
-    // are no parallel calls
-    Lock sendQueueLock(_sendQueueMutex);
-    _sendQueue.pop_front();
-    if(_sendQueue.empty()){
-      break;
-    }
+  assert(!_sendQueue.empty()); //the queue can not be empty
+  // no lock required here to accesse the first element as it can not change
+  // front will be only modified at the end of this function
+  auto next = _sendQueue.front();
+  {
+    Lock mapLock(_mapMutex);
+    _messageMap.emplace(next->_messageId,next);
   }
 
+  // make sure we are connected and handshake has been done
+  auto self = shared_from_this();
+  auto data = vst::toNetwork(*next->_request);
+  ++_handlercount;
+  ba::async_write(*_socket
+                 ,ba::buffer(data->data(),data->byteSize())
+                 ,[this,self,next,data](BoostEC const& error, std::size_t transferred){
+                    handleWrite(error,transferred, next);
+                  }
+                 );
 }
 
-void VstConnection::handleWrite(const boost::system::error_code& error, std::size_t transferred, SendItemSP item){
+void VstConnection::handleWrite(BoostEC const& error, std::size_t transferred, SendItemSP item){
   assert(_handlercount);
+  --_handlercount;
+
   if (error){
+    _pleaseStop = true; //stop reading as well
     {
       Lock lock(_mapMutex);
-      //remove message form map of messages to receive
       _messageMap.erase(item->_messageId);
     }
-    --_handlercount;
+
+    //let user know that this message caused the error
     item->_onError(100,std::move(item->_request),nullptr);
-    // connection error?
-    // shutdown
-    // restart
+
+    restartConnection();
+
+    // pop at the very end of error handling so nothing else
+    // gets queued in the io_service
+    Lock sendQueueLock(_sendQueueMutex);
+    _sendQueue.pop_front();
     return;
   }
   //everything is ok
-  --_handlercount;
+  // remove item when work is done;
+  // so the queue does not get empty in between wich could
+  // trigger another parallel wirte that is not allowed
+  // the caller of async_write has to make sure that there
+  // are no parallel calls
+  {
+    Lock sendQueueLock(_sendQueueMutex);
+    _sendQueue.pop_front();
+    if(_sendQueue.empty()){ return; }
+  }
+  startWrite();
 }
 }}}}
