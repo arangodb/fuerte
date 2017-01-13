@@ -45,8 +45,8 @@ namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
 class VstConnection : public std::enable_shared_from_this<VstConnection>, public ConnectionInterface {
 public:
-  //using RequestUP = std::unique_ptr<Request>;
-  //using ResponseUP = std::unique_ptr<Request>;
+  //using RequestUP = std::unique_ptr<Request>;   // this should work
+  //using ResponseUP = std::unique_ptr<Request>;  // maybe some gcc 4.9 bug
   typedef std::unique_ptr<Request> RequestUP;
   typedef std::unique_ptr<Response> ResponseUP;
   using Lock = std::lock_guard<std::mutex>;

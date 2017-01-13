@@ -89,6 +89,9 @@ std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
       mutex.unlock();
       conditionVar.notify_one();
     };
+
+    LoopProvider::getProvider();
+
     auto onSuccess  = [&](RequestUP request, ResponseUP response){
       rv = std::move(response);
       done = true;
@@ -107,7 +110,7 @@ std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
 //client connection
 VstConnection::VstConnection(ConnectionConfiguration configuration)
     : _asioLoop(LoopProvider::getProvider().getAsioLoop())
-    , _ioService(_asioLoop->getIoService())
+    , _ioService(reinterpret_cast<ba::io_service*>(LoopProvider::getProvider().getAsioIoService()))
     , _socket(nullptr)
     , _context(bs::context::method::sslv23)
     , _sslSocket(nullptr)

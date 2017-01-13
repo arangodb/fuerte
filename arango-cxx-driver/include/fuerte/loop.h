@@ -30,29 +30,30 @@ public:
     return provider;
   }
 
-  std::shared_ptr<asio::Loop> getAsioLoop(){
-    _sealed = true;
-    return _asioLoop;
-  }
+  std::shared_ptr<asio::Loop> getAsioLoop();
 
   std::shared_ptr<http::HttpCommunicator> getHttpLoop(){
     return _httpLoop;
   }
 
+  bool runAsio();
+  void stopAsio();
+  void pollAsio();
+
+  void poll();
+
   //the serive will not be owned by the LoopProvider
-  void setAsioLoop(::boost::asio::io_service*);
-  void setAsioLoopTakeOwnership(::boost::asio::io_service*);
+  void setAsioService(::boost::asio::io_service*, bool running);
+  void setAsioServiceTakeOwnership(::boost::asio::io_service*, bool running);
+  void* getAsioIoService();
 
 
 private:
   std::shared_ptr<asio::Loop> _asioLoop;
   std::shared_ptr<http::HttpCommunicator> _httpLoop;
-  bool _sealed;
-
 };
 
-void runHttpLoopInThisThread();
-
+inline void poll(){ LoopProvider::getProvider().poll(); };
 
 }}}
 #endif
