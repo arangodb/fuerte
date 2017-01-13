@@ -45,8 +45,10 @@ namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
 class VstConnection : public std::enable_shared_from_this<VstConnection>, public ConnectionInterface {
 public:
-  using RequestUP = std::unique_ptr<Request>;
-  using ResponseUP = std::unique_ptr<Request>;
+  //using RequestUP = std::unique_ptr<Request>;
+  //using ResponseUP = std::unique_ptr<Request>;
+  typedef std::unique_ptr<Request> RequestUP;
+  typedef std::unique_ptr<Response> ResponseUP;
   using Lock = std::lock_guard<std::mutex>;
 
   struct SendItem {
@@ -68,9 +70,7 @@ public:
                   ,OnErrorCallback
                   ,OnSuccessCallback) override;
 
-  std::unique_ptr<Response> sendRequest(std::unique_ptr<Request>) override {
-    return std::unique_ptr<Response>(nullptr);
-  }
+  std::unique_ptr<Response> sendRequest(std::unique_ptr<Request>) override;
 
 private:
   // SOCKET HANDLING /////////////////////////////////////////////////////////

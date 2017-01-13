@@ -23,6 +23,7 @@
 
 #include "VstConnection.h"
 #include "helper.h"
+#include <condition_variable>
 #include <fuerte/loop.h>
 #include <fuerte/vst.h>
 #include <fuerte/message.h>
@@ -58,31 +59,48 @@ void VstConnection::sendRequest(std::unique_ptr<Request> request,
   item->_onSuccess = onSuccess;
   item->_request = std::move(request);
 
-  Lock lockQueue(_sendQueueMutex);
-  auto doWrite = _sendQueue.empty();
-  _sendQueue.push_back(item);
-  if(doWrite){
-    startWrite();
+  //start Write may be only entered once!
+  bool doWrite;
+  {
+    Lock lockQueue(_sendQueueMutex);
+    doWrite = _sendQueue.empty();
+    _sendQueue.push_back(item);
   }
+  if(doWrite){
+    auto self = shared_from_this();
+    // this allows sendRequest to return immediatly and
+    // not to block until all writing is done
+    _ioService->post( [this,self](){ startWrite(); } );
+  }
+}
 
+std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
+    // TODO - we expect the loop to be runniung even for sync requests
+    // maybe we could call poll on the ioservice in this function if
+    // it is not running.
+    std::mutex mutex;
+    std::condition_variable conditionVar;
+    bool done = false;
 
+    auto rv = std::unique_ptr<Response>(nullptr);
+    auto onError  = [&](::arangodb::fuerte::v1::Error error, RequestUP request, ResponseUP response){
+      rv = std::move(response);
+      done = true;
+      mutex.unlock();
+      conditionVar.notify_one();
+    };
+    auto onSuccess  = [&](RequestUP request, ResponseUP response){
+      rv = std::move(response);
+      done = true;
+      mutex.unlock();
+      conditionVar.notify_one();
+    };
 
-  //std::pair<std::map<MessageID,SendItem>::iterator,bool> insert;
-  //{
-  //  Lock lock(_mapMutex);
-  //  insert = _messageMap.emplace(_messageId ,std::move(item));
-  //}
-
-  //if(!insert.second){
-  //  onError(100,std::move(request),nullptr); //errors
-  //  return;
-  //}
-  //MapItem& itemRef = insert.first->second;
-
-
-
-  //startWrite(_messageId, *itemRef._request);
-
+    {
+      std::unique_lock<std::mutex> lock(mutex);
+      conditionVar.wait(lock, [&]{ return done; });
+    }
+    return std::move(rv);
 }
 
 
@@ -222,7 +240,9 @@ void VstConnection::startWrite(){
   }
 
   while(true){
-    //no lock required here
+    assert(!_sendQueue.empty()); //the queue can not be empty
+    // no lock required here to accesse the first element as it can not change
+    // front will be only modified at the end of this function
     auto next = _sendQueue.front();
     {
       Lock mapLock(_mapMutex);
