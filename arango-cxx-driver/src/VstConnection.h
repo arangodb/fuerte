@@ -34,6 +34,7 @@
 #include <boost/asio/streambuf.hpp>
 #include <boost/asio/ssl.hpp>
 #include <map>
+#include <deque>
 #include <fuerte/vst.h>
 
 
@@ -44,17 +45,19 @@ namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
 class VstConnection : public std::enable_shared_from_this<VstConnection>, public ConnectionInterface {
 public:
-  using QRequest = std::unique_ptr<Request>;
-  using QResponse = std::unique_ptr<Request>;
+  using RequestUP = std::unique_ptr<Request>;
+  using ResponseUP = std::unique_ptr<Request>;
   using Lock = std::lock_guard<std::mutex>;
 
-  struct MapItem {
+  struct SendItem {
     std::unique_ptr<Request> _request;
     std::unique_ptr<Response> _response;
     OnErrorCallback _onError;
     OnSuccessCallback _onSuccess;
     MessageID _messageId;
   };
+
+  using SendItemSP = std::shared_ptr<SendItem>;
 
   VstConnection(detail::ConnectionConfiguration);
 
@@ -90,8 +93,8 @@ private:
   void handleRead(boost::system::error_code const&, std::size_t transferred);
 
   // writes data form task queue to network
-  void startWrite(MessageID, Request const&);
-  void handleWrite(boost::system::error_code const&, std::size_t transferred, MessageID);
+  void startWrite();
+  void handleWrite(boost::system::error_code const&, std::size_t transferred, SendItemSP);
 
   // TASK HANDLING /////////////////////////////////////////////////////////
 
@@ -111,9 +114,10 @@ private:
   ::boost::asio::deadline_timer _deadline;
   ::boost::asio::ip::tcp::endpoint _peer;
   ::boost::asio::streambuf _receiveBuffer;
+  ::std::mutex _sendQueueMutex;
+  ::std::deque<SendItemSP> _sendQueue;
   ::std::mutex _mapMutex;
-  ::std::mutex _receiveMutex;
-  ::std::map<MessageID,MapItem> _messageMap;
+  ::std::map<MessageID,SendItemSP> _messageMap;
   //boost::posix_time::milliseconds _keepAliveTimeout;
   //boost::asio::deadline_timer _keepAliveTimer;
   //bool const _useKeepAliveTimer;

@@ -41,6 +41,7 @@ namespace ba = ::boost::asio;
 namespace bs = ::boost::asio::ssl;
 using bt = ::boost::asio::ip::tcp;
 using be = ::boost::asio::ip::tcp::endpoint;
+using BoostEC = ::boost::system::error_code;
 
 using namespace std::placeholders;
 
@@ -50,28 +51,37 @@ void VstConnection::sendRequest(std::unique_ptr<Request> request,
 
   //check if id is already used and fail
   request->messageid = ++_messageId;
-  MapItem item;
+  auto item = std::make_shared<SendItem>();
 
+  item->_messageId = _messageId;
+  item->_onError = onError;
+  item->_onSuccess = onSuccess;
+  item->_request = std::move(request);
 
-  std::pair<std::map<MessageID,MapItem>::iterator,bool> insert;
-  {
-    Lock lock(_mapMutex);
-    insert = _messageMap.emplace(_messageId ,std::move(item));
+  Lock lockQueue(_sendQueueMutex);
+  auto doWrite = _sendQueue.empty();
+  _sendQueue.push_back(item);
+  if(doWrite){
+    startWrite();
   }
 
-  if(!insert.second){
-    onError(100,std::move(request),nullptr); //errors
-    return;
-  }
-  MapItem& itemRef = insert.first->second;
-
-  itemRef._messageId = _messageId;
-  itemRef._onError = onError;
-  itemRef._onSuccess = onSuccess;
-  itemRef._request = std::move(request);
 
 
-  startWrite(_messageId, *itemRef._request);
+  //std::pair<std::map<MessageID,SendItem>::iterator,bool> insert;
+  //{
+  //  Lock lock(_mapMutex);
+  //  insert = _messageMap.emplace(_messageId ,std::move(item));
+  //}
+
+  //if(!insert.second){
+  //  onError(100,std::move(request),nullptr); //errors
+  //  return;
+  //}
+  //MapItem& itemRef = insert.first->second;
+
+
+
+  //startWrite(_messageId, *itemRef._request);
 
 }
 
@@ -206,36 +216,60 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
   --_handlercount;
 }
 
-void VstConnection::startWrite(MessageID messageId, Request const& request){
+void VstConnection::startWrite(){
   if (_pleaseStop) {
     return;
   }
-  // make sure we are connected and handshake has been done
-  auto data = vst::toNetwork(request);
-  auto self = shared_from_this();
-  ba::async_write(*_socket
-                ,ba::buffer(data->data(),data->byteSize())
-                ,[this,self,messageId,data](const boost::system::error_code& error, std::size_t transferred){
-                   handleWrite(error,transferred, messageId);
-                 }
-                );
+
+  while(true){
+    //no lock required here
+    auto next = _sendQueue.front();
+    {
+      Lock mapLock(_mapMutex);
+      _messageMap.emplace(next->_messageId,next);
+    }
+
+    // make sure we are connected and handshake has been done
+    auto self = shared_from_this();
+    auto data = vst::toNetwork(*next->_request);
+    ++_handlercount;
+    ba::async_write(*_socket
+                   ,ba::buffer(data->data(),data->byteSize())
+                   ,[this,self,next,data](const boost::system::error_code& error, std::size_t transferred){
+                      handleWrite(error,transferred, next);
+                    }
+                   );
+
+    // remove item when work is done;
+    // so the queue does not get empty in between wich could
+    // trigger another parallel wirte that is not allowed
+    // the caller of async_write has to make sure that there
+    // are no parallel calls
+    Lock sendQueueLock(_sendQueueMutex);
+    _sendQueue.pop_front();
+    if(_sendQueue.empty()){
+      break;
+    }
+  }
 
 }
 
-void VstConnection::handleWrite(const boost::system::error_code& error, std::size_t transferred, MessageID messageid){
+void VstConnection::handleWrite(const boost::system::error_code& error, std::size_t transferred, SendItemSP item){
   assert(_handlercount);
   if (error){
-    MapItem item;
     {
       Lock lock(_mapMutex);
-      item = std::move(_messageMap[messageid]);
+      //remove message form map of messages to receive
+      _messageMap.erase(item->_messageId);
     }
     --_handlercount;
-    item._onError(100,std::move(item._request),nullptr);
+    item->_onError(100,std::move(item->_request),nullptr);
+    // connection error?
     // shutdown
     // restart
     return;
   }
+  //everything is ok
   --_handlercount;
 }
 }}}}
