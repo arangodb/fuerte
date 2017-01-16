@@ -45,22 +45,6 @@ namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
 class VstConnection : public std::enable_shared_from_this<VstConnection>, public ConnectionInterface {
 public:
-  //using RequestUP = std::unique_ptr<Request>;   // this should work
-  //using ResponseUP = std::unique_ptr<Request>;  // maybe some gcc 4.9 bug
-  typedef std::unique_ptr<Request> RequestUP;
-  typedef std::unique_ptr<Response> ResponseUP;
-  using Lock = std::lock_guard<std::mutex>;
-
-  struct SendItem {
-    std::unique_ptr<Request> _request;
-    std::unique_ptr<Response> _response;
-    OnErrorCallback _onError;
-    OnSuccessCallback _onSuccess;
-    MessageID _messageId;
-  };
-
-  using SendItemSP = std::shared_ptr<SendItem>;
-
   VstConnection(detail::ConnectionConfiguration);
 
 public:
@@ -96,7 +80,7 @@ private:
 
   // writes data form task queue to network
   void startWrite();
-  void handleWrite(boost::system::error_code const&, std::size_t transferred, SendItemSP);
+  void handleWrite(boost::system::error_code const&, std::size_t transferred, std::shared_ptr<RequestItem>);
 
   // TASK HANDLING /////////////////////////////////////////////////////////
 
@@ -118,9 +102,9 @@ private:
   ::boost::asio::ip::tcp::endpoint _peer;
   ::boost::asio::streambuf _receiveBuffer;
   ::std::mutex _sendQueueMutex;
-  ::std::deque<SendItemSP> _sendQueue;
+  ::std::deque<std::shared_ptr<RequestItem>> _sendQueue;
   ::std::mutex _mapMutex;
-  ::std::map<MessageID,SendItemSP> _messageMap;
+  ::std::map<MessageID,std::shared_ptr<RequestItem>> _messageMap;
   //boost::posix_time::milliseconds _keepAliveTimeout;
   //boost::asio::deadline_timer _keepAliveTimer;
   //bool const _useKeepAliveTimer;

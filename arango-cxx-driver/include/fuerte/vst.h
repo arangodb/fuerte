@@ -7,6 +7,9 @@
 #include <unordered_map>
 
 #include <fuerte/message.h>
+namespace std {
+  class mutex;
+}
 
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
@@ -17,11 +20,9 @@ using MessageMap = std::unordered_map<MessageID, IncompleteMessage>;
 static size_t const bufferLength = 4096UL;
 static size_t const chunkMaxBytes = 1000UL;
 
+// DataStructures
 
-std::shared_ptr<VBuffer> toNetwork(Request const&);
-inline boost::optional<Message> fromNetwork(NetBuffer const&){ return boost::none; };
-
-//vst protocol header
+// Velocystream Header
 struct Header {
   std::size_t headerLength;
   uint32_t chunkLength;
@@ -45,6 +46,7 @@ struct ReadBufferInfo {
                                  // will be cleaned
   };
 
+// Incomplete Message That will be part of a RequestItem
 struct IncompleteMessage {
   IncompleteMessage(uint32_t length, std::size_t numberOfChunks)
     : length(length)
@@ -53,11 +55,31 @@ struct IncompleteMessage {
     , currentChunk(0)
     {}
 
-  uint32_t length;  // length of total message in bytes
+  uint32_t length;  // length of complete message in bytes
   VBuffer  buffer;
   std::size_t numberOfChunks;
   std::size_t currentChunk;
 };
+
+// Item that represents a Request in flight
+struct RequestItem {
+  std::unique_ptr<Request> _request;
+  OnErrorCallback _onError;
+  OnSuccessCallback _onSuccess;
+  MessageID _messageId;
+  std::shared_ptr<VBuffer> _requestBuffer;
+  std::unique_ptr<vst::IncompleteMessage> _incomplete;
+};
+
+// Functions
+
+std::shared_ptr<VBuffer> toNetwork(Request const&);
+std::unique_ptr<Response> fromNetwork( NetBuffer const&
+                                     , std::map<MessageID,std::shared_ptr<RequestItem>>& map
+                                     , std::mutex& mapMutex
+                                     , std::size_t& consumed
+                                     , bool& complete
+                                     );
 
 Header readVstHeader(uint8_t const * const bufferBegin, ReadBufferInfo& info);
 

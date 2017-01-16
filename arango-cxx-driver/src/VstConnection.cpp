@@ -43,8 +43,10 @@ namespace bs = ::boost::asio::ssl;
 using bt = ::boost::asio::ip::tcp;
 using be = ::boost::asio::ip::tcp::endpoint;
 using BoostEC = ::boost::system::error_code;
-
-using namespace std::placeholders;
+using RequestItemSP = std::shared_ptr<RequestItem>;
+using Lock = std::lock_guard<std::mutex>;
+typedef std::unique_ptr<Request> RequestUP;
+typedef std::unique_ptr<Response> ResponseUP;
 
 void VstConnection::sendRequest(std::unique_ptr<Request> request,
                                  OnErrorCallback onError,
@@ -52,11 +54,12 @@ void VstConnection::sendRequest(std::unique_ptr<Request> request,
 
   //check if id is already used and fail
   request->messageid = ++_messageId;
-  auto item = std::make_shared<SendItem>();
+  auto item = std::make_shared<RequestItem>();
 
   item->_messageId = _messageId;
   item->_onError = onError;
   item->_onSuccess = onSuccess;
+  item->_requestBuffer = vst::toNetwork(*request);
   item->_request = std::move(request);
 
   //start Write may be only entered once!
@@ -244,14 +247,39 @@ void VstConnection::startRead(){
                 );
 }
 
+template<typename T = uint8_t>
+T const* pointerFromConstBuffer(boost::asio::const_buffer& buffer){
+  return boost::asio::buffer_cast<T const*>(buffer);
+}
+
 void VstConnection::handleRead(const boost::system::error_code& error, std::size_t transferred){
   assert(_handlercount);
   --_handlercount;
-  // get data form receive buffer
-  // remove data from buffer
+  if(_pleaseStop) {
+    return;
+  }
+
+  boost::asio::const_buffer received = _receiveBuffer.data();
+  std::size_t size = boost::asio::buffer_size(received);
+  assert(transferred == size);
+  auto data = pointerFromConstBuffer(received);
+
+  {
+    auto data2 = pointerFromConstBuffer<char>(received);
+    auto vstdata = std::string(data2, size);
+  }
+
+  //auto rv = arangodb::fuerte::vst::fromNetwork(std::move(vstdata),_messageMap,_mapMutex);
+  // remove data up to end of possible chunk
+  auto chunkend = transferred;
+  _receiveBuffer.consume(chunkend); // invalidates received
+
+  // process header
+  // process - data that is incomplete
+
   startRead(); //start next read -- no locking required
-  // create message from data
-  // call callback
+
+  // process complete data here
 }
 
 void VstConnection::startWrite(){
@@ -270,17 +298,17 @@ void VstConnection::startWrite(){
 
   // make sure we are connected and handshake has been done
   auto self = shared_from_this();
-  auto data = vst::toNetwork(*next->_request);
+  auto data = *next->_requestBuffer;
   ++_handlercount;
   ba::async_write(*_socket
-                 ,ba::buffer(data->data(),data->byteSize())
+                 ,ba::buffer(data.data(),data.byteSize())
                  ,[this,self,next,data](BoostEC const& error, std::size_t transferred){
-                    handleWrite(error,transferred, next);
+                    this->handleWrite(error,transferred, next);
                   }
                  );
 }
 
-void VstConnection::handleWrite(BoostEC const& error, std::size_t transferred, SendItemSP item){
+void VstConnection::handleWrite(BoostEC const& error, std::size_t transferred, RequestItemSP item){
   assert(_handlercount);
   --_handlercount;
 
@@ -291,7 +319,7 @@ void VstConnection::handleWrite(BoostEC const& error, std::size_t transferred, S
       _messageMap.erase(item->_messageId);
     }
 
-    //let user know that this message caused the error
+    //let user know that this request caused the error
     item->_onError(100,std::move(item->_request),nullptr);
 
     restartConnection();

@@ -53,12 +53,12 @@ Message createRequest(RestVerb verb
   return request;
 }
 
-Message createResponse(unsigned code){
-  Message request;
+std::unique_ptr<Response> createResponse(unsigned code){
+  auto response = std::unique_ptr<Response>(new Response());
   //version must be set by protocol
-  request.header.type = MessageType::Response;
-  request.header.responseCode = code;
-  return request;
+  response->header.type = MessageType::Response;
+  response->header.responseCode = code;
+  return response;
 }
 
 Message fromBufferVst(uint8_t const* begin, std::size_t length){

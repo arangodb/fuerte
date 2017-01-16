@@ -40,7 +40,33 @@ std::shared_ptr<VBuffer> toNetwork(Request const& request){
   return std::move(buffer);
 }
 
-//receifing vst
+std::unique_ptr<Response> fromNetwork( NetBuffer const& indata
+                                     , std::map<MessageID,std::shared_ptr<RequestItem>>& map
+                                     , std::mutex& mapMutex
+                                     , std::size_t& consumed
+                                     , bool& complete
+                                     )
+{
+  ReadBufferInfo info;
+  auto vstheader = readVstHeader(reinterpret_cast<uint8_t const*>(indata.data()),info); //evilcast
+
+  //implement and rewrite
+  //return a complete buffer
+
+
+  complete = true;
+  consumed = indata.size();
+  auto response = createResponse(200);
+
+  VBuffer buffer;
+  VBuilder builder;
+  builder.add(VValue("this is a fake response"));
+  response->addPayload(std::move(buffer));
+
+  return std::move(response);
+};
+
+
 using VValidator = ::arangodb::velocypack::Validator;
 
 std::size_t validateAndCount(uint8_t const* vpHeaderStart

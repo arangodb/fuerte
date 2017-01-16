@@ -61,6 +61,10 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
         payload.push_back(std::move(buffer));
       }
 
+      void addPayload(VBuffer&& buffer){
+        payload.push_back(std::move(buffer));
+      }
+
       ContentType contentType(){ return header.contentType.get(); }
   };
 
@@ -84,5 +88,7 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
              {}
 
   };
+
+  std::unique_ptr<Response> createResponse(unsigned code);
 
 }}}
