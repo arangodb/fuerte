@@ -248,9 +248,11 @@ void VstConnection::startRead(){
                 );
 }
 
+// helper for turning a asio::const_buffer into a accessible form
 template<typename T = uint8_t>
-T const* pointerFromConstBuffer(boost::asio::const_buffer& buffer){
-  return boost::asio::buffer_cast<T const*>(buffer);
+std::pair<T const*, std::size_t> bufferToPointerAndSize(boost::asio::const_buffer& buffer){
+  return std::make_pair( boost::asio::buffer_cast<T const*>(buffer)
+                       , boost::asio::buffer_size(buffer));
 }
 
 void VstConnection::handleRead(const boost::system::error_code& error, std::size_t transferred){
@@ -263,24 +265,60 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
   boost::asio::const_buffer received = _receiveBuffer.data();
   std::size_t size = boost::asio::buffer_size(received);
   assert(transferred == size);
-  auto data = pointerFromConstBuffer(received);
+  auto pair = bufferToPointerAndSize(received);
+  bool processData = false;
 
-  {
-    auto data2 = pointerFromConstBuffer<char>(received);
-    auto vstdata = std::string(data2, size);
+  if (vst::isChunkComplete(pair.first, pair.second)){
+    auto vstHeader = vst::readHeaderV1_0(pair.first);
+
+    ::std::map<MessageID,std::shared_ptr<RequestItem>>::iterator found;
+    {
+      Lock lock(_mapMutex);
+      found = _messageMap.find(vstHeader.messageID);
+      if (found == _messageMap.end()) {
+        throw std::logic_error("got message with not matching request");
+      }
+    }
+
+    RequestItem& item = *(found->second);
+
+    if(vstHeader.isSingle){
+
+    }
+
+
+    // case 1 - we start a message consisting of multple chunks
+    if(vstHeader.isFirst && !vstHeader.isSingle){
+
+    }
+
+    // case 2 we continue a message that might or might not complete
+    // a previous message
+    if(!vstHeader.isFirst){
+
+    }
+
+
+    auto vpackBegin = pair.first + vstHeader.headerLength;
+    std::size_t vpackLength = pair.second - vstHeader.headerLength;
+    auto numPayloads = vst::validateAndCount(vpackBegin,vpackLength);
+
+
+
+
+    _receiveBuffer.consume(vstHeader.chunkLength); // take data from input stream for next read
+
+    // process header
+    // process - data that is incomplete
+    processData = true;
   }
 
-  //auto rv = arangodb::fuerte::vst::fromNetwork(std::move(vstdata),_messageMap,_mapMutex);
-  // remove data up to end of possible chunk
-  auto chunkend = transferred;
-  _receiveBuffer.consume(chunkend); // invalidates received
+  //start next read -- no locking required
+  startRead();
 
-  // process header
-  // process - data that is incomplete
-
-  startRead(); //start next read -- no locking required
-
-  // process complete data here
+  if(processData){
+    // process complete data here
+  }
 }
 
 void VstConnection::startWrite(){

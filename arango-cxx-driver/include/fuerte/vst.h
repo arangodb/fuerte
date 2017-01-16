@@ -15,12 +15,13 @@ namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
 class IncompleteMessage;
 using MessageID = uint64_t;
-using MessageMap = std::unordered_map<MessageID, IncompleteMessage>;
 
 static size_t const bufferLength = 4096UL;
 static size_t const chunkMaxBytes = 1000UL;
 
+/////////////////////////////////////////////////////////////////////////////////////
 // DataStructures
+/////////////////////////////////////////////////////////////////////////////////////
 
 // Velocystream Header
 struct Header {
@@ -30,6 +31,7 @@ struct Header {
   uint64_t messageID;
   uint64_t messageLength;
   bool isFirst;
+  bool isSingle;
 };
 
 struct ReadBufferInfo {
@@ -71,9 +73,25 @@ struct RequestItem {
   std::unique_ptr<vst::IncompleteMessage> _incomplete;
 };
 
-// Functions
+/////////////////////////////////////////////////////////////////////////////////////
+// send vst
+/////////////////////////////////////////////////////////////////////////////////////
 
 std::shared_ptr<VBuffer> toNetwork(Request const&);
+/////////////////////////////////////////////////////////////////////////////////////
+// send vst
+/////////////////////////////////////////////////////////////////////////////////////
+
+// find out if data between begin and end assembles a complete
+// Velocystream chunk. If so return offset to chunk end or 0 if chunk is not complete
+std::size_t isChunkComplete(uint8_t const * const begin, std::size_t const length);
+
+// If there is a complete VstChunk you can use this function to read the header
+// a version 1.0 Header into a datasructure
+Header readHeaderV1_0(uint8_t const * const bufferBegin);
+
+std::size_t validateAndCount(uint8_t const* vpHeaderStart, std::size_t len);
+
 std::unique_ptr<Response> fromNetwork( NetBuffer const&
                                      , std::map<MessageID,std::shared_ptr<RequestItem>>& map
                                      , std::mutex& mapMutex
@@ -81,17 +99,21 @@ std::unique_ptr<Response> fromNetwork( NetBuffer const&
                                      , bool& complete
                                      );
 
-Header readVstHeader(uint8_t const * const bufferBegin, ReadBufferInfo& info);
 
-std::size_t isChunkComplete(uint8_t const* start, std::size_t length, ReadBufferInfo& info);
-inline std::size_t isChunkComplete(uint8_t const* start, uint8_t const* end, ReadBufferInfo& info) {
-  return isChunkComplete(start, std::distance(start, end), info);
-}
 
-std::size_t validateAndCount(uint8_t const* vpHeaderStart, uint8_t const* vpEnd);
-inline std::size_t validateAndCount(uint8_t const* vpHeaderStart, std::size_t len){
-  return validateAndCount(vpHeaderStart, vpHeaderStart + len);
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 //template <typename T>
 //std::size_t appendToBuffer(basics::StringBuffer* buffer, T& value) {

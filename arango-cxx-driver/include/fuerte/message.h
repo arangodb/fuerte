@@ -52,18 +52,7 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
              {}
       MessageHeader header;
       mapss headerStrings;
-      std::vector<VBuffer> payload;
       uint64_t messageid; //generate by some singleton
-
-      void addPayload(VSlice const& slice){
-        VBuffer buffer;
-        buffer.append(slice.start(), slice.byteSize());
-        payload.push_back(std::move(buffer));
-      }
-
-      void addPayload(VBuffer&& buffer){
-        payload.push_back(std::move(buffer));
-      }
 
       ContentType contentType(){ return header.contentType.get(); }
   };
@@ -78,14 +67,105 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
              ,mapss const& headerStrings
              ): Message(messageHeader, headerStrings)
              {}
+
   };
 
   class Response : public Message {
     public:
       Response(MessageHeader&& messageHeader = MessageHeader()
-             ,mapss&& headerStrings = mapss()
-             ): Message(std::move(messageHeader), std::move(headerStrings))
-             {}
+              ,mapss&& headerStrings = mapss()
+              )
+              :Message(std::move(messageHeader), std::move(headerStrings))
+              ,_sealed(false)
+              ,_modified(true)
+              ,_isVpack(boost::none)
+              ,_builder(nullptr)
+              {}
+
+      // add VelocyPackData
+      void addVPack(VSlice const& slice){
+        if(_sealed || (_isVpack && !_isVpack.get())){
+          throw std::logic_error("usage")
+        };
+        _isVpack=true;
+        _modified = true;
+        _builder->add(slice);
+        // add slice to _slices
+
+      }
+      void addVPack(VBuffer const& buffer){
+        if(_sealed || (_isVpack && !_isVpack.get())){ return; };
+        auto length = buffer.byteSize();
+        auto cursor = buffer.data();
+
+        if(!_builder){
+          _builder = std::make_shared<VBuilder>(_payload);
+        }
+
+        while(length){
+          VSlice slice(cursor);
+          _builder->add(slice);
+          addVPack(slice);
+          cursor += slice.byteSize();
+          length -= slice.byteSize();
+        }
+      }
+
+      void addVPack(VBuffer&& buffer){
+        if(_sealed || _isVpack){ return; };
+        _isVpack = true;
+        _sealed = true;
+        _modified = true;
+        _payload = std::move(buffer);
+      }
+
+      // add binary data
+
+      void addBinary(uint8_t* data, std::size_t length){
+        if(_sealed || (_isVpack && _isVpack.get())){ return; };
+        _isVpack = false;
+        _modified = true;
+        if(!_builder){
+          _builder = std::make_shared<VBuilder>(_payload);
+        }
+      }
+
+      void addBinarySingle(VBuffer&& buffer){
+        if(_sealed || (_isVpack && _isVpack.get())){ return; };
+        _isVpack = false;
+        _sealed = true;
+        _modified = true;
+        _payload = std::move(buffer);
+      }
+
+
+      // get payload as slices
+      std::vector<VSlice>const & slices(){
+        if(_isVpack && _modified){
+          _slices.clear();
+          auto length = _payload.byteSize();
+          auto cursor = _payload.data();
+          while(length){
+            _slices.emplace_back(cursor);
+            cursor += _slices.back().byteSize();
+            length -= _slices.back().byteSize();
+          }
+        }
+        return _slices;
+      }
+
+      //get payload as binary
+      std::pair<uint8_t const *, std::size_t> payload(){
+        return { _payload.data(), _payload.byteSize() };
+      }
+
+    private:
+      VBuffer _payload;
+      bool _sealed;
+      bool _modified;
+      ::boost::optional<bool> _isVpack;
+      std::shared_ptr<VBuilder> _builder;
+      std::vector<VSlice> _slices;
 
   };
 

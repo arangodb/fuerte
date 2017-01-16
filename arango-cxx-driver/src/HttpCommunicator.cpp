@@ -281,7 +281,7 @@ void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
         VBuffer buffer;
         VBuilder builder(buffer);
         builder.add(VValue(responseBody));
-        response->payload.push_back(std::move(buffer));
+        response->addPayloadBinarySingle(std::move(buffer));
         break;
       }
 
@@ -290,7 +290,8 @@ void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
         auto builder = std::make_shared<VBuilder>(buffer);
         ::arangodb::velocypack::Parser parser(builder);
         parser.parse(responseBody);
-        response->payload.push_back(std::move(buffer));
+        response->addPayloadBinarySingle(std::move(buffer));
+
         break;
       }
 
@@ -299,7 +300,7 @@ void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
         VBuffer buffer;
         VBuilder builder(buffer);
         builder.add(slice);
-        response->payload.push_back(std::move(buffer));
+        response->addVPack(std::move(buffer));
 
         break;
       }
