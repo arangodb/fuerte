@@ -44,16 +44,45 @@
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
 class VstConnection : public std::enable_shared_from_this<VstConnection>, public ConnectionInterface {
+
+// Connection object that handles sending and receiving of Velocystream
+// Messages.
+//
+// A VstConnection tries to create a connection to one of the given peers on a
+// a socket. Then it tries to do an asyncronous ssl handshake. When the
+// handshake is done it starts the async read loop on the socket. And tries a
+// first write.
+//
+// The startRead function uses the function handleRead as handler for the
+// async_read on the socket. This handler calls start Read as soon it has taken
+// all relevant data from the socket. so The loop runs until the vstConnection
+// is stopped.
+//
+// startWrite will be Triggered after establishing a connection or when new
+// data has been queued for sending. Then startWrite and handleWrite call each
+// other in the same way as startRead / handleRead but stop doing so as soon as
+// the writeQueue is empty.
+//
+
 public:
   VstConnection(detail::ConnectionConfiguration);
 
 public:
   void start() override {}
 
+  // this function prepares the request for sending
+  // by creating a RequestItem and setting:
+  //  - a messageid
+  //  - the buffer to be send
+  // this item is then moved to the request queue
+  // and a write action is triggerd when there is
+  // no other write in progress
   MessageID sendRequest(std::unique_ptr<Request>
                   ,OnErrorCallback
                   ,OnSuccessCallback) override;
 
+  // syncronous operation for sending Requests implemented using the the
+  // asyncronous operation and a condition variable
   std::unique_ptr<Response> sendRequest(std::unique_ptr<Request>) override;
 
 private:
@@ -74,17 +103,17 @@ private:
   void startHandshake();
   void handleHandshake();
 
-  // reads data from socket and filles task queue
+  // reads data from socket with boost::asio::async_read
   void startRead();
+  // handler for boost::asio::async_read that extracs chunks form the network
+  // takes complete chunks form the socket and starts a new read action. After
+  // triggering the next read it processes the received data.
   void handleRead(boost::system::error_code const&, std::size_t transferred);
 
-  // writes data form task queue to network
+  // writes data form task queue to network using boost::asio::async_write
   void startWrite();
+  // handler for boost::asio::async_wirte that calls startWrite as long as there is new data
   void handleWrite(boost::system::error_code const&, std::size_t transferred, std::shared_ptr<RequestItem>);
-
-  // TASK HANDLING /////////////////////////////////////////////////////////
-
-  // TO BE CREATED
 
 private:
   std::shared_ptr<asio::Loop> _asioLoop;
@@ -105,11 +134,7 @@ private:
   ::std::deque<std::shared_ptr<RequestItem>> _sendQueue;
   ::std::mutex _mapMutex;
   ::std::map<MessageID,std::shared_ptr<RequestItem>> _messageMap;
-  //boost::posix_time::milliseconds _keepAliveTimeout;
-  //boost::asio::deadline_timer _keepAliveTimer;
-  //bool const _useKeepAliveTimer;
-  //bool _keepAliveTimerActive;
-
+  ::std::atomic_bool _connected;
 };
 
 }}}}
