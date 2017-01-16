@@ -95,7 +95,6 @@ std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
       conditionVar.notify_one();
     };
 
-
     auto onSuccess  = [&](RequestUP request, ResponseUP response){
       rv = std::move(response);
       done = true;
@@ -103,7 +102,8 @@ std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
       conditionVar.notify_one();
     };
 
-    LoopProvider::getProvider(); //poll loop here if loop is not running
+    sendRequest(std::move(request),onError,onSuccess);
+    LoopProvider::getProvider().pollAsio(); //REVIEW
 
     {
       //wait for handler to call notify_one
