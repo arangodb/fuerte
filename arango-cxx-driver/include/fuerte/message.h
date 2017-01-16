@@ -42,6 +42,10 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
              )
              :header(std::move(messageHeader))
              ,headerStrings(std::move(headerStrings))
+             ,_sealed(false)
+             ,_modified(true)
+             ,_isVpack(boost::none)
+             ,_builder(nullptr)
              {}
 
       Message(MessageHeader const& messageHeader
@@ -49,44 +53,30 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
              )
              :header(messageHeader)
              ,headerStrings(headerStrings)
+             ,_sealed(false)
+             ,_modified(true)
+             ,_isVpack(boost::none)
+             ,_builder(nullptr)
              {}
+
       MessageHeader header;
       mapss headerStrings;
       uint64_t messageid; //generate by some singleton
 
-      ContentType contentType(){ return header.contentType.get(); }
-  };
-
-  class Request : public Message {
-    public:
-      Request(MessageHeader&& messageHeader = MessageHeader()
-             ,mapss&& headerStrings = mapss()
-             ): Message(std::move(messageHeader), std::move(headerStrings))
-             {}
-      Request(MessageHeader const& messageHeader
-             ,mapss const& headerStrings
-             ): Message(messageHeader, headerStrings)
-             {}
-
-  };
-
-  class Response : public Message {
-    public:
-      Response(MessageHeader&& messageHeader = MessageHeader()
-              ,mapss&& headerStrings = mapss()
-              )
-              :Message(std::move(messageHeader), std::move(headerStrings))
-              ,_sealed(false)
-              ,_modified(true)
-              ,_isVpack(boost::none)
-              ,_builder(nullptr)
-              {}
+      ///////////////////////////////////////////////
+      // add payload
+      ///////////////////////////////////////////////
 
       // add VelocyPackData
       void addVPack(VSlice const& slice){
         if(_sealed || (_isVpack && !_isVpack.get())){
-          throw std::logic_error("usage")
+          throw std::logic_error("Message is sealed or of wrong type (vst/binary)");
         };
+
+        if(!_builder){
+          _builder = std::make_shared<VBuilder>(_payload);
+        }
+
         _isVpack=true;
         _modified = true;
         _builder->add(slice);
@@ -94,7 +84,9 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
 
       }
       void addVPack(VBuffer const& buffer){
-        if(_sealed || (_isVpack && !_isVpack.get())){ return; };
+        if(_sealed || (_isVpack && !_isVpack.get())){
+          throw std::logic_error("Message is sealed or of wrong type (vst/binary)");
+        };
         auto length = buffer.byteSize();
         auto cursor = buffer.data();
 
@@ -112,7 +104,9 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
       }
 
       void addVPack(VBuffer&& buffer){
-        if(_sealed || _isVpack){ return; };
+        if(_sealed || _isVpack){
+          throw std::logic_error("Message is sealed or of wrong type (vst/binary)");
+        };
         _isVpack = true;
         _sealed = true;
         _modified = true;
@@ -138,6 +132,9 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
         _payload = std::move(buffer);
       }
 
+      ///////////////////////////////////////////////
+      // get payload
+      ///////////////////////////////////////////////
 
       // get payload as slices
       std::vector<VSlice>const & slices(){
@@ -159,6 +156,8 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
         return { _payload.data(), _payload.byteSize() };
       }
 
+      ContentType contentType(){ return header.contentType.get(); }
+
     private:
       VBuffer _payload;
       bool _sealed;
@@ -166,6 +165,30 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
       ::boost::optional<bool> _isVpack;
       std::shared_ptr<VBuilder> _builder;
       std::vector<VSlice> _slices;
+
+  };
+
+  class Request : public Message {
+    public:
+      Request(MessageHeader&& messageHeader = MessageHeader()
+             ,mapss&& headerStrings = mapss()
+             ): Message(std::move(messageHeader), std::move(headerStrings))
+             {}
+      Request(MessageHeader const& messageHeader
+             ,mapss const& headerStrings
+             ): Message(messageHeader, headerStrings)
+             {}
+
+  };
+
+  class Response : public Message {
+    public:
+      Response(MessageHeader&& messageHeader = MessageHeader()
+              ,mapss&& headerStrings = mapss()
+              )
+              :Message(std::move(messageHeader), std::move(headerStrings))
+              {}
+
 
   };
 

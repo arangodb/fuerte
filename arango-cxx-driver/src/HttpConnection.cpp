@@ -56,9 +56,10 @@ MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request,
     }
   }
   #warning TODO authentication
+  auto id = request->messageid;
   _communicator->queueRequest(destination, std::move(request), callbacks);
+  return id;
   //create usefulid
-  return request->messageid;
 }
 }
 }

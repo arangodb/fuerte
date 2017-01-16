@@ -138,8 +138,8 @@ int main(int argc, char* argv[]) {
                         std::unique_ptr<Response> response) {
     std::cout << "--------------------------------------------------------------------------" << std::endl;
     std::cout << "received result:\n"
-              << arangodb::fuerte::payloadToString(request->payload, std::string("request"))
-              << arangodb::fuerte::payloadToString(response->payload, std::string("response"))
+              << arangodb::fuerte::payloadToString(request->slices(), std::string("request"))
+              << arangodb::fuerte::payloadToString(response->slices(), std::string("response"))
               << std::endl;
   };
 
@@ -147,7 +147,7 @@ int main(int argc, char* argv[]) {
                         std::unique_ptr<Response> response) {
     std::cout << "--------------------------------------------------------------------------" << std::endl;
     std::cout << "received error: " << err << std::endl
-              << arangodb::fuerte::payloadToString(request->payload, std::string("request"))
+              << arangodb::fuerte::payloadToString(request->slices(), std::string("request"))
               << std::endl;
   };
 

@@ -45,25 +45,12 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
   createRequest(RestVerb verb
                ,std::string const& path
                ,mapss const& parameter
-               ,std::vector<VBuffer>&& payload = std::vector<VBuffer>())
-  {
-    auto request = createRequest(verb, ContentType::VPack);
-    request->header.path = path;
-    request->header.parameter = parameter;
-    request->payload = std::move(payload);
-    return request;
-  }
-
-  std::unique_ptr<Request>
-  createRequest(RestVerb verb
-               ,std::string const& path
-               ,mapss const& parameter
                ,VBuffer&& payload)
   {
     auto request = createRequest(verb, ContentType::VPack);
     request->header.path = path;
     request->header.parameter = parameter;
-    request->payload.push_back(std::move(payload));
+    request->addVPack(std::move(payload));
     return request;
   }
 
@@ -76,12 +63,7 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
     auto request = createRequest(verb, ContentType::VPack);
     request->header.path = path;
     request->header.parameter = parameter;
-
-    VBuffer buffer;
-    VBuilder builder(buffer);
-    builder.add(payload);
-    request->payload.push_back(std::move(buffer));
-
+    request->addVPack(payload);
     return request;
   }
 

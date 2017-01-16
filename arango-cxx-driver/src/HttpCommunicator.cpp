@@ -281,7 +281,7 @@ void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
         VBuffer buffer;
         VBuilder builder(buffer);
         builder.add(VValue(responseBody));
-        response->addPayloadBinarySingle(std::move(buffer));
+        response->addBinarySingle(std::move(buffer));
         break;
       }
 
@@ -290,7 +290,7 @@ void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
         auto builder = std::make_shared<VBuilder>(buffer);
         ::arangodb::velocypack::Parser parser(builder);
         parser.parse(responseBody);
-        response->addPayloadBinarySingle(std::move(buffer));
+        response->addBinarySingle(std::move(buffer));
 
         break;
       }
@@ -460,10 +460,12 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
   // TODO how to hanle multiple buffers
   // - append?
   // - multipart body?
-  if(!request->payload.empty()){
+  if(!request->slices().empty()){
     try{
-      body = VSlice(request->payload[0].data()).toJson();
-      std::cout << body << std::endl;
+      //multipart ?!
+      for (auto const& slice : request->slices()){
+        std::cout << slice.toJson() << std::endl;
+      }
     } catch (std::exception const&e) {
       body = e.what();
     }

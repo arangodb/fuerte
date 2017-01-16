@@ -6,12 +6,11 @@
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
-std::string payloadToString(std::vector<VBuffer> const& payload, std::string name){
+std::string payloadToString(std::vector<VSlice> const& payload, std::string name){
   std::stringstream ss;
   ss << name << "(payload)" << std::endl;
   if(!payload.empty()){
-    for(auto const& buffer : payload){
-      VSlice slice(buffer.data());
+    for(auto const& slice : payload){
       std::string json = slice.toJson();
       ss << json
          << ", " << slice.byteSize()
