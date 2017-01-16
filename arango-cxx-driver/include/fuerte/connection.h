@@ -31,12 +31,9 @@ class Connection : public std::enable_shared_from_this<Connection> {
       return _realConnection->sendRequest(std::move(r), e, c);
     };
 
-
-
   private:
     std::shared_ptr<ConnectionInterface>  _realConnection;
     detail::ConnectionConfiguration _configuration;
-
 };
 
 

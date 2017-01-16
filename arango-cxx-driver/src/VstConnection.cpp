@@ -95,7 +95,6 @@ std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
       conditionVar.notify_one();
     };
 
-    LoopProvider::getProvider();
 
     auto onSuccess  = [&](RequestUP request, ResponseUP response){
       rv = std::move(response);
@@ -104,7 +103,10 @@ std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
       conditionVar.notify_one();
     };
 
+    LoopProvider::getProvider(); //poll loop here if loop is not running
+
     {
+      //wait for handler to call notify_one
       std::unique_lock<std::mutex> lock(mutex);
       conditionVar.wait(lock, [&]{ return done; });
     }
@@ -112,7 +114,6 @@ std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
 }
 
 
-//client connection
 VstConnection::VstConnection(ConnectionConfiguration configuration)
     : _asioLoop(LoopProvider::getProvider().getAsioLoop())
     , _ioService(reinterpret_cast<ba::io_service*>(LoopProvider::getProvider().getAsioIoService()))
@@ -219,7 +220,6 @@ void VstConnection::handleConnect(BoostEC const& error, bt::resolver::iterator e
   }
 }
 
-
 void VstConnection::startHandshake(){
 
 }
@@ -262,10 +262,10 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
     return;
   }
 
-  boost::asio::const_buffer received = _receiveBuffer.data();
+  boost::asio::const_buffer received = _receiveBuffer.data(); //no copy
   std::size_t size = boost::asio::buffer_size(received);
   assert(transferred == size);
-  auto pair = bufferToPointerAndSize(received);
+  auto pair = bufferToPointerAndSize(received); //get write access
   auto cursor = pair.first;
   auto length = pair.second;
 
@@ -293,7 +293,6 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
   RequestItem& item = *(found->second);
   item._responseBuffer.append(cursor,length);
 
-
   if(vstHeader.isSingle){ //we got a single chunk containing the complete message
     processData = true;
   } else if (!vstHeader.isFirst){ //there is chunk that continues a message
@@ -308,11 +307,7 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
     }
   }
 
-  //start next read
-  startRead();
-
-  auto vpackBegin = pair.first + vstHeader.headerLength;
-  std::size_t vpackLength = pair.second - vstHeader.headerLength;
+  startRead(); //start next read - code below might run in parallel to new read
 
   if(processData){
     cursor = item._responseBuffer.data();
@@ -322,11 +317,9 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
     cursor += messageHeaderLength;
     length += messageHeaderLength;
 
-
     auto response = std::unique_ptr<Response>(new Response());
     //add header and strings!!!!
     throw std::logic_error("implement me");
-
 
     // finally add payload
 
@@ -335,12 +328,13 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
     // adding some offset for a buffer that way the already
     // allocated memory could be reused.
     if(messageHeader.contentType == ContentType::VPack){
-      auto numPayloads = vst::validateAndCount(vpackBegin,vpackLength);
-      response->addVPack(VSlice(cursor)); //ASK jan
+      auto numPayloads = vst::validateAndCount(cursor,length);
+      VBuffer buffer;
+      buffer.append(cursor,length); //we should avoid this copy FIXME
+      response->addVPack(std::move(buffer)); //ASK jan
     }
     // call callback
     item._onSuccess(std::move(item._request),std::move(response));
-
   }
 }
 

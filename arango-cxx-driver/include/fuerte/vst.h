@@ -67,7 +67,7 @@ struct RequestItem {
 
 std::shared_ptr<VBuffer> toNetwork(Request const&);
 /////////////////////////////////////////////////////////////////////////////////////
-// send vst
+// receive vst
 /////////////////////////////////////////////////////////////////////////////////////
 
 // find out if data between begin and end assembles a complete
@@ -75,7 +75,7 @@ std::shared_ptr<VBuffer> toNetwork(Request const&);
 std::size_t isChunkComplete(uint8_t const * const begin, std::size_t const length);
 
 // If there is a complete VstChunk you can use this function to read the header
-// a version 1.0 Header into a datasructure
+// a version 1.0 Header into a data structure
 Header readHeaderV1_0(uint8_t const * const bufferBegin);
 
 std::size_t validateAndCount(uint8_t const* vpHeaderStart, std::size_t len);
@@ -87,38 +87,8 @@ std::unique_ptr<Response> fromNetwork( NetBuffer const&
                                      , bool& complete
                                      );
 
+}}}}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//template <typename T>
-//std::size_t appendToBuffer(basics::StringBuffer* buffer, T& value) {
-//  constexpr std::size_t len = sizeof(T);
-//  char charArray[len];
-//  char const* charPtr = charArray;
-//  std::memcpy(&charArray, &value, len);
-//  buffer->appendText(charPtr, len);
-//  return len;
-//}
-//
-//inline constexpr std::size_t chunkHeaderLength(bool firstOfMany) {
-//  // chunkLength uint32 , chunkX uint32 , id uint64 , messageLength unit64
-//  return sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint64_t) +
-//         (firstOfMany ? sizeof(uint64_t) : 0);
-//}
-//
 //// Send Message Created from Slices
 //
 //// working version of single chunk message creation
@@ -382,4 +352,3 @@ std::unique_ptr<Response> fromNetwork( NetBuffer const&
 //
 //
 
-}}}}
