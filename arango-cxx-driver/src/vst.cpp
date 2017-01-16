@@ -97,12 +97,13 @@ Header readHeaderV1_0(uint8_t const * const bufferBegin) {
   return header;
 }
 
+
 std::size_t validateAndCount(uint8_t const * const vpStart, std::size_t length){
   // start points to the begin of a velocypack
   uint8_t const * cursor = vpStart;
   // there must be at least one velocypack for the header
   VValidator validator;
-  std::size_t numPayloads = -1; // fist item is the header
+  std::size_t numPayloads = 0; // fist item is the header
   bool isSubPart = true;
 
   while (length) {

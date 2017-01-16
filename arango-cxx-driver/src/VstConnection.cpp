@@ -266,58 +266,81 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
   std::size_t size = boost::asio::buffer_size(received);
   assert(transferred == size);
   auto pair = bufferToPointerAndSize(received);
-  bool processData = false;
+  auto cursor = pair.first;
+  auto length = pair.second;
 
-  if (vst::isChunkComplete(pair.first, pair.second)){
-    auto vstHeader = vst::readHeaderV1_0(pair.first);
-
-    ::std::map<MessageID,std::shared_ptr<RequestItem>>::iterator found;
-    {
-      Lock lock(_mapMutex);
-      found = _messageMap.find(vstHeader.messageID);
-      if (found == _messageMap.end()) {
-        throw std::logic_error("got message with not matching request");
-      }
-    }
-
-    RequestItem& item = *(found->second);
-
-    if(vstHeader.isSingle){
-
-    }
-
-
-    // case 1 - we start a message consisting of multple chunks
-    if(vstHeader.isFirst && !vstHeader.isSingle){
-
-    }
-
-    // case 2 we continue a message that might or might not complete
-    // a previous message
-    if(!vstHeader.isFirst){
-
-    }
-
-
-    auto vpackBegin = pair.first + vstHeader.headerLength;
-    std::size_t vpackLength = pair.second - vstHeader.headerLength;
-    auto numPayloads = vst::validateAndCount(vpackBegin,vpackLength);
-
-
-
-
-    _receiveBuffer.consume(vstHeader.chunkLength); // take data from input stream for next read
-
-    // process header
-    // process - data that is incomplete
-    processData = true;
+  _receiveBuffer.consume(length); //remove chung form input
+  if (!vst::isChunkComplete(pair.first, pair.second)){
+    startRead();
+    return;
   }
 
-  //start next read -- no locking required
+  bool processData = false; // will be set to true if we have a complete message
+
+  auto vstHeader = vst::readHeaderV1_0(pair.first);
+  cursor += vstHeader.headerLength;
+  length -= vstHeader.headerLength;
+
+  ::std::map<MessageID,std::shared_ptr<RequestItem>>::iterator found;
+  {
+    Lock lock(_mapMutex);
+    found = _messageMap.find(vstHeader.messageID);
+    if (found == _messageMap.end()) {
+      throw std::logic_error("got message with not matching request");
+    }
+  }
+
+  RequestItem& item = *(found->second);
+  item._responseBuffer.append(cursor,length);
+
+
+  if(vstHeader.isSingle){ //we got a single chunk containing the complete message
+    processData = true;
+  } else if (!vstHeader.isFirst){ //there is chunk that continues a message
+    item._responseLength = vstHeader.messageLength;
+    item._responseChunks = vstHeader.chunk;
+    item._responseChunk = 1;
+  } else { //the chunk stats a multipart message
+    item._responseChunk++;
+    assert(item._responseChunk == vstHeader.chunk); //V1.0
+    if(item._responseChunks == vstHeader.chunk){ //last chunk reached
+      processData = true;
+    }
+  }
+
+  //start next read
   startRead();
 
+  auto vpackBegin = pair.first + vstHeader.headerLength;
+  std::size_t vpackLength = pair.second - vstHeader.headerLength;
+
   if(processData){
-    // process complete data here
+    cursor = item._responseBuffer.data();
+    length = item._responseBuffer.byteSize();
+    std::size_t messageHeaderLength;
+    MessageHeader messageHeader = ::arangodb::fuerte::validateAndExtractMessageHeader(cursor, length, messageHeaderLength);
+    cursor += messageHeaderLength;
+    length += messageHeaderLength;
+
+
+    auto response = std::unique_ptr<Response>(new Response());
+    //add header and strings!!!!
+    throw std::logic_error("implement me");
+
+
+    // finally add payload
+
+    // avoiding the copy would imply that we mess with offsets
+    // if feels like Velocypack could gain some options like
+    // adding some offset for a buffer that way the already
+    // allocated memory could be reused.
+    if(messageHeader.contentType == ContentType::VPack){
+      auto numPayloads = vst::validateAndCount(vpackBegin,vpackLength);
+      response->addVPack(VSlice(cursor)); //ASK jan
+    }
+    // call callback
+    item._onSuccess(std::move(item._request),std::move(response));
+
   }
 }
 
@@ -369,6 +392,7 @@ void VstConnection::handleWrite(BoostEC const& error, std::size_t transferred, R
     _sendQueue.pop_front();
     return;
   }
+  item->_requestBuffer.reset(); //request is written we no longer need the buffer
   //everything is ok
   // remove item when work is done;
   // so the queue does not get empty in between wich could

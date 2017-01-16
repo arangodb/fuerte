@@ -48,21 +48,6 @@ struct ReadBufferInfo {
                                  // will be cleaned
   };
 
-// Incomplete Message That will be part of a RequestItem
-struct IncompleteMessage {
-  IncompleteMessage(uint32_t length, std::size_t numberOfChunks)
-    : length(length)
-    , buffer(length)
-    , numberOfChunks(numberOfChunks)
-    , currentChunk(0)
-    {}
-
-  uint32_t length;  // length of complete message in bytes
-  VBuffer  buffer;
-  std::size_t numberOfChunks;
-  std::size_t currentChunk;
-};
-
 // Item that represents a Request in flight
 struct RequestItem {
   std::unique_ptr<Request> _request;
@@ -70,7 +55,10 @@ struct RequestItem {
   OnSuccessCallback _onSuccess;
   MessageID _messageId;
   std::shared_ptr<VBuffer> _requestBuffer;
-  std::unique_ptr<vst::IncompleteMessage> _incomplete;
+  VBuffer _responseBuffer;
+  uint32_t _responseLength;    // length of complete message in bytes
+  std::size_t _responseChunks; // number of chunks in response
+  std::size_t _responseChunk;  // nuber of current chunk
 };
 
 /////////////////////////////////////////////////////////////////////////////////////

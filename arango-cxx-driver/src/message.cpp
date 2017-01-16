@@ -1,7 +1,32 @@
 #include <fuerte/message.h>
 #include <fuerte/vst.h>
+#include <velocypack/Validator.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
+
+MessageHeader headerFromSlice(VSlice const& headerSlice){
+  throw std::logic_error("implement me");
+
+};
+
+MessageHeader validateAndExtractMessageHeader(uint8_t const * const vpStart, std::size_t length, std::size_t& headerLength){
+  using VValidator = ::arangodb::velocypack::Validator;
+  // there must be at least one velocypack for the header
+  VValidator validator;
+  bool isSubPart = true;
+
+  VSlice slice;
+  try {
+    // isSubPart allows the slice to be shorter than the checked buffer.
+    validator.validate(vpStart, length , isSubPart);
+  } catch (std::exception const& e) {
+    throw std::runtime_error(std::string("error during validation of incoming VPack") + e.what());
+  }
+  slice = VSlice(vpStart);
+  headerLength = slice.byteSize();
+
+  return headerFromSlice(slice);
+}
 
 ////helper
 static bool specialHeader(Message& request, std::string const&, std::string const&){

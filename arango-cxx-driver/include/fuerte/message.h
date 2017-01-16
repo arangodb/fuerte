@@ -8,7 +8,12 @@
 #include <map>
 
 
+
 namespace arangodb { namespace fuerte { inline namespace v1 {
+
+namespace vst {
+  class VstConnection;
+}
 
   // mabye get rid of optional
   struct MessageHeader {
@@ -31,11 +36,12 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
 
   inline VBuffer headerToVPack(MessageHeader const& header);
   inline MessageHeader headerFromHttp(std::string const& body);
-  inline MessageHeader headerFromSlice(VSlice const& header_slice);
-
+  MessageHeader headerFromSlice(VSlice const& headerSlice);
+  MessageHeader validateAndExtractMessageHeader(uint8_t const * const vpStart, std::size_t length, std::size_t& headerLength);
 
   // TODO SPLIT MESSAGE INTO REQEST / RESPONSE
   class Message {
+    friend class VstConnection;
     public:
       Message(MessageHeader&& messageHeader = MessageHeader()
              ,mapss&& headerStrings = mapss()
@@ -131,6 +137,7 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
         _modified = true;
         _payload = std::move(buffer);
       }
+
 
       ///////////////////////////////////////////////
       // get payload
