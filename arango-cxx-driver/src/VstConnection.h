@@ -50,7 +50,7 @@ public:
 public:
   void start() override {}
 
-  void sendRequest(std::unique_ptr<Request>
+  MessageID sendRequest(std::unique_ptr<Request>
                   ,OnErrorCallback
                   ,OnSuccessCallback) override;
 

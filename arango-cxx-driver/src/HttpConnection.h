@@ -40,7 +40,7 @@ class HttpConnection : public ConnectionInterface {
  public:
   void start() override {}
 
-  void sendRequest(std::unique_ptr<Request>, OnErrorCallback,
+  MessageID sendRequest(std::unique_ptr<Request>, OnErrorCallback,
                    OnSuccessCallback) override;
 
   std::unique_ptr<Response> sendRequest(std::unique_ptr<Request>) override {

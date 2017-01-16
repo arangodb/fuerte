@@ -36,7 +36,7 @@ using namespace arangodb::fuerte::detail;
 HttpConnection::HttpConnection( ConnectionConfiguration configuration)
     : _communicator(LoopProvider::getProvider().getHttpLoop()), _configuration(configuration) {}
 
-void HttpConnection::sendRequest(std::unique_ptr<Request> request,
+MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request,
                                  OnErrorCallback onError,
                                  OnSuccessCallback onSuccess){
   Callbacks callbacks(onSuccess, onError);
@@ -57,6 +57,8 @@ void HttpConnection::sendRequest(std::unique_ptr<Request> request,
   }
   #warning TODO authentication
   _communicator->queueRequest(destination, std::move(request), callbacks);
+  //create usefulid
+  return request->messageid;
 }
 }
 }

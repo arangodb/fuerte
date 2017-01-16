@@ -19,6 +19,7 @@ class Response;
 
 using Error = std::uint32_t;
 using Ticket = uint64_t;
+using MessageID = uint64_t;
 
 using OnSuccessCallback = std::function<void(std::unique_ptr<Request>, std::unique_ptr<Response>)>;
 using OnErrorCallback = std::function<void(Error, std::unique_ptr<Request>, std::unique_ptr<Response>)>;

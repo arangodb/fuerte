@@ -48,7 +48,7 @@ using Lock = std::lock_guard<std::mutex>;
 typedef std::unique_ptr<Request> RequestUP;
 typedef std::unique_ptr<Response> ResponseUP;
 
-void VstConnection::sendRequest(std::unique_ptr<Request> request,
+MessageID VstConnection::sendRequest(std::unique_ptr<Request> request,
                                  OnErrorCallback onError,
                                  OnSuccessCallback onSuccess){
 
@@ -76,6 +76,7 @@ void VstConnection::sendRequest(std::unique_ptr<Request> request,
     // not to block until all writing is done
     _ioService->post( [this,self](){ startWrite(); } );
   }
+  return item->_messageId;
 }
 
 std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){

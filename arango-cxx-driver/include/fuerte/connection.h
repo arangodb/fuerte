@@ -26,7 +26,7 @@ class Connection : public std::enable_shared_from_this<Connection> {
       return _realConnection->sendRequest(std::move(r));
     };
 
-    void sendRequest(std::unique_ptr<Request> r, OnErrorCallback e, OnSuccessCallback c){
+    MessageID sendRequest(std::unique_ptr<Request> r, OnErrorCallback e, OnSuccessCallback c){
       return _realConnection->sendRequest(std::move(r), e, c);
     };
 

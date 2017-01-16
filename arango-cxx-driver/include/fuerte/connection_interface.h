@@ -9,7 +9,7 @@ public:
   ConnectionInterface(){};
 
   virtual std::unique_ptr<Response> sendRequest(std::unique_ptr<Request>) = 0;
-  virtual void sendRequest(std::unique_ptr<Request>, OnErrorCallback, OnSuccessCallback) = 0;
+  virtual MessageID sendRequest(std::unique_ptr<Request>, OnErrorCallback, OnSuccessCallback) = 0;
   virtual void start() = 0;
 };
 
