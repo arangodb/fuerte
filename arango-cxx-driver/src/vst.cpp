@@ -10,44 +10,97 @@ using VValidator = ::arangodb::velocypack::Validator;
 // sending vst
 ///////////////////////////////////////////////////////////////////////////////////
 
+
 //not exported
-static void addVstHeader(VBuilder& builder
-                        ,MessageHeader const& header
-                        ,mapss const& headerStrings)
+static std::size_t addVstChunkHeaderV1_0(VBuffer& buffer
+                                    ,MessageHeader const& header)
 {
-  std::logic_error("implement me");
+  throw std::logic_error("implement me");
+  return buffer.byteSize();
+}
+
+static std::size_t addVstHeader(VBuilder& builder
+                               ,MessageHeader const& header
+                               ,mapss const& headerStrings)
+{
+  auto startSize = builder.size();
+
+  builder.openArray();
+  builder.add(VValue(header.version.get()));                         // 0
+  builder.add(VValue(static_cast<int>(header.type.get())));          // 1
+  switch (header.type.get()){
+    case MessageType::Authentication:
+      //builder.add(VValue(header.encryption.get()));
+      builder.add(VValue(header.user.get()));
+      builder.add(VValue(header.password.get()));
+      break;
+
+    case MessageType::Request:
+      builder.add(VValue(header.database.get()));                    // 2
+      builder.add(VValue(static_cast<int>(header.restVerb.get())));  // 3
+      builder.add(VValue(header.path.get()));                        // 4
+      if (header.parameter){
+        //header.parameter = header_slice.at(5);                     // 5
+      }
+      if (header.meta){
+        //header.meta = header_slice.at(6);                          // 6
+      }
+      break;
+
+    case MessageType::Response:
+      builder.add(VValue(header.responseCode.get()));                // 2
+      break;
+    default:
+      break;
+  }
+  builder.close();
+
+  return builder.size() - startSize;
+}
+
+//update the size of the ching to be send
+static void fixChunkHeader(uint8_t * data
+                          ,std::size_t chunkHeaderLength
+                          ,std::size_t payloadLength
+                          )
+{
+  throw std::logic_error("implement me");
 }
 
 std::shared_ptr<VBuffer> toNetwork(Request& request){
-  std::stringstream ss;
-
   auto buffer = std::make_shared<VBuffer>();
-  // add VstChunkHeader - with length possibly unkown
+
   VBuilder builder(*buffer);
-  //addVstHeader(*buffer, request.header, request.headerStrings);
-  // add VstHeader (vpack)
-  // add Playload
+  // add chunk header
+  auto chunkHeaderLength = addVstChunkHeaderV1_0(*buffer,request.header);
 
-  //std::size_t payloadLen = 0;
-  //{
-  //  if(request.header.contentType == ContentType::VPack){
-  //    for(auto const& pbuff : request.slices()){
-  //      payloadLen += pbuff.byteSize();
-  //    }
-  //  } else {
-  //    payloadLen = request.payload().second;
-  //  }
-  //}
+  // ****** TODO split data into smaller parts so that a **********************
+  //             message can be longer than max chunk len
 
-  builder.isOpenObject();
-  builder.close(); //close object
+  // add message header
+  auto headerLength = addVstHeader(builder, request.header, request.headerStrings);
+  // add playload (header + data - uncompressed)
+  std::size_t payloadLength = headerLength; // length of:
+                                            // header slice + vpack data or
+                                            // header slice + binary data
+  {
+    if(request.header.contentType == ContentType::VPack){
+      for(auto const& slice : request.slices()){
+        payloadLength += slice.byteSize();
+        builder.add(slice);
+      }
+    } else {
+      uint8_t const * data;
+      std::size_t size;
+      std::tie(data,size) = request.payload();
+      payloadLength += size;
+      buffer->append(data,size);
+    }
+  }
 
- // addHeader(*buffer, headerBuffer, payloadLen);
+  // **************************************************************************
 
- // for(auto const& pbuff : request.payload){
- //  buffer->append(pbuff.data(),pbuff.byteSize());
- // }
-
+  fixChunkHeader(buffer->data(),chunkHeaderLength, payloadLength);
   return std::move(buffer);
 }
 
@@ -103,7 +156,34 @@ ChunkHeader readChunkHeaderV1_0(uint8_t const * const bufferBegin) {
 }
 
 MessageHeader messageHeaderFromSlice(VSlice const& headerSlice){
-  throw std::logic_error("implement me");
+  assert(headerSlice.isArray());
+  MessageHeader header;
+
+  header.version = headerSlice.at(0).getNumber<int>(); //version
+  header.type = static_cast<MessageType>(headerSlice.at(1).getNumber<int>()); //type
+  switch (header.type.get()){
+    case MessageType::Authentication:
+      //header.encryption = headerSlice.at(6); //encryption (plain) should be 2
+      header.user = headerSlice.at(2).copyString(); //user
+      header.user = headerSlice.at(3).copyString(); //password
+      break;
+
+    case MessageType::Request:
+      header.database = headerSlice.at(2).copyString(); // databse
+      header.restVerb = static_cast<RestVerb>(headerSlice.at(3).getInt()); //rest verb
+      header.path = headerSlice.at(4).copyString();  // request (path)
+      //header.parameter = headerSlice.at(5); // params
+      //header.parameter = headerSlice.at(6); // meta
+      break;
+
+    case MessageType::Response:
+      header.responseCode = headerSlice.at(2).getInt();
+      break;
+    default:
+      break;
+  }
+
+  return header;
 };
 
 MessageHeader validateAndExtractMessageHeader(uint8_t const * const vpStart, std::size_t length, std::size_t& headerLength){
@@ -124,7 +204,6 @@ MessageHeader validateAndExtractMessageHeader(uint8_t const * const vpStart, std
 
   return messageHeaderFromSlice(slice);
 }
-
 
 std::size_t validateAndCount(uint8_t const * const vpStart, std::size_t length){
   // start points to the begin of a velocypack
