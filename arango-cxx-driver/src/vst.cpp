@@ -11,29 +11,36 @@ using VValidator = ::arangodb::velocypack::Validator;
 ///////////////////////////////////////////////////////////////////////////////////
 
 //not exported
-static void addHeader(VBuffer& buffer, VBuffer const& header, std::size_t payloadLen){
+static void addVstHeader(VBuilder& builder
+                        ,MessageHeader const& header
+                        ,mapss const& headerStrings)
+{
   std::logic_error("implement me");
 }
 
-std::shared_ptr<VBuffer> toNetwork(Request const& request){
+std::shared_ptr<VBuffer> toNetwork(Request& request){
   std::stringstream ss;
-  //overview
-  //
-  // - set all required header fileds
-  // - create vpack representation of header
-  // - a list of vpacks representing the payload
-  // - add vst header
-
-  VBuffer headerBuffer;
-  VBuilder builder(headerBuffer);
-  builder.isOpenObject();
-  builder.close(); //close object
 
   auto buffer = std::make_shared<VBuffer>();
- // std::size_t payloadLen = 0;
- // for(auto const& pbuff : request.payload()){
- //  payloadLen += pbuff.byteSize();
- // }
+  // add VstChunkHeader - with length possibly unkown
+  VBuilder builder(*buffer);
+  //addVstHeader(*buffer, request.header, request.headerStrings);
+  // add VstHeader (vpack)
+  // add Playload
+
+  //std::size_t payloadLen = 0;
+  //{
+  //  if(request.header.contentType == ContentType::VPack){
+  //    for(auto const& pbuff : request.slices()){
+  //      payloadLen += pbuff.byteSize();
+  //    }
+  //  } else {
+  //    payloadLen = request.payload().second;
+  //  }
+  //}
+
+  builder.isOpenObject();
+  builder.close(); //close object
 
  // addHeader(*buffer, headerBuffer, payloadLen);
 
@@ -43,8 +50,6 @@ std::shared_ptr<VBuffer> toNetwork(Request const& request){
 
   return std::move(buffer);
 }
-
-
 
 ///////////////////////////////////////////////////////////////////////////////////
 // receiving vst
@@ -66,8 +71,8 @@ std::size_t isChunkComplete(uint8_t const * const begin, std::size_t const lengt
 }
 
 
-Header readHeaderV1_0(uint8_t const * const bufferBegin) {
-  Header header;
+ChunkHeader readChunkHeaderV1_0(uint8_t const * const bufferBegin) {
+  ChunkHeader header;
 
   auto cursor = bufferBegin;
 
@@ -97,6 +102,29 @@ Header readHeaderV1_0(uint8_t const * const bufferBegin) {
   return header;
 }
 
+MessageHeader messageHeaderFromSlice(VSlice const& headerSlice){
+  throw std::logic_error("implement me");
+};
+
+MessageHeader validateAndExtractMessageHeader(uint8_t const * const vpStart, std::size_t length, std::size_t& headerLength){
+  using VValidator = ::arangodb::velocypack::Validator;
+  // there must be at least one velocypack for the header
+  VValidator validator;
+  bool isSubPart = true;
+
+  VSlice slice;
+  try {
+    // isSubPart allows the slice to be shorter than the checked buffer.
+    validator.validate(vpStart, length , isSubPart);
+  } catch (std::exception const& e) {
+    throw std::runtime_error(std::string("error during validation of incoming VPack") + e.what());
+  }
+  slice = VSlice(vpStart);
+  headerLength = slice.byteSize();
+
+  return messageHeaderFromSlice(slice);
+}
+
 
 std::size_t validateAndCount(uint8_t const * const vpStart, std::size_t length){
   // start points to the begin of a velocypack
@@ -120,35 +148,5 @@ std::size_t validateAndCount(uint8_t const * const vpStart, std::size_t length){
   }
   return numPayloads;
 }
-
-
-
-std::unique_ptr<Response> fromNetwork( NetBuffer const& indata
-                                     , std::map<MessageID,std::shared_ptr<RequestItem>>& map
-                                     , std::mutex& mapMutex
-                                     , std::size_t& consumed
-                                     , bool& complete
-                                     )
-{
-  ReadBufferInfo info;
-  auto vstheader = readHeaderV1_0(reinterpret_cast<uint8_t const*>(indata.data())); //evilcast
-
-  //implement and rewrite
-  //return a complete buffer
-
-
-  complete = true;
-  consumed = indata.size();
-  auto response = createResponse(200);
-
-  VBuffer buffer;
-  VBuilder builder;
-  builder.add(VValue("this is a fake response"));
-  response->addVPack(std::move(buffer));
-
-  return std::move(response);
-};
-
-
 
 }}}}

@@ -68,8 +68,6 @@ public:
   VstConnection(detail::ConnectionConfiguration);
 
 public:
-  void start() override {}
-
   // this function prepares the request for sending
   // by creating a RequestItem and setting:
   //  - a messageid

@@ -32,11 +32,6 @@ struct MessageHeader {
   ::boost::optional<ContentType> contentType;
 };
 
-// create a buffer from a given header
-VBuffer headerToVPack(MessageHeader const& header);
-// create header from vpack data
-MessageHeader headerFromSlice(VSlice const& headerSlice);
-MessageHeader validateAndExtractMessageHeader(uint8_t const * const vpStart, std::size_t length, std::size_t& headerLength);\
 // create a map<string,string> from header object
 mapss headerStrings(MessageHeader const& header);
 

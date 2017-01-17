@@ -277,14 +277,14 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
 
   bool processData = false; // will be set to true if we have a complete message
 
-  auto vstHeader = vst::readHeaderV1_0(pair.first);
-  cursor += vstHeader.headerLength;
-  length -= vstHeader.headerLength;
+  auto vstChunkHeader = vst::readChunkHeaderV1_0(pair.first);
+  cursor += vstChunkHeader.headerLength;
+  length -= vstChunkHeader.headerLength;
 
   ::std::map<MessageID,std::shared_ptr<RequestItem>>::iterator found;
   {
     Lock lock(_mapMutex);
-    found = _messageMap.find(vstHeader.messageID);
+    found = _messageMap.find(vstChunkHeader.messageID);
     if (found == _messageMap.end()) {
       throw std::logic_error("got message with not matching request");
     }
@@ -293,16 +293,16 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
   RequestItem& item = *(found->second);
   item._responseBuffer.append(cursor,length);
 
-  if(vstHeader.isSingle){ //we got a single chunk containing the complete message
+  if(vstChunkHeader.isSingle){ //we got a single chunk containing the complete message
     processData = true;
-  } else if (!vstHeader.isFirst){ //there is chunk that continues a message
-    item._responseLength = vstHeader.messageLength;
-    item._responseChunks = vstHeader.chunk;
+  } else if (!vstChunkHeader.isFirst){ //there is chunk that continues a message
+    item._responseLength = vstChunkHeader.messageLength;
+    item._responseChunks = vstChunkHeader.chunk;
     item._responseChunk = 1;
   } else { //the chunk stats a multipart message
     item._responseChunk++;
-    assert(item._responseChunk == vstHeader.chunk); //V1.0
-    if(item._responseChunks == vstHeader.chunk){ //last chunk reached
+    assert(item._responseChunk == vstChunkHeader.chunk); //V1.0
+    if(item._responseChunks == vstChunkHeader.chunk){ //last chunk reached
       processData = true;
     }
   }
@@ -313,7 +313,7 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
     cursor = item._responseBuffer.data();
     length = item._responseBuffer.byteSize();
     std::size_t messageHeaderLength;
-    MessageHeader messageHeader = ::arangodb::fuerte::validateAndExtractMessageHeader(cursor, length, messageHeaderLength);
+    MessageHeader messageHeader = validateAndExtractMessageHeader(cursor, length, messageHeaderLength);
     cursor += messageHeaderLength;
     length += messageHeaderLength;
 

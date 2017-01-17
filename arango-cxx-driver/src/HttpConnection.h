@@ -38,8 +38,6 @@ class HttpConnection : public ConnectionInterface {
   HttpConnection(detail::ConnectionConfiguration);
 
  public:
-  void start() override {}
-
   MessageID sendRequest(std::unique_ptr<Request>, OnErrorCallback,
                    OnSuccessCallback) override;
 

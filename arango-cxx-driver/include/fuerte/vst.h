@@ -23,8 +23,8 @@ static size_t const chunkMaxBytes = 1000UL;
 // DataStructures
 /////////////////////////////////////////////////////////////////////////////////////
 
-// Velocystream Header
-struct Header {
+// Velocystream Chunk Header
+struct ChunkHeader {
   std::size_t headerLength;
   uint32_t chunkLength;
   uint32_t chunk;
@@ -33,20 +33,6 @@ struct Header {
   bool isFirst;
   bool isSingle;
 };
-
-struct ReadBufferInfo {
-	ReadBufferInfo()
-		: currentChunkLength(0)
-    , readBufferOffset(0)
-    , cleanupLength(bufferLength - chunkMaxBytes - 1)
-		{}
-
-    uint32_t currentChunkLength; // size of chunk processed or 0 when expecting
-                                 // new chunk
-    size_t readBufferOffset;     // data up to this position has been processed
-    std::size_t cleanupLength;   // length of data after that the read buffer
-                                 // will be cleaned
-  };
 
 // Item that represents a Request in flight
 struct RequestItem {
@@ -65,7 +51,13 @@ struct RequestItem {
 // send vst
 /////////////////////////////////////////////////////////////////////////////////////
 
-std::shared_ptr<VBuffer> toNetwork(Request const&);
+// create a buffer from a given header
+VBuffer headerToVPack(MessageHeader const& header);
+
+// creates a buffer in a shared pointer containg the message read to be send
+// out as vst (ChunkHeader, Header, Payload)
+std::shared_ptr<VBuffer> toNetwork(Request&);
+
 /////////////////////////////////////////////////////////////////////////////////////
 // receive vst
 /////////////////////////////////////////////////////////////////////////////////////
@@ -76,16 +68,17 @@ std::size_t isChunkComplete(uint8_t const * const begin, std::size_t const lengt
 
 // If there is a complete VstChunk you can use this function to read the header
 // a version 1.0 Header into a data structure
-Header readHeaderV1_0(uint8_t const * const bufferBegin);
+ChunkHeader readChunkHeaderV1_0(uint8_t const * const bufferBegin);
 
+
+// creates a MessageHeader form a given slice
+MessageHeader messageHeaderFromSlice(VSlice const& headerSlice);
+// validates if a data range contains a slice and converts it
+// to a message Hader and returns size occupied by the sloce via reference
+MessageHeader validateAndExtractMessageHeader(uint8_t const * const vpStart, std::size_t length, std::size_t& headerLength);\
+
+//Validates if payload consitsts of valid velocypack slices
 std::size_t validateAndCount(uint8_t const* vpHeaderStart, std::size_t len);
-
-std::unique_ptr<Response> fromNetwork( NetBuffer const&
-                                     , std::map<MessageID,std::shared_ptr<RequestItem>>& map
-                                     , std::mutex& mapMutex
-                                     , std::size_t& consumed
-                                     , bool& complete
-                                     );
 
 }}}}
 
