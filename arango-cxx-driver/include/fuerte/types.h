@@ -65,12 +65,8 @@ enum class RestVerb
 , Options = 6
 };
 
-RestVerb to_RestVerb(std::string& val);
+RestVerb to_RestVerb(std::string const& val);
 std::string to_string(RestVerb type);
-inline RestVerb to_RestVerb(std::string const& valin) {
-  std::string val(valin);
-  return to_RestVerb(val);
-}
 
 // -----------------------------------------------------------------------------
 // --SECTION--                                                       MessageType

@@ -12,9 +12,14 @@ VpackInit::VpackInit() : _translator(new arangodb::velocypack::AttributeTranslat
     arangodb::velocypack::Options::Defaults.attributeTranslator = _translator.get();
 }
 
-RestVerb to_RestVerb(std::string& val) {
-  std::transform(val.begin(), val.end(), val.begin(), ::tolower );
-  auto p = val.c_str();
+RestVerb to_RestVerb(std::string const& value) {
+  std::string lowercase;
+  lowercase.reserve(value.size());
+  std::transform(value.begin(), value.end()
+                ,std::back_inserter(lowercase), ::tolower
+                );
+
+  auto p = lowercase.c_str();
 
   if (strcasecmp(p, "delete") == 0) {
     return RestVerb::Delete;
