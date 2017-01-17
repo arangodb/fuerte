@@ -46,9 +46,9 @@ using Lock = std::lock_guard<std::mutex>;
 typedef std::unique_ptr<Request> RequestUP;
 typedef std::unique_ptr<Response> ResponseUP;
 
-MessageID VstConnection::sendRequest(std::unique_ptr<Request> request,
-                                 OnErrorCallback onError,
-                                 OnSuccessCallback onSuccess){
+MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
+                                    ,OnErrorCallback onError
+                                    ,OnSuccessCallback onSuccess){
 
   //check if id is already used and fail
   request->messageid = ++_messageId;

@@ -75,8 +75,8 @@ public:
   // and a write action is triggerd when there is
   // no other write in progress
   MessageID sendRequest(std::unique_ptr<Request>
-                  ,OnErrorCallback
-                  ,OnSuccessCallback) override;
+                       ,OnErrorCallback
+                       ,OnSuccessCallback) override;
 
   // syncronous operation for sending Requests implemented using the the
   // asyncronous operation and a condition variable
