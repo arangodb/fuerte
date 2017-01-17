@@ -15,8 +15,6 @@ class Database;
 class Connection : public std::enable_shared_from_this<Connection> {
   friend class ConnectionBuilder;
 
-    Connection(detail::ConnectionConfiguration conf);
-
   public:
     std::shared_ptr<Database> getDatabase(std::string name);
     std::shared_ptr<Database> createDatabase(std::string name);
@@ -32,6 +30,7 @@ class Connection : public std::enable_shared_from_this<Connection> {
     };
 
   private:
+    Connection(detail::ConnectionConfiguration conf);
     std::shared_ptr<ConnectionInterface>  _realConnection;
     detail::ConnectionConfiguration _configuration;
 };
