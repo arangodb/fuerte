@@ -28,10 +28,20 @@ struct ChunkHeader {
   uint64_t messageID;             // messageid
   uint64_t totalMessageLength;    // length of total unencrypeted payload +vstMessageHeader
   std::size_t chunkHeaderLength;  // lenght of vstChunkHeader
+  uint32_t chunkPayloadLength;    // length of payload for this chunk
   uint32_t chunkLength;           // length of this chunk includig chunkHeader
   uint32_t chunk;                 // number of chunks or chunk number
   bool isSingle;                  // is a single chunk?
   bool isFirst;                   // uis first or followup chunk
+
+  //update chunk len in structure and in an already existing buffer
+  uint32_t updateChunkPayload(uint8_t* headerStartInBuffer, uint32_t payloadLength){
+    auto lengthPosition = headerStartInBuffer;
+    chunkLength = chunkHeaderLength + payloadLength;
+    //update chunk len in buffer
+    std::memcpy(lengthPosition, &payloadLength, sizeof(payloadLength)); //target, source, length
+    return chunkLength;
+  }
 };
 
 inline constexpr std::size_t chunkHeaderLength(int version, bool isFirst){
@@ -90,139 +100,6 @@ std::size_t validateAndCount(uint8_t const* vpHeaderStart, std::size_t len);
 
 }}}}
 
-//// Send Message Created from Slices
-//
-//// working version of single chunk message creation
-//inline std::unique_ptr<basics::StringBuffer> createChunkForNetworkDetail(
-//    std::vector<VPackSlice> const& slices, bool isFirstChunk, uint32_t chunk,
-//    uint64_t id, uint64_t totalMessageLength = 0) {
-//  using basics::StringBuffer;
-//  bool firstOfMany = false;
-//
-//  // if we have more than one chunk and the chunk is the first
-//  // then we are sending the first in a series. if this condition
-//  // is true we also send extra 8 bytes for the messageLength
-//  // (length of all VPackData)
-//  if (isFirstChunk && chunk > 1) {
-//    firstOfMany = true;
-//  }
-//
-//  // build chunkX -- see VelocyStream Documentaion
-//  chunk <<= 1;
-//  chunk |= isFirstChunk ? 0x1 : 0x0;
-//
-//  // get the lenght of VPack data
-//  uint32_t dataLength = 0;
-//  for (auto& slice : slices) {
-//    // TODO: is a 32bit value sufficient for all Slices here?
-//    dataLength += static_cast<uint32_t>(slice.byteSize());
-//  }
-//
-//  // calculate length of current chunk
-//  uint32_t chunkLength =
-//      dataLength + static_cast<uint32_t>(chunkHeaderLength(firstOfMany));
-//
-//  auto buffer =
-//      std::make_unique<StringBuffer>(TRI_UNKNOWN_MEM_ZONE, chunkLength, false);
-//
-//  appendToBuffer(buffer.get(), chunkLength);
-//  appendToBuffer(buffer.get(), chunk);
-//  appendToBuffer(buffer.get(), id);
-//
-//  if (firstOfMany) {
-//    appendToBuffer(buffer.get(), totalMessageLength);
-//  }
-//
-//  // append data in slices
-//  for (auto const& slice : slices) {
-//    buffer->appendText(slice.startAs<char>(), slice.byteSize());
-//  }
-//
-//  return buffer;
-//}
-//
-////  slices, isFirstChunk, chunk, id, totalMessageLength
-//inline std::unique_ptr<basics::StringBuffer> createChunkForNetworkSingle(
-//    std::vector<VPackSlice> const& slices, uint64_t id) {
-//  return createChunkForNetworkDetail(slices, true, 1, id, 0 /*unused*/);
-//}
-//
-//// This method does not respect the max chunksize instead it avoids copying
-//// by moving slices into the createion functions - This is not acceptable for
-//// big slices
-////
-//// inline std::unique_ptr<basics::StringBuffer> createChunkForNetworkMultiFirst(
-////    std::vector<VPackSlice> const& slices, uint64_t id, uint32_t
-////    numberOfChunks,
-////    uint32_t totalMessageLength) {
-////  return createChunkForNetworkDetail(slices, true, numberOfChunks, id,
-////                                     totalMessageLength);
-////}
-////
-//// inline std::unique_ptr<basics::StringBuffer>
-//// createChunkForNetworkMultiFollow(
-////    std::vector<VPackSlice> const& slices, uint64_t id, uint32_t chunkNumber,
-////    uint32_t totalMessageLength) {
-////  return createChunkForNetworkDetail(slices, false, chunkNumber, id, 0);
-////}
-//
-//// helper functions for sending chunks when given a string buffer as input
-//// working version of single chunk message creation
-//inline std::unique_ptr<basics::StringBuffer> createChunkForNetworkDetail(
-//    char const* data, std::size_t begin, std::size_t end, bool isFirstChunk,
-//    uint32_t chunk, uint64_t id, uint64_t totalMessageLength = 0) {
-//  using basics::StringBuffer;
-//  bool firstOfMany = false;
-//
-//  // if we have more than one chunk and the chunk is the first
-//  // then we are sending the first in a series. if this condition
-//  // is true we also send extra 8 bytes for the messageLength
-//  // (length of all VPackData)
-//  if (isFirstChunk && chunk > 1) {
-//    firstOfMany = true;
-//  }
-//
-//  // build chunkX -- see VelocyStream Documentaion
-//  chunk <<= 1;
-//  chunk |= isFirstChunk ? 0x1 : 0x0;
-//
-//  // get the lenght of VPack data
-//  uint32_t dataLength = static_cast<uint32_t>(end - begin);
-//
-//  // calculate length of current chunk
-//  uint32_t chunkLength =
-//      dataLength + static_cast<uint32_t>(chunkHeaderLength(firstOfMany));
-//
-//  auto buffer =
-//      std::make_unique<StringBuffer>(TRI_UNKNOWN_MEM_ZONE, chunkLength, false);
-//
-//  appendToBuffer(buffer.get(), chunkLength);
-//  appendToBuffer(buffer.get(), chunk);
-//  appendToBuffer(buffer.get(), id);
-//
-//  if (firstOfMany) {
-//    appendToBuffer(buffer.get(), totalMessageLength);
-//  }
-//
-//  buffer->appendText(data + begin, dataLength);
-//
-//  return buffer;
-//}
-//
-//inline std::unique_ptr<basics::StringBuffer> createChunkForNetworkMultiFirst(
-//    char const* data, std::size_t begin, std::size_t end, uint64_t id,
-//    uint32_t numberOfChunks, uint64_t totalMessageLength) {
-//  return createChunkForNetworkDetail(data, begin, end, true, numberOfChunks, id,
-//                                     totalMessageLength);
-//}
-//
-//inline std::unique_ptr<basics::StringBuffer> createChunkForNetworkMultiFollow(
-//    char const* data, std::size_t begin, std::size_t end, uint64_t id,
-//    uint32_t chunkNumber) {
-//  return createChunkForNetworkDetail(data, begin, end, false, chunkNumber, id,
-//                                     0);
-//}
-//
 //// this function will be called when we send multiple compressed
 //// or uncompressed chunks
 //inline void send_many(
@@ -349,7 +226,3 @@ std::size_t validateAndCount(uint8_t const* vpHeaderStart, std::size_t len);
 //}
 //
 //#endif
-//
-//
-//
-

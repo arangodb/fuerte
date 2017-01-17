@@ -13,42 +13,51 @@ using VValidator = ::arangodb::velocypack::Validator;
 
 // ### not exported ###############################################################
 // send
-static ChunkHeader createFirstChunkHeader(int vstVersionID
-                                         ,MessageID messageID
-                                         ,std::size_t totalPayloadLength
-                                         ,std::size_t payloadLength
-                                         ,std::size_t numberOfChunks){
+static ChunkHeader createChunkHeader(int vstVersionID
+                                    ,MessageID messageID
+                                    ,std::size_t totalMessageLength
+                                    ,std::size_t chunkPayloadLength
+                                    ,std::size_t chunk
+                                    ,bool isFirst){
+
   ChunkHeader header;
   header.messageID = messageID;
-  header.totalMessageLength = totalPayloadLength; //total payload length
-  header.isFirst = true;
-  header.isSingle = (numberOfChunks == 1);
-  header.chunk = numberOfChunks;
+  header.totalMessageLength = totalMessageLength; //total payload length
+  header.isFirst = isFirst;
+  header.isSingle = isFirst && (chunk == 1);
+  header.chunk = chunk;
   header.chunkHeaderLength  = chunkHeaderLength(vstVersionID, header.isFirst);
-  header.chunkLength = header.chunkHeaderLength+payloadLength;
+  header.chunkLength = header.chunkHeaderLength+chunkPayloadLength;
   return header;
 }
 
-static ChunkHeader createFirstChunkHeader(int vstVersionID, MessageID messageID, std::size_t totalPayloadLength){
-  return createFirstChunkHeader(vstVersionID, messageID, totalPayloadLength, totalPayloadLength, 1);
+// sometimes it is hard to know th payload length for a chunk in advance
+static ChunkHeader createSingleChunkHeader(int vstVersionID
+                                         ,MessageID messageID
+                                         ,std::size_t chunkPayloadLength
+                                         ){
+  return createChunkHeader(vstVersionID, messageID, chunkPayloadLength
+                          ,chunkPayloadLength, 1, true);
+}
+
+static ChunkHeader createFirstChunkHeader(int vstVersionID
+                                         ,MessageID messageID
+                                         ,std::size_t chunkPayloadLength
+                                         ,std::size_t totoalMessageLength
+                                         ,std::size_t numberOfChunks){
+  return createChunkHeader(vstVersionID, messageID, chunkPayloadLength
+                          ,totoalMessageLength, numberOfChunks, false);
 }
 
 static ChunkHeader createFollowUpChunkHeader(int vstVersionID
-                                            ,MessageID messageID
-                                            ,std::size_t totalPayloadLength
-                                            ,std::size_t payloadLength
-                                            ,std::size_t chunkNumber){
-  ChunkHeader header;
-  header.messageID = messageID;
-  header.chunk = chunkNumber;
-  header.totalMessageLength = totalPayloadLength; //total payload length
-  header.isFirst = false;
-  header.isSingle = false;
-  header.chunk = chunkNumber;
-  header.chunkHeaderLength  = chunkHeaderLength(vstVersionID, header.isFirst);
-  header.chunkLength = header.chunkHeaderLength+payloadLength;
-  return header;
+                                         ,MessageID messageID
+                                         ,std::size_t chunkPayloadLength
+                                         ,std::size_t totalMessageLength
+                                         ,std::size_t numberOfChunks){
+  return createChunkHeader(vstVersionID, messageID, chunkPayloadLength
+                          ,totalMessageLength, numberOfChunks, false);
 }
+
 
 template <typename T>
 std::size_t appendToBuffer(VBuffer& buffer, T& value) {
@@ -79,9 +88,9 @@ static std::size_t addVstChunkHeader(std::size_t vstVersionID
   return buffer.byteSize();
 }
 
-static std::size_t addVstHeader(VBuilder& builder
-                               ,MessageHeader const& header
-                               ,mapss const& headerStrings)
+static std::size_t addVstMessageHeader(VBuilder& builder
+                                      ,MessageHeader const& header
+                                      ,mapss const& headerStrings)
 {
   auto startSize = builder.size();
 
@@ -118,15 +127,6 @@ static std::size_t addVstHeader(VBuilder& builder
   return builder.size() - startSize;
 }
 
-//update the size of the chunk to be send
-static void fixChunkHeader(uint8_t * data
-                          ,std::size_t chunkHeaderLength
-                          ,std::size_t payloadLength
-                          )
-{
-  throw std::logic_error("implement me");
-}
-
 // ################################################################################
 
 std::shared_ptr<VBuffer> toNetwork(Request& request){
@@ -135,14 +135,14 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
   VBuilder builder(*buffer);
 
   // add chunk header
-  auto vstChunkHeader = createFirstChunkHeader(vstVersionID, request.messageid, 0); //size is unfortunatly unknown
+  auto vstChunkHeader = createSingleChunkHeader(vstVersionID, request.messageid, 0); //size is unfortunatly unknown
   auto chunkHeaderLength = addVstChunkHeader(std::size_t(1), *buffer, vstChunkHeader);
 
   // ****** TODO split data into smaller parts so that a **********************
   //             message can be longer than max chunk len
 
   // add message header
-  auto headerLength = addVstHeader(builder, request.header, request.headerStrings);
+  auto headerLength = addVstMessageHeader(builder, request.header, request.headerStrings);
   // add playload (header + data - uncompressed)
   std::size_t payloadLength = headerLength; // length of:
                                             // header slice + vpack data or
@@ -164,7 +164,7 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
 
   // **************************************************************************
 
-  fixChunkHeader(buffer->data(),chunkHeaderLength, payloadLength);
+  vstChunkHeader.updateChunkPayload(buffer->data(), payloadLength);
   return std::move(buffer);
 }
 
