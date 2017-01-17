@@ -277,8 +277,8 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
   bool processData = false; // will be set to true if we have a complete message
 
   auto vstChunkHeader = vst::readChunkHeaderV1_0(pair.first);
-  cursor += vstChunkHeader.headerLength;
-  length -= vstChunkHeader.headerLength;
+  cursor += vstChunkHeader.chunkHeaderLength;
+  length -= vstChunkHeader.chunkHeaderLength;
 
   ::std::map<MessageID,std::shared_ptr<RequestItem>>::iterator found;
   {
@@ -295,7 +295,7 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
   if(vstChunkHeader.isSingle){ //we got a single chunk containing the complete message
     processData = true;
   } else if (!vstChunkHeader.isFirst){ //there is chunk that continues a message
-    item._responseLength = vstChunkHeader.messageLength;
+    item._responseLength = vstChunkHeader.totalMessageLength;
     item._responseChunks = vstChunkHeader.chunk;
     item._responseChunk = 1;
   } else { //the chunk stats a multipart message

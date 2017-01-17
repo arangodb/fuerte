@@ -25,14 +25,25 @@ static size_t const chunkMaxBytes = 1000UL;
 
 // Velocystream Chunk Header
 struct ChunkHeader {
-  std::size_t headerLength;
-  uint32_t chunkLength;
-  uint32_t chunk;
-  uint64_t messageID;
-  uint64_t messageLength;
-  bool isFirst;
-  bool isSingle;
+  uint64_t messageID;             // messageid
+  uint64_t totalMessageLength;    // length of total unencrypeted payload +vstMessageHeader
+  std::size_t chunkHeaderLength;  // lenght of vstChunkHeader
+  uint32_t chunkLength;           // length of this chunk includig chunkHeader
+  uint32_t chunk;                 // number of chunks or chunk number
+  bool isSingle;                  // is a single chunk?
+  bool isFirst;                   // uis first or followup chunk
 };
+
+inline constexpr std::size_t chunkHeaderLength(int version, bool isFirst){
+  // until there is the next version we should use c++14 :P
+  return (version == 1) ?
+    // chunkLength uint32 , chunkX uint32 , id uint64 , messageLength unit64
+    sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint64_t) + (isFirst ? sizeof(uint64_t) : 0)
+    :
+    // chunkLength uint32 , chunkX uint32 , id uint64 , messageLength unit64
+    sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint64_t) + sizeof(uint64_t)
+    ;
+}
 
 // Item that represents a Request in flight
 struct RequestItem {
@@ -50,9 +61,6 @@ struct RequestItem {
 /////////////////////////////////////////////////////////////////////////////////////
 // send vst
 /////////////////////////////////////////////////////////////////////////////////////
-
-// create a buffer from a given header
-VBuffer headerToVPack(MessageHeader const& header);
 
 // creates a buffer in a shared pointer containg the message read to be send
 // out as vst (ChunkHeader, Header, Payload)

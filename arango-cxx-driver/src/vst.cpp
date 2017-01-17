@@ -11,11 +11,71 @@ using VValidator = ::arangodb::velocypack::Validator;
 ///////////////////////////////////////////////////////////////////////////////////
 
 
-//not exported
-static std::size_t addVstChunkHeaderV1_0(VBuffer& buffer
-                                    ,MessageHeader const& header)
+// ### not exported ###############################################################
+// send
+static ChunkHeader createFirstChunkHeader(int vstVersionID
+                                         ,MessageID messageID
+                                         ,std::size_t totalPayloadLength
+                                         ,std::size_t payloadLength
+                                         ,std::size_t numberOfChunks){
+  ChunkHeader header;
+  header.messageID = messageID;
+  header.totalMessageLength = totalPayloadLength; //total payload length
+  header.isFirst = true;
+  header.isSingle = (numberOfChunks == 1);
+  header.chunk = numberOfChunks;
+  header.chunkHeaderLength  = chunkHeaderLength(vstVersionID, header.isFirst);
+  header.chunkLength = header.chunkHeaderLength+payloadLength;
+  return header;
+}
+
+static ChunkHeader createFirstChunkHeader(int vstVersionID, MessageID messageID, std::size_t totalPayloadLength){
+  return createFirstChunkHeader(vstVersionID, messageID, totalPayloadLength, totalPayloadLength, 1);
+}
+
+static ChunkHeader createFollowUpChunkHeader(int vstVersionID
+                                            ,MessageID messageID
+                                            ,std::size_t totalPayloadLength
+                                            ,std::size_t payloadLength
+                                            ,std::size_t chunkNumber){
+  ChunkHeader header;
+  header.messageID = messageID;
+  header.chunk = chunkNumber;
+  header.totalMessageLength = totalPayloadLength; //total payload length
+  header.isFirst = false;
+  header.isSingle = false;
+  header.chunk = chunkNumber;
+  header.chunkHeaderLength  = chunkHeaderLength(vstVersionID, header.isFirst);
+  header.chunkLength = header.chunkHeaderLength+payloadLength;
+  return header;
+}
+
+template <typename T>
+std::size_t appendToBuffer(VBuffer& buffer, T& value) {
+  constexpr std::size_t len = sizeof(T);
+  uint8_t charArray[len];
+  uint8_t* charPtr = charArray;
+  std::memcpy(&charArray, &value, len);
+  buffer.append(charPtr, len);
+  return len;
+}
+
+static std::size_t addVstChunkHeader(std::size_t vstVersionID
+                                    ,VBuffer& buffer
+                                    ,ChunkHeader& header)
 {
-  throw std::logic_error("implement me");
+  auto chunk = header.chunk;
+  chunk <<= 1;
+  chunk |= header.isFirst ? 0x1 : 0x0;
+
+  appendToBuffer(buffer, header.chunkLength);
+  appendToBuffer(buffer, header.chunk);
+  appendToBuffer(buffer, header.messageID);
+
+  if (header.isFirst || (vstVersionID > 1)) {
+    appendToBuffer(buffer, header.totalMessageLength);
+  }
+
   return buffer.byteSize();
 }
 
@@ -58,7 +118,7 @@ static std::size_t addVstHeader(VBuilder& builder
   return builder.size() - startSize;
 }
 
-//update the size of the ching to be send
+//update the size of the chunk to be send
 static void fixChunkHeader(uint8_t * data
                           ,std::size_t chunkHeaderLength
                           ,std::size_t payloadLength
@@ -67,12 +127,16 @@ static void fixChunkHeader(uint8_t * data
   throw std::logic_error("implement me");
 }
 
+// ################################################################################
+
 std::shared_ptr<VBuffer> toNetwork(Request& request){
   auto buffer = std::make_shared<VBuffer>();
-
+  std::size_t vstVersionID = 1;
   VBuilder builder(*buffer);
+
   // add chunk header
-  auto chunkHeaderLength = addVstChunkHeaderV1_0(*buffer,request.header);
+  auto vstChunkHeader = createFirstChunkHeader(vstVersionID, request.messageid, 0); //size is unfortunatly unknown
+  auto chunkHeaderLength = addVstChunkHeader(std::size_t(1), *buffer, vstChunkHeader);
 
   // ****** TODO split data into smaller parts so that a **********************
   //             message can be longer than max chunk len
@@ -144,13 +208,13 @@ ChunkHeader readChunkHeaderV1_0(uint8_t const * const bufferBegin) {
 
   // extract total len of message
   if (header.isFirst && header.chunk > 1) {
-    std::memcpy(&header.messageLength, cursor, sizeof(header.messageLength));
-    cursor += sizeof(header.messageLength);
+    std::memcpy(&header.totalMessageLength, cursor, sizeof(header.totalMessageLength));
+    cursor += sizeof(header.totalMessageLength);
   } else {
-    header.messageLength = 0;  // not needed
+    header.totalMessageLength = 0;  // not needed
   }
 
-  header.headerLength = std::distance(bufferBegin, cursor);
+  header.chunkHeaderLength = std::distance(bufferBegin, cursor);
   header.isSingle = header.isFirst && header.chunk == 1;
   return header;
 }
