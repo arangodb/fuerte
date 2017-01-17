@@ -3,13 +3,12 @@
 #ifndef ARANGO_CXX_DRIVER_SERVER
 #define ARANGO_CXX_DRIVER_SERVER
 
-#include <boost/asio/io_service.hpp>
-#include <boost/asio/connect.hpp>
-
-//#include "asio.h"
-
 #include <utility>
 #include <memory>
+
+namespace boost { namespace  asio {
+  class io_service;
+}}
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 namespace asio{
@@ -46,7 +45,6 @@ public:
   void setAsioService(::boost::asio::io_service*, bool running);
   void setAsioServiceTakeOwnership(::boost::asio::io_service*, bool running);
   void* getAsioIoService();
-
 
 private:
   std::shared_ptr<asio::Loop> _asioLoop;
