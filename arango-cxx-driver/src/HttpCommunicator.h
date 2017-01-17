@@ -25,7 +25,7 @@
 #define ARANGO_CXX_DRIVER_HTTP_COMMUNICATOR_H 1
 
 #include <fuerte/message.h>
-#include <fuerte/common_types.h>
+#include <fuerte/types.h>
 
 #include <curl/curl.h>
 #include <chrono>
@@ -38,6 +38,22 @@ namespace fuerte {
 inline namespace v1 {
 namespace http {
 typedef std::string Destination;
+// -----------------------------------------------------------------------------
+// --SECTION--                                                   class Callbacks
+// -----------------------------------------------------------------------------
+
+class Callbacks {
+ public:
+  Callbacks() {}
+
+  Callbacks(OnSuccessCallback onSuccess, OnErrorCallback onError)
+      : _onSuccess(onSuccess), _onError(onError) {}
+
+ public:
+  OnSuccessCallback _onSuccess;
+  OnErrorCallback _onError;
+};
+
 
 // -----------------------------------------------------------------------------
 // --SECTION--                                                     class Options

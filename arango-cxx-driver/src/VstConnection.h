@@ -24,19 +24,18 @@
 #ifndef ARANGO_CXX_DRIVER_VST_CONNECTION_H
 #define ARANGO_CXX_DRIVER_VST_CONNECTION_H 1
 
-#include <functional>
 #include <atomic>
 #include <mutex>
-#include <fuerte/connection_interface.h>
-#include "asio/asio.h"
-#include "asio/Socket.h"
+#include <map>
+#include <deque>
+
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/asio/streambuf.hpp>
 #include <boost/asio/ssl.hpp>
-#include <map>
-#include <deque>
-#include <fuerte/vst.h>
 
+#include <fuerte/connection_interface.h>
+#include <fuerte/vst.h>
+#include "asio.h"
 
 // naming in this file will be closer to asio for internal functions and types
 // functions that are exposed to other classes follow ArangoDB conding conventions

@@ -2,7 +2,7 @@
 #ifndef ARANGO_CXX_DRIVER_CONNECTION
 #define ARANGO_CXX_DRIVER_CONNECTION
 
-#include "common_types.h"
+#include "types.h"
 #include "connection_interface.h"
 
 #include <memory>

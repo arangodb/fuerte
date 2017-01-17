@@ -1,4 +1,4 @@
-#include <fuerte/common_types.h>
+#include <fuerte/types.h>
 #include <fuerte/vst.h>
 #include <velocypack/Validator.h>
 #include <sstream>

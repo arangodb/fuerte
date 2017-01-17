@@ -4,7 +4,7 @@
 
 #include <memory>
 #include <string>
-#include "common_types.h"
+#include "types.h"
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 

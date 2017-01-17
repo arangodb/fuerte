@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
-#include <fuerte/common_types.h>
+#include <fuerte/types.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 

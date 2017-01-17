@@ -26,7 +26,6 @@
 #include <fuerte/loop.h>
 #include <fuerte/vst.h>
 #include <fuerte/message.h>
-#include "asio/SocketUnixDomain.h"
 
 #include <boost/asio/connect.hpp>
 #include <boost/asio/read.hpp>
