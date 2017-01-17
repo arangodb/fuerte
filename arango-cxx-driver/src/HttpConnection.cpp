@@ -23,7 +23,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "HttpConnection.h"
-#include "helper.h"
+#include <fuerte/helper.h> // url de/en-code
 #include <fuerte/loop.h>
 
 namespace arangodb {

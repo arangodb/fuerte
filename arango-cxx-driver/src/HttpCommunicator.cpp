@@ -23,8 +23,6 @@
 
 #include "HttpCommunicator.h"
 #include <fcntl.h>
-#include <fuerte/message.h>
-#include <fuerte/internal_types.h>
 #include <velocypack/Parser.h>
 
 namespace arangodb {

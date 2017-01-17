@@ -88,9 +88,6 @@ endif()
 #########################################################################################
 # Examples
 if(FUERTE_EXAMPLES)
-    if(not TARGET gtest)
-        add_subdirectory(3rdParty/googletest) # should not be required by examples
-    endif()
     add_subdirectory(examples)
 endif()
 

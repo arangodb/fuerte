@@ -22,7 +22,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "VstConnection.h"
-#include "helper.h"
 #include <condition_variable>
 #include <fuerte/loop.h>
 #include <fuerte/vst.h>

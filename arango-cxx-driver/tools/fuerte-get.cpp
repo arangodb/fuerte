@@ -27,7 +27,7 @@
 #include <fuerte/message.h>
 #include <fuerte/loop.h>
 #include <fuerte/requests.h>
-#include "../src/vpack.h"
+#include <fuerte/helper.h>
 
 using ConnectionBuilder = arangodb::fuerte::ConnectionBuilder;
 //using LoopProvider = arangodb::fuerte::LoopProvider;

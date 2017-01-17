@@ -2,6 +2,8 @@
 
 #include "message.h"
 
+// TODO -- move impl to cpp
+
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
 // Helper and Implementation

@@ -1,8 +1,46 @@
-#include "helper.h"
+#include <fuerte/helper.h>
 #include <string.h>
 #include <stdexcept>
+#include <sstream>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
+
+std::string payloadToString(std::vector<VSlice> const& payload, std::string title){
+  std::stringstream ss;
+  ss << title << "(payload)" << std::endl;
+
+  if(!payload.empty()){
+    for(auto const& slice : payload){
+      try {
+        std::string json = slice.toJson();
+        ss << json
+           << ", " << slice.byteSize()
+           << ", " << json.length()
+           << std::endl;
+      } catch(std::exception& e) {
+        ss << e.what();
+      }
+    }
+  } else {
+    ss << "empty" << std::endl;
+  }
+
+  return ss.str();
+}
+
+namespace http {
+static inline int hex2int(char ch, int errorValue = 0) {
+  if ('0' <= ch && ch <= '9') {
+    return ch - '0';
+  } else if ('A' <= ch && ch <= 'F') {
+    return ch - 'A' + 10;
+  } else if ('a' <= ch && ch <= 'f') {
+    return ch - 'a' + 10;
+  }
+
+  return errorValue;
+}
+
 
 std::string urlEncode(char const* src, size_t const len) {
   static char hexChars[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
@@ -54,18 +92,6 @@ std::string urlEncode(char const* src) {
     return urlEncode(src, len);
   }
   return "";
-}
-
-static inline int hex2int(char ch, int errorValue = 0) {
-  if ('0' <= ch && ch <= '9') {
-    return ch - '0';
-  } else if ('A' <= ch && ch <= 'F') {
-    return ch - 'A' + 10;
-  } else if ('a' <= ch && ch <= 'f') {
-    return ch - 'a' + 10;
-  }
-
-  return errorValue;
 }
 
 std::string urlDecode(std::string const& str) {
@@ -123,6 +149,7 @@ std::string urlDecode(std::string const& str) {
   }
 
   return result;
+}
 }
 
 }}}
