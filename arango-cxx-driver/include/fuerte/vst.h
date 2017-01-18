@@ -25,20 +25,29 @@ static size_t const chunkMaxBytes = 1000UL;
 
 // Velocystream Chunk Header
 struct ChunkHeader {
-  uint64_t messageID;             // messageid
-  uint64_t totalMessageLength;    // length of total unencrypeted payload +vstMessageHeader
-  std::size_t chunkHeaderLength;  // lenght of vstChunkHeader
-  uint32_t chunkPayloadLength;    // length of payload for this chunk
+  // data used in the specification
   uint32_t chunkLength;           // length of this chunk includig chunkHeader
   uint32_t chunk;                 // number of chunks or chunk number
+  uint64_t messageID;             // messageid
+  uint64_t totalMessageLength;    // length of total unencrypeted payload +vstMessageHeader
+
+  // additional data that is not in the protocl
+  std::size_t chunkHeaderLength;  // lenght of vstChunkHeader
+  uint32_t chunkPayloadLength;    // length of payload for this chunk
   bool isSingle;                  // is a single chunk?
-  bool isFirst;                   // uis first or followup chunk
+  bool isFirst;                   // is first or followup chunk -- encoded in chunk
 
   //update chunk len in structure and in an already existing buffer
   uint32_t updateChunkPayload(uint8_t* headerStartInBuffer, uint32_t payloadLength){
     auto lengthPosition = headerStartInBuffer;
     chunkLength = chunkHeaderLength + payloadLength;
     //update chunk len in buffer
+    std::memcpy(lengthPosition, &payloadLength, sizeof(payloadLength)); //target, source, length
+    return chunkLength;
+  }
+
+  uint32_t updateTotalPayload(uint8_t* headerStartInBuffer, uint64_t payloadLength){
+    auto lengthPosition = headerStartInBuffer + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint64_t);
     std::memcpy(lengthPosition, &payloadLength, sizeof(payloadLength)); //target, source, length
     return chunkLength;
   }
@@ -88,6 +97,8 @@ std::size_t isChunkComplete(uint8_t const * const begin, std::size_t const lengt
 // a version 1.0 Header into a data structure
 ChunkHeader readChunkHeaderV1_0(uint8_t const * const bufferBegin);
 
+// for the next function VBuffer must contain a complete message
+inline std::unique_ptr<Response> fromNetwork(VBuffer&){ throw std::logic_error("implement me!"); }
 
 // creates a MessageHeader form a given slice
 MessageHeader messageHeaderFromSlice(VSlice const& headerSlice);

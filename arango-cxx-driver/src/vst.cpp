@@ -12,7 +12,9 @@ using VValidator = ::arangodb::velocypack::Validator;
 
 
 // ### not exported ###############################################################
-// send
+// sending vst
+
+// section - VstChunkHeader
 static ChunkHeader createChunkHeader(int vstVersionID
                                     ,MessageID messageID
                                     ,std::size_t totalMessageLength
@@ -88,6 +90,7 @@ static std::size_t addVstChunkHeader(std::size_t vstVersionID
   return buffer.byteSize();
 }
 
+// section - VstMessageHeader
 static std::size_t addVstMessageHeader(VBuilder& builder
                                       ,MessageHeader const& header
                                       ,mapss const& headerStrings)
@@ -134,6 +137,10 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
   std::size_t vstVersionID = 1;
   VBuilder builder(*buffer);
 
+  // TODO we really need a to network chunk:
+  // taking the complete payload, offset into the payload, totoak messageLen
+  // number of chunks currentchunk number.
+
   // add chunk header
   auto vstChunkHeader = createSingleChunkHeader(vstVersionID, request.messageid, 0); //size is unfortunatly unknown
   auto chunkHeaderLength = addVstChunkHeader(std::size_t(1), *buffer, vstChunkHeader);
@@ -164,7 +171,9 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
 
   // **************************************************************************
 
+  // for the single chunk case chunk len and total message size are the same
   vstChunkHeader.updateChunkPayload(buffer->data(), payloadLength);
+  vstChunkHeader.updateTotalPayload(buffer->data(), payloadLength);
   return std::move(buffer);
 }
 

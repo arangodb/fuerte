@@ -29,18 +29,22 @@
 #include <map>
 #include <deque>
 
-#include <boost/asio/deadline_timer.hpp>
-#include <boost/asio/streambuf.hpp>
+#include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl.hpp>
+#include <boost/asio/streambuf.hpp>
+#include <boost/asio/deadline_timer.hpp>
 
 #include <fuerte/connection_interface.h>
 #include <fuerte/vst.h>
-#include "asio.h"
 
 // naming in this file will be closer to asio for internal functions and types
 // functions that are exposed to other classes follow ArangoDB conding conventions
 
-namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
+namespace arangodb { namespace fuerte { inline namespace v1 {
+
+class Loop;
+
+namespace vst {
 
 class VstConnection : public std::enable_shared_from_this<VstConnection>, public ConnectionInterface {
 
@@ -113,7 +117,8 @@ private:
   void handleWrite(boost::system::error_code const&, std::size_t transferred, std::shared_ptr<RequestItem>);
 
 private:
-  std::shared_ptr<asio::Loop> _asioLoop;
+  // TODO FIXME -- fix aligenment when done so mutexes are not on the same cacheline etc
+  std::shared_ptr<Loop> _asioLoop;
   ::boost::asio::io_service* _ioService;
   detail::ConnectionConfiguration _configuration;
   ::boost::asio::ip::tcp::resolver::iterator _endpoints;
@@ -134,5 +139,6 @@ private:
   ::std::atomic_bool _connected;
 };
 
-}}}}
+}
+}}}
 #endif

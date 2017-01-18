@@ -46,7 +46,6 @@ add_library(fuerte STATIC
     src/types.cpp
     src/message.cpp
     src/vst.cpp
-    src/asio.cpp
     src/loop.cpp
     src/helper.cpp
     src/HttpCommunicator.cpp

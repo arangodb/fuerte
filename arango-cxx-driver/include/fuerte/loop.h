@@ -11,9 +11,9 @@ namespace boost { namespace  asio {
 }}
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
-namespace asio{
-  class Loop;
-}
+
+class Loop;
+
 namespace http{
   class HttpCommunicator;
 }
@@ -29,7 +29,7 @@ public:
     return provider;
   }
 
-  std::shared_ptr<asio::Loop> getAsioLoop();
+  std::shared_ptr<Loop> getAsioLoop();
 
   std::shared_ptr<http::HttpCommunicator> getHttpLoop(){
     return _httpLoop;
@@ -47,7 +47,7 @@ public:
   void* getAsioIoService();
 
 private:
-  std::shared_ptr<asio::Loop> _asioLoop;
+  std::shared_ptr<Loop> _asioLoop;
   std::shared_ptr<http::HttpCommunicator> _httpLoop;
 };
 

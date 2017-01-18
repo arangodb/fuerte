@@ -24,6 +24,7 @@
 #include "HttpCommunicator.h"
 #include <fcntl.h>
 #include <velocypack/Parser.h>
+#include <cassert>
 
 namespace arangodb {
 namespace fuerte {
@@ -284,12 +285,27 @@ void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
       }
 
       case ContentType::Json: {
+        //parses only one json
         VBuffer buffer;
         auto builder = std::make_shared<VBuilder>(buffer);
         ::arangodb::velocypack::Parser parser(builder);
-        parser.parse(responseBody);
-        response->addBinarySingle(std::move(buffer));
+        std::size_t sliceLength = 0;
 
+        auto currentOffset = responseBody.data();
+        auto length = responseBody.size();
+        /*while(length)*/{
+
+          // the following function return unfortunatly the number of slices
+          // which is 1 when multi is not set, it would be nice to know how
+          // much of the body has been consumed
+          auto consumed = parser.parse(responseBody);
+
+          sliceLength += builder->slice().byteSize();
+          buffer.resetTo(sliceLength);
+          response->addVPack(std::move(buffer));
+          assert(length >= consumed);
+          length -=consumed;
+        }
         break;
       }
 
@@ -299,7 +315,6 @@ void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
         VBuilder builder(buffer);
         builder.add(slice);
         response->addVPack(std::move(buffer));
-
         break;
       }
 
