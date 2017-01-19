@@ -2,6 +2,7 @@
 #include <fuerte/vst.h>
 #include <velocypack/Validator.h>
 #include <sstream>
+#include "FuerteLogger.h"
 
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
@@ -14,6 +15,22 @@ using VValidator = ::arangodb::velocypack::Validator;
 // ### not exported ###############################################################
 // sending vst
 
+static std::string chunkHeaderToString(ChunkHeader const& header){
+  std::stringstream ss;
+  ss << "### ChunkHeader ###"
+     << "\nchunk length:         " << header._chunkLength
+     << "\nchunk header length:  " << header._chunkHeaderLength
+     << "\nchunk payload length: " << header._chunkPayloadLength
+     << "\nnumber of chunks:     " << header._numberOfChunks
+     << "\nmessage id:           " << header._messageID
+     << "\nis first:             " << header._isFirst
+     << "\nis single:            " << header._isSingle
+     << "\ntotal message length: " << header._chunkLength
+     << "\nchunk:                " << header._chunk
+     << std::endl;
+  return ss.str();
+}
+
 // section - VstChunkHeader
 static ChunkHeader createChunkHeader(int vstVersionID
                                     ,MessageID messageID
@@ -23,13 +40,19 @@ static ChunkHeader createChunkHeader(int vstVersionID
                                     ,bool isFirst){
 
   ChunkHeader header;
-  header.messageID = messageID;
-  header.totalMessageLength = totalMessageLength; //total payload length
-  header.isFirst = isFirst;
-  header.isSingle = isFirst && (chunk == 1);
-  header.chunk = chunk;
-  header.chunkHeaderLength  = chunkHeaderLength(vstVersionID, header.isFirst);
-  header.chunkLength = header.chunkHeaderLength+chunkPayloadLength;
+  header._chunkHeaderLength  = chunkHeaderLength(vstVersionID, isFirst);
+  header._chunkPayloadLength = chunkPayloadLength;
+  header._numberOfChunks = chunk;
+  header._isFirst = isFirst;
+
+  header._chunk = chunk;
+  header._chunk <<= 1;
+  header._chunk |= header._isFirst ? 0x1 : 0x0;
+  header._chunkLength = header._chunkHeaderLength + header._chunkPayloadLength;
+  header._isSingle = isFirst && (header._numberOfChunks == 1);
+
+  header._messageID = messageID;
+  header._totalMessageLength = totalMessageLength; //total payload length
   return header;
 }
 
@@ -62,7 +85,7 @@ static ChunkHeader createFollowUpChunkHeader(int vstVersionID
 
 
 template <typename T>
-std::size_t appendToBuffer(VBuffer& buffer, T& value) {
+std::size_t appendToBuffer(VBuffer& buffer, T &value) {
   constexpr std::size_t len = sizeof(T);
   uint8_t charArray[len];
   uint8_t* charPtr = charArray;
@@ -73,61 +96,74 @@ std::size_t appendToBuffer(VBuffer& buffer, T& value) {
 
 static std::size_t addVstChunkHeader(std::size_t vstVersionID
                                     ,VBuffer& buffer
-                                    ,ChunkHeader& header)
+                                    ,ChunkHeader const& header)
 {
-  auto chunk = header.chunk;
-  chunk <<= 1;
-  chunk |= header.isFirst ? 0x1 : 0x0;
+  appendToBuffer(buffer, header._chunkLength);
+  appendToBuffer(buffer, header._chunk);
+  appendToBuffer(buffer, header._messageID);
 
-  appendToBuffer(buffer, header.chunkLength);
-  appendToBuffer(buffer, header.chunk);
-  appendToBuffer(buffer, header.messageID);
-
-  if (header.isFirst || (vstVersionID > 1)) {
-    appendToBuffer(buffer, header.totalMessageLength);
+  if (header._isFirst || (vstVersionID > 1)) {
+    appendToBuffer(buffer, header._totalMessageLength);
   }
 
   return buffer.byteSize();
 }
 
 // section - VstMessageHeader
-static std::size_t addVstMessageHeader(VBuilder& builder
+static void addVstMessageHeader(VBuilder& builder
                                       ,MessageHeader const& header
                                       ,mapss const& headerStrings)
 {
+  static std::string const message = "for message not set";
   auto startSize = builder.size();
 
+  assert(builder.isClosed());
   builder.openArray();
   builder.add(VValue(header.version.get()));                         // 0
+  //FUERTE_LOG_DEBUG << "MessageHeader.version=" << header.version.get() << std::endl;
   builder.add(VValue(static_cast<int>(header.type.get())));          // 1
+  //FUERTE_LOG_DEBUG << "MessageHeader.type=" << static_cast<int>(header.type.get()) << std::endl;
   switch (header.type.get()){
     case MessageType::Authentication:
       //builder.add(VValue(header.encryption.get()));
+      if(!header.user){ throw std::runtime_error("user" + message); }
       builder.add(VValue(header.user.get()));
+      //FUERTE_LOG_DEBUG << "MessageHeader.user=" << header.user.get() << std::endl;
+      if(!header.password){ throw std::runtime_error("password" + message); }
       builder.add(VValue(header.password.get()));
+      //FUERTE_LOG_DEBUG << "MessageHeader.password=" << header.password.get() << std::endl;
       break;
 
     case MessageType::Request:
+      if(!header.database){ throw std::runtime_error("database" + message); }
       builder.add(VValue(header.database.get()));                    // 2
+      //FUERTE_LOG_DEBUG << "MessageHeader.database=" << header.database.get() << std::endl;
+
+      if(!header.restVerb){ throw std::runtime_error("rest verb" + message); }
       builder.add(VValue(static_cast<int>(header.restVerb.get())));  // 3
+      //FUERTE_LOG_DEBUG << "MessageHeader.restVerb=" << static_cast<int>(header.restVerb.get()) << std::endl;
+
+      if(!header.path){ throw std::runtime_error("path" + message); }
       builder.add(VValue(header.path.get()));                        // 4
+      //FUERTE_LOG_DEBUG << "MessageHeader.path=" << header.path.get() << std::endl;
+
       if (header.parameter){
         //header.parameter = header_slice.at(5);                     // 5
       }
+
       if (header.meta){
         //header.meta = header_slice.at(6);                          // 6
       }
       break;
 
     case MessageType::Response:
+      if(!header.responseCode){ throw std::runtime_error("response code" + message); }
       builder.add(VValue(header.responseCode.get()));                // 2
       break;
     default:
       break;
   }
   builder.close();
-
-  return builder.size() - startSize;
 }
 
 // ################################################################################
@@ -135,7 +171,13 @@ static std::size_t addVstMessageHeader(VBuilder& builder
 std::shared_ptr<VBuffer> toNetwork(Request& request){
   auto buffer = std::make_shared<VBuffer>();
   std::size_t vstVersionID = 1;
-  VBuilder builder(*buffer);
+
+  // setting defaults
+  request.header.version = vstVersionID;
+  if(!request.header.database){
+    request.header.database = "_system";
+  }
+
 
   // TODO we really need a to network chunk:
   // taking the complete payload, offset into the payload, totoak messageLen
@@ -144,20 +186,24 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
   // add chunk header
   auto vstChunkHeader = createSingleChunkHeader(vstVersionID, request.messageid, 0); //size is unfortunatly unknown
   auto chunkHeaderLength = addVstChunkHeader(std::size_t(1), *buffer, vstChunkHeader);
+  VBuilder builder(*buffer);
 
   // ****** TODO split data into smaller parts so that a **********************
   //             message can be longer than max chunk len
 
   // add message header
-  auto headerLength = addVstMessageHeader(builder, request.header, request.headerStrings);
+  addVstMessageHeader(builder, request.header, request.headerStrings);
+  auto slice = VSlice(buffer->data()+chunkHeaderLength);
+  auto headerLength = slice.byteSize();
+  FUERTE_LOG_DEBUG << "Message Header:\n" << slice.toJson() << " , " << headerLength << std::endl;
+
   // add playload (header + data - uncompressed)
-  std::size_t payloadLength = headerLength; // length of:
-                                            // header slice + vpack data or
-                                            // header slice + binary data
+  std::size_t payloadLength = headerLength;
   {
     if(request.header.contentType == ContentType::VPack){
       for(auto const& slice : request.slices()){
         payloadLength += slice.byteSize();
+        FUERTE_LOG_DEBUG << slice.toJson() << " , " << slice.byteSize() << std::endl;
         builder.add(slice);
       }
     } else {
@@ -174,6 +220,16 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
   // for the single chunk case chunk len and total message size are the same
   vstChunkHeader.updateChunkPayload(buffer->data(), payloadLength);
   vstChunkHeader.updateTotalPayload(buffer->data(), payloadLength);
+
+  std::cout << "updated header read back in" << std::endl;
+  auto readheader = readChunkHeaderV1_0(buffer.get()->data());
+  FUERTE_LOG_DEBUG << chunkHeaderToString(readheader) << std::endl;
+
+  FUERTE_LOG_DEBUG << buffer->byteSize() << " = "
+                   << payloadLength << " + "
+                   << chunkHeaderLength
+                   << std::endl;
+  assert(vstChunkHeader._chunkLength == buffer->byteSize());
   return std::move(buffer);
 }
 
@@ -202,29 +258,30 @@ ChunkHeader readChunkHeaderV1_0(uint8_t const * const bufferBegin) {
 
   auto cursor = bufferBegin;
 
-  std::memcpy(&header.chunkLength, cursor, sizeof(header.chunkLength));
-  cursor += sizeof(header.chunkLength);
+  std::memcpy(&header._chunkLength, cursor, sizeof(header._chunkLength));
+  cursor += sizeof(header._chunkLength);
 
-  uint32_t chunkX;
-  std::memcpy(&chunkX, cursor, sizeof(chunkX));
-  cursor += sizeof(chunkX);
+  std::memcpy(&header._chunk, cursor, sizeof(header._chunk));
+  cursor += sizeof(header._chunk);
 
-  header.isFirst = chunkX & 0x1;
-  header.chunk = chunkX >> 1;
+  header._isFirst = header._chunk & 0x1;
+  header._numberOfChunks = header._chunk;
+  header._numberOfChunks >>= 1;
 
-  std::memcpy(&header.messageID, cursor, sizeof(header.messageID));
-  cursor += sizeof(header.messageID);
+  std::memcpy(&header._messageID, cursor, sizeof(header._messageID));
+  cursor += sizeof(header._messageID);
 
   // extract total len of message
-  if (header.isFirst && header.chunk > 1) {
-    std::memcpy(&header.totalMessageLength, cursor, sizeof(header.totalMessageLength));
-    cursor += sizeof(header.totalMessageLength);
+  if (header._isFirst) {
+    std::memcpy(&header._totalMessageLength, cursor, sizeof(header._totalMessageLength));
+    cursor += sizeof(header._totalMessageLength);
   } else {
-    header.totalMessageLength = 0;  // not needed
+    header._totalMessageLength = 0;  // not needed
   }
 
-  header.chunkHeaderLength = std::distance(bufferBegin, cursor);
-  header.isSingle = header.isFirst && header.chunk == 1;
+  header._chunkHeaderLength = std::distance(bufferBegin, cursor);
+  header._chunkPayloadLength = header._chunkLength - header._chunkHeaderLength;
+  header._isSingle = header._isFirst && header._numberOfChunks == 1;
   return header;
 }
 
@@ -232,21 +289,21 @@ MessageHeader messageHeaderFromSlice(VSlice const& headerSlice){
   assert(headerSlice.isArray());
   MessageHeader header;
 
-  header.version = headerSlice.at(0).getNumber<int>(); //version
-  header.type = static_cast<MessageType>(headerSlice.at(1).getNumber<int>()); //type
+  header.version = headerSlice.at(0).getNumber<int>();                              //version
+  header.type = static_cast<MessageType>(headerSlice.at(1).getNumber<int>());       //type
   switch (header.type.get()){
     case MessageType::Authentication:
-      //header.encryption = headerSlice.at(6); //encryption (plain) should be 2
-      header.user = headerSlice.at(2).copyString(); //user
-      header.user = headerSlice.at(3).copyString(); //password
+      //header.encryption = headerSlice.at(6);                                      //encryption (plain) should be 2
+      header.user = headerSlice.at(2).copyString();                                 //user
+      header.user = headerSlice.at(3).copyString();                                 //password
       break;
 
     case MessageType::Request:
-      header.database = headerSlice.at(2).copyString(); // databse
-      header.restVerb = static_cast<RestVerb>(headerSlice.at(3).getInt()); //rest verb
-      header.path = headerSlice.at(4).copyString();  // request (path)
-      //header.parameter = headerSlice.at(5); // params
-      //header.parameter = headerSlice.at(6); // meta
+      header.database = headerSlice.at(2).copyString();                             // databse
+      header.restVerb = static_cast<RestVerb>(headerSlice.at(3).getInt());          // rest verb
+      header.path = headerSlice.at(4).copyString();                                 // request (path)
+      //header.parameter = headerSlice.at(5);                                       // params
+      //header.parameter = headerSlice.at(6);                                       // meta
       break;
 
     case MessageType::Response:
@@ -291,8 +348,12 @@ std::size_t validateAndCount(uint8_t const * const vpStart, std::size_t length){
       // isSubPart allows the slice to be shorter than the checked buffer.
       validator.validate(cursor, length , isSubPart);
       VSlice slice(cursor);
-      length -= slice.byteSize();
-      cursor += slice.byteSize();
+      auto sliceSize = slice.byteSize();
+      if(length < sliceSize){
+        throw std::length_error("slice is longer than buffer");
+      }
+      length -= sliceSize;
+      cursor += sliceSize;
       numPayloads++;
     } catch (std::exception const& e) {
       throw std::runtime_error(std::string("error during validation of incoming VPack") + e.what());

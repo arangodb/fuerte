@@ -7,8 +7,6 @@
 #include <vector>
 #include <map>
 
-// TODO - move implementation to cpp
-
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
 namespace vst {

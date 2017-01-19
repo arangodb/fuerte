@@ -15,7 +15,12 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
                ){
 
     auto request = std::unique_ptr<Request>(new Request(std::move(messageHeader),std::move(headerStrings)));
+
     request->header.restVerb = verb;
+    if (!request->header.type){
+      request->header.type = MessageType::Request;
+    }
+
     if (!request->header.contentType){
       request->header.contentType = ContentType::VPack;
     }

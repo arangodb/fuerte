@@ -15,6 +15,7 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
     {
       if (_configuration._connType == TransportType::Vst){
         _realConnection = std::make_shared<vst::VstConnection>(_configuration);
+        _realConnection->start();
       } else {
         _realConnection = std::make_shared<http::HttpConnection>(_configuration);
       }

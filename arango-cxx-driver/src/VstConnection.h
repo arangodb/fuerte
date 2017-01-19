@@ -82,19 +82,20 @@ public:
                        ,OnErrorCallback
                        ,OnSuccessCallback) override;
 
-  // syncronous operation for sending Requests implemented using the the
-  // asyncronous operation and a condition variable
+  // synchronous operation for sending Requests implemented using the
+  // asynchronous operation and a condition variable
   std::unique_ptr<Response> sendRequest(std::unique_ptr<Request>) override;
 
 private:
   // SOCKET HANDLING /////////////////////////////////////////////////////////
-  void initSocket(boost::asio::ip::tcp::resolver::iterator);
+  void initSocket();
   void shutdownSocket();
   void shutdownConnection();
   void restartConnection();
+  virtual void start() override { initSocket(); }
 
   //handler to be posted to loop
-  //this handler call their handle counterpart on completeion
+  //this handler call their handle counterpart on completion
 
   // establishes connection and initiates handshake
   void startConnect(boost::asio::ip::tcp::resolver::iterator);
@@ -102,7 +103,8 @@ private:
 
   // does handshake and starts async read and write
   void startHandshake();
-  void handleHandshake();
+
+  void finishInitialization();
 
   // reads data from socket with boost::asio::async_read
   void startRead();
@@ -137,6 +139,7 @@ private:
   ::std::mutex _mapMutex;
   ::std::map<MessageID,std::shared_ptr<RequestItem>> _messageMap;
   ::std::atomic_bool _connected;
+  ::std::mutex _connectedMutex;
 };
 
 }

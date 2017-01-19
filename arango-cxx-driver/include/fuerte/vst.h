@@ -26,30 +26,32 @@ static size_t const chunkMaxBytes = 1000UL;
 // Velocystream Chunk Header
 struct ChunkHeader {
   // data used in the specification
-  uint32_t chunkLength;           // length of this chunk includig chunkHeader
-  uint32_t chunk;                 // number of chunks or chunk number
-  uint64_t messageID;             // messageid
-  uint64_t totalMessageLength;    // length of total unencrypeted payload +vstMessageHeader
+  uint32_t _chunkLength;           // length of this chunk includig chunkHeader
+  uint32_t _chunk;                 // number of chunks or chunk number
+  uint64_t _messageID;             // messageid
+  uint64_t _totalMessageLength;    // length of total unencrypeted payload +vstMessageHeader
 
   // additional data that is not in the protocl
-  std::size_t chunkHeaderLength;  // lenght of vstChunkHeader
-  uint32_t chunkPayloadLength;    // length of payload for this chunk
-  bool isSingle;                  // is a single chunk?
-  bool isFirst;                   // is first or followup chunk -- encoded in chunk
+  std::size_t _chunkHeaderLength;  // lenght of vstChunkHeader
+  uint32_t _chunkPayloadLength;    // length of payload for this chunk
+  uint32_t _numberOfChunks;
+  bool _isSingle;                  // is a single chunk?
+  bool _isFirst;                   // is first or followup chunk -- encoded in chunk
 
   //update chunk len in structure and in an already existing buffer
   uint32_t updateChunkPayload(uint8_t* headerStartInBuffer, uint32_t payloadLength){
-    auto lengthPosition = headerStartInBuffer;
-    chunkLength = chunkHeaderLength + payloadLength;
+    _chunkPayloadLength = payloadLength;
+    _chunkLength = _chunkHeaderLength + _chunkPayloadLength;
     //update chunk len in buffer
-    std::memcpy(lengthPosition, &payloadLength, sizeof(payloadLength)); //target, source, length
-    return chunkLength;
+    std::memcpy(headerStartInBuffer, &_chunkLength, sizeof(_chunkLength)); //target, source, length
+    return _chunkLength;
   }
 
-  uint32_t updateTotalPayload(uint8_t* headerStartInBuffer, uint64_t payloadLength){
-    auto lengthPosition = headerStartInBuffer + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint64_t);
-    std::memcpy(lengthPosition, &payloadLength, sizeof(payloadLength)); //target, source, length
-    return chunkLength;
+  uint32_t updateTotalPayload(uint8_t* headerStartInBuffer, uint64_t messageLength){
+    _totalMessageLength = messageLength;
+    auto pos = headerStartInBuffer + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint64_t);
+    std::memcpy(pos, &_totalMessageLength, sizeof(_totalMessageLength)); //target, source, length
+    return _totalMessageLength;
   }
 };
 

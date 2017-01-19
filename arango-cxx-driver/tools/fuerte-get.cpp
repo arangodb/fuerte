@@ -173,5 +173,7 @@ int main(int argc, char* argv[]) {
     exit(EXIT_FAILURE);
   }
 
+  arangodb::fuerte::LoopProvider::getProvider().runAsio();
+
   return EXIT_SUCCESS;
 }

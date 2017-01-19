@@ -78,7 +78,7 @@ void Message::addBinarySingle(VBuffer&& buffer){
 }
 
 
-// get payload
+//// get payload
 // get payload as slices
 std::vector<VSlice>const & Message::slices(){
   if(_isVpack && _modified){
@@ -99,7 +99,7 @@ std::vector<VSlice>const & Message::slices(){
   return _slices;
 }
 
-//get payload as binary
+// get payload as binary
 std::pair<uint8_t const *, std::size_t> Message::payload(){
   return { _payload.data(), _payload.byteSize() };
 }
