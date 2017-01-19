@@ -55,11 +55,11 @@ struct ChunkHeader {
   }
 };
 
-inline constexpr std::size_t chunkHeaderLength(int version, bool isFirst){
+inline constexpr std::size_t chunkHeaderLength(int version, bool isFirst, bool isSingle){
   // until there is the next version we should use c++14 :P
   return (version == 1) ?
     // chunkLength uint32 , chunkX uint32 , id uint64 , messageLength unit64
-    sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint64_t) + (isFirst ? sizeof(uint64_t) : 0)
+    sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint64_t) + (isFirst && !isSingle ? sizeof(uint64_t) : 0)
     :
     // chunkLength uint32 , chunkX uint32 , id uint64 , messageLength unit64
     sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint64_t) + sizeof(uint64_t)

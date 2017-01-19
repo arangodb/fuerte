@@ -40,17 +40,15 @@ static ChunkHeader createChunkHeader(int vstVersionID
                                     ,bool isFirst){
 
   ChunkHeader header;
-  header._chunkHeaderLength  = chunkHeaderLength(vstVersionID, isFirst);
   header._chunkPayloadLength = chunkPayloadLength;
   header._numberOfChunks = chunk;
   header._isFirst = isFirst;
-
   header._chunk = chunk;
   header._chunk <<= 1;
   header._chunk |= header._isFirst ? 0x1 : 0x0;
-  header._chunkLength = header._chunkHeaderLength + header._chunkPayloadLength;
   header._isSingle = isFirst && (header._numberOfChunks == 1);
-
+  header._chunkHeaderLength  = chunkHeaderLength(vstVersionID, isFirst, header._isSingle);
+  header._chunkLength = header._chunkHeaderLength + header._chunkPayloadLength;
   header._messageID = messageID;
   header._totalMessageLength = totalMessageLength; //total payload length
   return header;
@@ -102,7 +100,7 @@ static std::size_t addVstChunkHeader(std::size_t vstVersionID
   appendToBuffer(buffer, header._chunk);
   appendToBuffer(buffer, header._messageID);
 
-  if (header._isFirst || (vstVersionID > 1)) {
+  if ((header._isFirst && header._numberOfChunks > 1) || (vstVersionID > 1)) {
     appendToBuffer(buffer, header._totalMessageLength);
   }
 
@@ -186,6 +184,9 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
   // add chunk header
   auto vstChunkHeader = createSingleChunkHeader(vstVersionID, request.messageid, 0); //size is unfortunatly unknown
   auto chunkHeaderLength = addVstChunkHeader(std::size_t(1), *buffer, vstChunkHeader);
+  FUERTE_LOG_DEBUG << "ChunkHeaderLength:"
+                   << chunkHeaderLength << " = " << buffer->byteSize()
+                   << std::endl;
   VBuilder builder(*buffer);
 
   // ****** TODO split data into smaller parts so that a **********************
@@ -195,7 +196,11 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
   addVstMessageHeader(builder, request.header, request.headerStrings);
   auto slice = VSlice(buffer->data()+chunkHeaderLength);
   auto headerLength = slice.byteSize();
-  FUERTE_LOG_DEBUG << "Message Header:\n" << slice.toJson() << " , " << headerLength << std::endl;
+  buffer->resetTo(chunkHeaderLength+headerLength);
+  FUERTE_LOG_DEBUG << "Message Header:\n" << slice.toJson() << " , "
+                                          << chunkHeaderLength << " + " << headerLength
+                                          << " = " << buffer->byteSize()
+                                          << std::endl;
 
   // add playload (header + data - uncompressed)
   std::size_t payloadLength = headerLength;
@@ -219,8 +224,10 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
 
   // for the single chunk case chunk len and total message size are the same
   vstChunkHeader.updateChunkPayload(buffer->data(), payloadLength);
-  vstChunkHeader.updateTotalPayload(buffer->data(), payloadLength);
 
+  if ((vstChunkHeader._isFirst && vstChunkHeader._numberOfChunks > 1) || (vstVersionID > 1)) {
+    vstChunkHeader.updateTotalPayload(buffer->data(), payloadLength);
+  }
   std::cout << "updated header read back in" << std::endl;
   auto readheader = readChunkHeaderV1_0(buffer.get()->data());
   FUERTE_LOG_DEBUG << chunkHeaderToString(readheader) << std::endl;
