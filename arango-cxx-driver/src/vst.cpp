@@ -375,6 +375,8 @@ std::size_t validateAndCount(uint8_t const * const vpStart, std::size_t length){
 
   FUERTE_LOG_DEBUG << "buffer length to validate: " << length << std::endl;
 
+
+  FUERTE_LOG_TRACE << "sliceSizes: ";
   while (length) {
     try {
       // isSubPart allows the slice to be shorter than the checked buffer.
@@ -387,12 +389,12 @@ std::size_t validateAndCount(uint8_t const * const vpStart, std::size_t length){
       length -= sliceSize;
       cursor += sliceSize;
       numPayloads++;
-      FUERTE_LOG_DEBUG << "s" << sliceSize << " ";
+      FUERTE_LOG_TRACE << sliceSize << " ";
     } catch (std::exception const& e) {
       throw std::runtime_error(std::string("error during validation of incoming VPack") + e.what());
     }
   }
-  FUERTE_LOG_DEBUG << std::endl;
+  FUERTE_LOG_TRACE << std::endl;
   return numPayloads;
 }
 

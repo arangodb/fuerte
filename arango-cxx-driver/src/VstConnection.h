@@ -114,7 +114,7 @@ private:
   void handleRead(boost::system::error_code const&, std::size_t transferred);
 
   // writes data form task queue to network using boost::asio::async_write
-  void startWrite();
+  void startWrite(bool possiblyEmpty = false);
   // handler for boost::asio::async_wirte that calls startWrite as long as there is new data
   void handleWrite(boost::system::error_code const&, std::size_t transferred, std::shared_ptr<RequestItem>);
 

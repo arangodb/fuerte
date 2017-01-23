@@ -12,15 +12,48 @@ namespace boost { namespace  asio {
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
-class Loop;
+class Work;
+class LoopProvider;
+
+namespace vst {
+  class VstConnection;
+}
+
+class Loop{
+  friend class LoopProvider;
+  friend class vst::VstConnection;
+
+public:
+  Loop();
+  bool run();
+  void ask_to_stop();
+  void poll(bool block);
+
+private:
+  void setIoService(::boost::asio::io_service * service);
+  void setIoServiceTakeOwnership(::boost::asio::io_service* service);
+  void* getIoService();
+
+private:
+  std::shared_ptr<::boost::asio::io_service> _serviceSharedPtr;
+  ::boost::asio::io_service* _service;
+  std::shared_ptr<Work> _work;
+  bool _owning;
+  bool _sealed;
+  bool _running;
+  bool _pollMode;
+};
 
 namespace http{
   class HttpCommunicator;
 }
 
+// LoopProvider is a meyers singleton so we have private constructors
+// call to the class are not thread safe! It is your responsiblity
+// to make sure that there is no concurrent access to this class in
+// your code!
 class LoopProvider {
-  //meyers singleton so we have private constructors
-  LoopProvider();
+  LoopProvider(); // private for singleton use getProvider()
 
 public:
   //get LoopProvider Singelton with this function!
@@ -29,23 +62,28 @@ public:
     return provider;
   }
 
-  std::shared_ptr<Loop> getAsioLoop();
-
+  // get a shared pointer to a http communicator!
+  // You need to include the HttpCommunicator.h.
   std::shared_ptr<http::HttpCommunicator> getHttpLoop(){
     return _httpLoop;
   }
 
+  //// io_service modification
+  //the service will not be owned by the LoopProvider
+  void setAsioService(::boost::asio::io_service*, bool running);
+  void setAsioServiceTakeOwnership(::boost::asio::io_service*, bool running);
+  // get pointer to the ioservice
+  void* getAsioIoService();
+  std::shared_ptr<Loop> getAsioLoop();
+
+  // run asio loop / poll vst connection
   bool runAsio();
   void stopAsio();
   void pollAsio(bool block);
   bool isAsioPolling();
 
+  // poll both loops
   void poll(bool block);
-
-  //the service will not be owned by the LoopProvider
-  void setAsioService(::boost::asio::io_service*, bool running);
-  void setAsioServiceTakeOwnership(::boost::asio::io_service*, bool running);
-  void* getAsioIoService();
 
 private:
   std::shared_ptr<Loop> _asioLoop;

@@ -110,7 +110,7 @@ std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
     };
 
     sendRequest(std::move(request),onError,onSuccess);
-    LoopProvider::getProvider().pollAsio(); //REVIEW
+    LoopProvider::getProvider().pollAsio(true); //REVIEW
 
     {
       //wait for handler to call notify_one
@@ -243,9 +243,7 @@ void VstConnection::finishInitialization(){
     _connected = true;
   }
 
-  FUERTE_LOG_DEBUG << "start writing to socket" << std::endl;
-  startWrite();
-  FUERTE_LOG_DEBUG << "start reading form socket" << std::endl;
+  startWrite(true); // there might be no requests enqueued
   startRead();
 }
 
@@ -269,7 +267,7 @@ void VstConnection::startHandshake(){
 }
 
 void VstConnection::startRead(){
-  FUERTE_LOG_DEBUG << "r";
+  FUERTE_LOG_DEBUG << "-";
   if (_pleaseStop) {
     return;
   }
@@ -285,7 +283,7 @@ void VstConnection::startRead(){
 
   // gets data from network and fill
   _deadline.expires_from_now(boost::posix_time::seconds(30));
-
+  FUERTE_LOG_DEBUG << "r";
   auto self = shared_from_this();
   ba::async_read(*_socket
                 ,_receiveBuffer
@@ -362,7 +360,7 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
     }
   }
 
-  if(!LoopProvider::getProvider().isAsioPolling()){
+  if(!_asioLoop->_pollMode){
     startRead(); //start next read - code below might run in parallel to new read
   }
 
@@ -403,18 +401,21 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
     }
   }
 
-  if(LoopProvider::getProvider().isAsioPolling()){
+  if(_asioLoop->_pollMode){
     startRead(); //start next read - code below might run in parallel to new read
   }
 }
 
-void VstConnection::startWrite(){
-  FUERTE_LOG_DEBUG << "w";
+void VstConnection::startWrite(bool possiblyEmpty){
+  FUERTE_LOG_TRACE << "+";
   if (_pleaseStop) {
     return;
   }
 
-  assert(!_sendQueue.empty()); //the queue can not be empty
+  if(_sendQueue.empty()){
+    assert(possiblyEmpty);
+  }
+
   // no lock required here to accesse the first element as it can not change
   // front will be only modified at the end of this function
   auto next = _sendQueue.front();
@@ -423,9 +424,12 @@ void VstConnection::startWrite(){
     _messageMap.emplace(next->_messageId,next);
   }
 
+  FUERTE_LOG_DEBUG << "s";
+
   // make sure we are connected and handshake has been done
   auto self = shared_from_this();
   auto data = *next->_requestBuffer;
+  FUERTE_LOG_DEBUG << data.byteSize();
   ba::async_write(*_socket
                  ,ba::buffer(data.data(),data.byteSize())
                  ,[this,self,next,data](BoostEC const& error, std::size_t transferred){
@@ -435,7 +439,7 @@ void VstConnection::startWrite(){
 }
 
 void VstConnection::handleWrite(BoostEC const& error, std::size_t transferred, RequestItemSP item){
-  FUERTE_LOG_DEBUG << "W";
+  FUERTE_LOG_DEBUG << "S";
 
   if (error){
     _pleaseStop = true; //stop reading as well

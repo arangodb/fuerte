@@ -170,6 +170,7 @@ int main(int argc, char* argv[]) {
   for (size_t i = 0; i < 1; ++i) {
     try {
       auto request = arangodb::fuerte::createRequest(method, path, parameter, vbuilder.slice());
+      connection->sendRequest(std::move(request), errCallback, resCallback);
     } catch (std::exception const& ex) {
       std::cerr << "exception: " << ex.what() << std::endl;
       exit(EXIT_FAILURE);
