@@ -37,11 +37,12 @@ public:
 
   bool runAsio();
   void stopAsio();
-  void pollAsio();
+  void pollAsio(bool block);
+  bool isAsioPolling();
 
-  void poll();
+  void poll(bool block);
 
-  //the serive will not be owned by the LoopProvider
+  //the service will not be owned by the LoopProvider
   void setAsioService(::boost::asio::io_service*, bool running);
   void setAsioServiceTakeOwnership(::boost::asio::io_service*, bool running);
   void* getAsioIoService();
@@ -51,7 +52,13 @@ private:
   std::shared_ptr<http::HttpCommunicator> _httpLoop;
 };
 
-inline void poll(){ LoopProvider::getProvider().poll(); };
+
+// pools the services
+// when blocking is true asio will do all outstanding communication and return.
+// Otherwise (blocking == false) it will return immediately if there is no
+// ready handler so it will not wait for things like epoll on a socket.
+// You want to use poll(false) if you are using fuerte with your own event loop.
+inline void poll(bool block){ LoopProvider::getProvider().poll(block); };
 
 }}}
 #endif

@@ -274,6 +274,15 @@ void VstConnection::startRead(){
     return;
   }
 
+  {
+    std::unique_lock<std::mutex> queueLock(_sendQueueMutex, std::defer_lock);
+    std::unique_lock<std::mutex> mapLock(_mapMutex, std::defer_lock);
+    std::lock(queueLock,mapLock);
+    if(_messageMap.empty() && _sendQueue.empty()){
+      return;
+    }
+  }
+
   // gets data from network and fill
   _deadline.expires_from_now(boost::posix_time::seconds(30));
 
@@ -353,7 +362,9 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
     }
   }
 
-  startRead(); //start next read - code below might run in parallel to new read
+  if(!LoopProvider::getProvider().isAsioPolling()){
+    startRead(); //start next read - code below might run in parallel to new read
+  }
 
   if(processData){
     cursor = item._responseBuffer.data();
@@ -386,6 +397,14 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
     }
     // call callback
     item._onSuccess(std::move(item._request),std::move(response));
+    {
+      Lock mapLock(_mapMutex);
+      _messageMap.erase(item._messageId);
+    }
+  }
+
+  if(LoopProvider::getProvider().isAsioPolling()){
+    startRead(); //start next read - code below might run in parallel to new read
   }
 }
 

@@ -23,8 +23,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #define ENABLE_FUERTE_LOG_ERROR 1
-#define ENABLE_FUERTE_LOG_DEBUG 0
-#define ENABLE_FUERTE_LOG_TRACE 0
+#define ENABLE_FUERTE_LOG_DEBUG 1
+#define ENABLE_FUERTE_LOG_TRACE 1
 
 #include <fuerte/connection.h>
 #include <iostream>
@@ -170,7 +170,6 @@ int main(int argc, char* argv[]) {
   for (size_t i = 0; i < 1; ++i) {
     try {
       auto request = arangodb::fuerte::createRequest(method, path, parameter, vbuilder.slice());
-      connection->sendRequest(std::move(request), errCallback, resCallback);
     } catch (std::exception const& ex) {
       std::cerr << "exception: " << ex.what() << std::endl;
       exit(EXIT_FAILURE);
@@ -178,13 +177,11 @@ int main(int argc, char* argv[]) {
   }
 
   try {
-    arangodb::fuerte::poll();
+    arangodb::fuerte::poll(true);
   } catch (std::exception const& ex) {
     std::cerr << "exception: " << ex.what() << std::endl;
     exit(EXIT_FAILURE);
   }
-
-  arangodb::fuerte::LoopProvider::getProvider().runAsio();
 
   return EXIT_SUCCESS;
 }

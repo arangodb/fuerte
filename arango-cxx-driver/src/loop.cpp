@@ -6,9 +6,12 @@
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
 class LoopProvider;
+class VstConnection;
 
 class Loop{
   friend class ::arangodb::fuerte::v1::LoopProvider;
+  friend class ::arangodb::fuerte::v1::VstConnection;
+
 public:
   Loop()
     :_serviceSharedPtr(new ::boost::asio::io_service)
@@ -16,6 +19,7 @@ public:
     ,_sealed(false)
     ,_owning(true)
     ,_running(false)
+    ,_pollMode(false)
     {}
 
   bool run(){
@@ -43,9 +47,15 @@ public:
     return false;
   };
 
-  void poll(){
+  void poll(bool block){
     _sealed = true;
-    _service->poll();
+    if(block){
+      _pollMode=true;
+      _service->run();
+      _pollMode=false;
+    } else {
+      _service->poll();
+    }
   }
 
   void ask_to_stop(){
@@ -82,7 +92,7 @@ private:
   bool _owning;
   bool _sealed;
   bool _running;
-
+  bool _pollMode;
 };
 static VpackInit init;
 
@@ -112,14 +122,19 @@ bool LoopProvider::runAsio(){
   return _asioLoop->run();
 }
 
-void LoopProvider::pollAsio(){
-  _asioLoop->poll();
+void LoopProvider::pollAsio(bool block){
+  _asioLoop->poll(block);
 }
 
-void LoopProvider::poll(){
+bool LoopProvider::isAsioPolling(){
+  return _asioLoop->_pollMode;
+}
+
+
+void LoopProvider::poll(bool block){
   //poll asio
   if(_asioLoop){
-    pollAsio();  //polls until io_service has no further tasks
+    pollAsio(block);  //polls until io_service has no further tasks
   }
 
   //poll http
