@@ -30,7 +30,10 @@ struct MessageHeader {
   ::boost::optional<std::string> user;
   ::boost::optional<std::string> password;
   ::boost::optional<ContentType> contentType;
+  ::boost::optional<std::size_t> byteSize; //for debugging
 };
+
+std::string to_string(MessageHeader const&);
 
 // create a map<string,string> from header object
 mapss headerStrings(MessageHeader const& header);
@@ -48,6 +51,7 @@ public:
          ,_modified(true)
          ,_isVpack(boost::none)
          ,_builder(nullptr)
+         ,_payloadLength(0)
          {}
 
   Message(MessageHeader const& messageHeader
@@ -59,6 +63,7 @@ public:
          ,_modified(true)
          ,_isVpack(boost::none)
          ,_builder(nullptr)
+         ,_payloadLength(0)
          {}
 
   MessageHeader header;
@@ -71,7 +76,7 @@ public:
   void addVPack(VSlice const& slice);
   void addVPack(VBuffer const& buffer);
   void addVPack(VBuffer&& buffer);
-  void addBinary(uint8_t* data, std::size_t length);
+  void addBinary(uint8_t const* data, std::size_t length);
   void addBinarySingle(VBuffer&& buffer);
 
   ///////////////////////////////////////////////
@@ -89,7 +94,8 @@ private:
   ::boost::optional<bool> _isVpack;
   std::shared_ptr<VBuilder> _builder;
   std::vector<VSlice> _slices;
-
+  std::size_t _payloadLength; // because VPackBuffer has quirks we need
+                              // to track the Length manually
 };
 
 class Request : public Message {

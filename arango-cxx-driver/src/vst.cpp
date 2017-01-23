@@ -96,12 +96,12 @@ static std::size_t addVstChunkHeader(std::size_t vstVersionID
                                     ,VBuffer& buffer
                                     ,ChunkHeader const& header)
 {
-  appendToBuffer(buffer, header._chunkLength);
-  appendToBuffer(buffer, header._chunk);
-  appendToBuffer(buffer, header._messageID);
+  appendToBuffer(buffer, header._chunkLength);            // 1 - length    - 4 byte
+  appendToBuffer(buffer, header._chunk);                  // 2 - chunkX    - 4 byte
+  appendToBuffer(buffer, header._messageID);              // 3 - messageid - 8 byte
 
   if ((header._isFirst && header._numberOfChunks > 1) || (vstVersionID > 1)) {
-    appendToBuffer(buffer, header._totalMessageLength);
+    appendToBuffer(buffer, header._totalMessageLength);   // 4 - lmessage lenth - 8 byte
   }
 
   return buffer.byteSize();
@@ -117,9 +117,12 @@ static void addVstMessageHeader(VBuilder& builder
 
   assert(builder.isClosed());
   builder.openArray();
-  builder.add(VValue(header.version.get()));                         // 0
-  //FUERTE_LOG_DEBUG << "MessageHeader.version=" << header.version.get() << std::endl;
-  builder.add(VValue(static_cast<int>(header.type.get())));          // 1
+
+  // 0 - version
+  builder.add(VValue(header.version.get()));
+
+  // 1 - type
+  builder.add(VValue(static_cast<int>(header.type.get())));
   //FUERTE_LOG_DEBUG << "MessageHeader.type=" << static_cast<int>(header.type.get()) << std::endl;
   switch (header.type.get()){
     case MessageType::Authentication:
@@ -133,25 +136,39 @@ static void addVstMessageHeader(VBuilder& builder
       break;
 
     case MessageType::Request:
+      // 2 - database
       if(!header.database){ throw std::runtime_error("database" + message); }
-      builder.add(VValue(header.database.get()));                    // 2
+      builder.add(VValue(header.database.get()));
       //FUERTE_LOG_DEBUG << "MessageHeader.database=" << header.database.get() << std::endl;
 
+      // 3 - RestVerb
       if(!header.restVerb){ throw std::runtime_error("rest verb" + message); }
-      builder.add(VValue(static_cast<int>(header.restVerb.get())));  // 3
+      builder.add(VValue(static_cast<int>(header.restVerb.get())));
       //FUERTE_LOG_DEBUG << "MessageHeader.restVerb=" << static_cast<int>(header.restVerb.get()) << std::endl;
 
+      // 4 - path
       if(!header.path){ throw std::runtime_error("path" + message); }
-      builder.add(VValue(header.path.get()));                        // 4
+      builder.add(VValue(header.path.get()));
       //FUERTE_LOG_DEBUG << "MessageHeader.path=" << header.path.get() << std::endl;
 
+      // 5 - parameters - not optional in current server
+      builder.openObject();
       if (header.parameter){
-        //header.parameter = header_slice.at(5);                     // 5
+        for(auto const& item : header.parameter.get()){
+          builder.add(item.first,VValue(item.second));
+        }
       }
+      builder.close();
 
+      // 6 - meta
+      builder.openObject();
       if (header.meta){
-        //header.meta = header_slice.at(6);                          // 6
+        for(auto const& item : header.meta.get()){
+          builder.add(item.first,VValue(item.second));
+        }
       }
+      builder.close();
+
       break;
 
     case MessageType::Response:
@@ -228,14 +245,14 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
   if ((vstChunkHeader._isFirst && vstChunkHeader._numberOfChunks > 1) || (vstVersionID > 1)) {
     vstChunkHeader.updateTotalPayload(buffer->data(), payloadLength);
   }
-  std::cout << "updated header read back in" << std::endl;
-  auto readheader = readChunkHeaderV1_0(buffer.get()->data());
-  FUERTE_LOG_DEBUG << chunkHeaderToString(readheader) << std::endl;
+  //std::cout << "updated header read back in" << std::endl;
+  //auto readheader = readChunkHeaderV1_0(buffer.get()->data());
+  //FUERTE_LOG_DEBUG << chunkHeaderToString(readheader) << std::endl;
 
-  FUERTE_LOG_DEBUG << buffer->byteSize() << " = "
-                   << payloadLength << " + "
-                   << chunkHeaderLength
-                   << std::endl;
+  //FUERTE_LOG_DEBUG << buffer->byteSize() << " = "
+  //                 << payloadLength << " + "
+  //                 << chunkHeaderLength
+  //                 << std::endl;
   assert(vstChunkHeader._chunkLength == buffer->byteSize());
   return std::move(buffer);
 }
@@ -245,18 +262,19 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
 ///////////////////////////////////////////////////////////////////////////////////
 
 std::size_t isChunkComplete(uint8_t const * const begin, std::size_t const length) {
-  uint32_t lenthThisChunk;
+  uint32_t lengthThisChunk;
   if (length < sizeof(uint32_t)) { // there is not enought to read the length of
                                    // the chunk
     return 0;
   }
   // read chunk length
-  std::memcpy(&lenthThisChunk, begin, sizeof(uint32_t));
-  if (length < lenthThisChunk) {
-    // chunk not complete
+  std::memcpy(&lengthThisChunk, begin, sizeof(uint32_t));
+  if (length < lengthThisChunk) {
+    FUERTE_LOG_DEBUG << "\nchunk incomplete: " << lengthThisChunk << length << "/" << lengthThisChunk << std::endl;
     return 0;
   }
-  return lenthThisChunk;
+  FUERTE_LOG_DEBUG << "\nchunk complete: " << lengthThisChunk << " bytes" << std::endl;
+  return lengthThisChunk;
 }
 
 
@@ -274,12 +292,13 @@ ChunkHeader readChunkHeaderV1_0(uint8_t const * const bufferBegin) {
   header._isFirst = header._chunk & 0x1;
   header._numberOfChunks = header._chunk;
   header._numberOfChunks >>= 1;
+  header._isSingle = header._isFirst && header._numberOfChunks == 1;
 
   std::memcpy(&header._messageID, cursor, sizeof(header._messageID));
   cursor += sizeof(header._messageID);
 
   // extract total len of message
-  if (header._isFirst) {
+  if (header._isFirst && !header._isSingle) {
     std::memcpy(&header._totalMessageLength, cursor, sizeof(header._totalMessageLength));
     cursor += sizeof(header._totalMessageLength);
   } else {
@@ -288,13 +307,17 @@ ChunkHeader readChunkHeaderV1_0(uint8_t const * const bufferBegin) {
 
   header._chunkHeaderLength = std::distance(bufferBegin, cursor);
   header._chunkPayloadLength = header._chunkLength - header._chunkHeaderLength;
-  header._isSingle = header._isFirst && header._numberOfChunks == 1;
   return header;
 }
 
-MessageHeader messageHeaderFromSlice(VSlice const& headerSlice){
+MessageHeader messageHeaderFromSlice(int const& vstVersionID, VSlice const& headerSlice){
   assert(headerSlice.isArray());
   MessageHeader header;
+  header.byteSize = headerSlice.byteSize(); //for debugging
+
+  if(vstVersionID == 1){
+    header.contentType = ContentType::VPack;
+  }
 
   header.version = headerSlice.at(0).getNumber<int>();                              //version
   header.type = static_cast<MessageType>(headerSlice.at(1).getNumber<int>());       //type
@@ -323,7 +346,7 @@ MessageHeader messageHeaderFromSlice(VSlice const& headerSlice){
   return header;
 };
 
-MessageHeader validateAndExtractMessageHeader(uint8_t const * const vpStart, std::size_t length, std::size_t& headerLength){
+MessageHeader validateAndExtractMessageHeader(int const& vstVersionID, uint8_t const * const vpStart, std::size_t length, std::size_t& headerLength){
   using VValidator = ::arangodb::velocypack::Validator;
   // there must be at least one velocypack for the header
   VValidator validator;
@@ -339,7 +362,7 @@ MessageHeader validateAndExtractMessageHeader(uint8_t const * const vpStart, std
   slice = VSlice(vpStart);
   headerLength = slice.byteSize();
 
-  return messageHeaderFromSlice(slice);
+  return messageHeaderFromSlice(vstVersionID, slice);
 }
 
 std::size_t validateAndCount(uint8_t const * const vpStart, std::size_t length){
@@ -349,6 +372,8 @@ std::size_t validateAndCount(uint8_t const * const vpStart, std::size_t length){
   VValidator validator;
   std::size_t numPayloads = 0; // fist item is the header
   bool isSubPart = true;
+
+  FUERTE_LOG_DEBUG << "buffer length to validate: " << length << std::endl;
 
   while (length) {
     try {
@@ -362,10 +387,12 @@ std::size_t validateAndCount(uint8_t const * const vpStart, std::size_t length){
       length -= sliceSize;
       cursor += sliceSize;
       numPayloads++;
+      FUERTE_LOG_DEBUG << "s" << sliceSize << " ";
     } catch (std::exception const& e) {
       throw std::runtime_error(std::string("error during validation of incoming VPack") + e.what());
     }
   }
+  FUERTE_LOG_DEBUG << std::endl;
   return numPayloads;
 }
 

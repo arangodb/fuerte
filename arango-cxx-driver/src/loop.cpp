@@ -31,7 +31,11 @@ public:
         }
         catch (std::exception& e)
         {
-          // Deal with exception as appropriate.
+          FUERTE_LOG_ERROR << e.what() << std::endl; //return to loop
+        }
+        catch(...){
+          FUERTE_LOG_ERROR << "unknown execeotion: terminating";
+          std::abort();
         }
       }
       return true;
@@ -114,7 +118,9 @@ void LoopProvider::pollAsio(){
 
 void LoopProvider::poll(){
   //poll asio
-  pollAsio();
+  if(_asioLoop){
+    pollAsio();  //polls until io_service has no further tasks
+  }
 
   //poll http
   if(_httpLoop){

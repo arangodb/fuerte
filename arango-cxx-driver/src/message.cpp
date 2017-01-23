@@ -1,8 +1,83 @@
 #include <fuerte/message.h>
 #include <fuerte/vst.h>
 #include <velocypack/Validator.h>
+#include <sstream>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
+
+
+std::string to_string(MessageHeader const& header){
+  ::boost::optional<int> version;
+  ::boost::optional<MessageType> type;
+  ::boost::optional<unsigned> responseCode;
+  ::boost::optional<std::string> database;
+  ::boost::optional<RestVerb> restVerb;
+  ::boost::optional<std::string> path;
+  ::boost::optional<mapss> parameter;
+  ::boost::optional<mapss> meta;
+  ::boost::optional<std::string> user;
+  ::boost::optional<std::string> password;
+  ::boost::optional<ContentType> contentType;
+  std::stringstream ss;
+
+  if(header.byteSize){
+    ss << "byteSize: " << header.byteSize.get() << std::endl;
+  }
+
+  if(header.version){
+    ss << "version: " << header.version.get() << std::endl;
+  }
+
+  if(header.type){
+    ss << "type: " << static_cast<int>(header.type.get()) << std::endl;
+  }
+
+  if(header.responseCode){
+    ss << "responseCode: " << header.responseCode.get() << std::endl;
+  }
+
+  if(header.database){
+    ss << "database: " << header.database.get() << std::endl;
+  }
+
+  if(header.restVerb){
+    ss << "restVerb: " << to_string(header.restVerb.get()) << std::endl;
+  }
+
+  if(header.path){
+    ss << "path: " << header.path.get() << std::endl;
+  }
+
+  if(header.parameter){
+    ss << "parameters: ";
+    for(auto const& item : header.parameter.get()){
+      ss << item.first <<  " -:- " << item.second << "\n";
+    }
+    ss<< std::endl;
+  }
+
+  if(header.meta){
+    ss << "meta: ";
+    for(auto const& item : header.meta.get()){
+      ss << item.first <<  " -:- " << item.second << "\n";
+    }
+    ss<< std::endl;
+  }
+
+  if(header.user){
+    ss << "user: " << header.user.get() << std::endl;
+  }
+
+  if(header.password){
+    ss << "password: " << header.password.get() << std::endl;
+  }
+
+  if(header.contentType){
+    ss << "contentType: " << to_string(header.contentType.get()) << std::endl;
+  }
+
+  return ss.str();
+}
 
 ///////////////////////////////////////////////
 // class Message
@@ -22,6 +97,8 @@ void Message::addVPack(VSlice const& slice){
   _isVpack=true;
   _modified = true;
   _builder->add(slice);
+  _payloadLength += slice.byteSize();
+  _payload.resetTo(_payloadLength);
 }
 
 void Message::addVPack(VBuffer const& buffer){
@@ -46,6 +123,8 @@ void Message::addVPack(VBuffer const& buffer){
     }
     cursor += sliceSize;
     length -= sliceSize;
+    _payloadLength += sliceSize;
+    _payload.resetTo(_payloadLength);
   }
 }
 
@@ -56,17 +135,19 @@ void Message::addVPack(VBuffer&& buffer){
   _isVpack = true;
   _sealed = true;
   _modified = true;
+  _payloadLength += buffer.byteSize();
   _payload = std::move(buffer);
+  _payload.resetTo(_payloadLength);
 }
 
 // add binary data
-void Message::addBinary(uint8_t* data, std::size_t length){
+void Message::addBinary(uint8_t const* data, std::size_t length){
   if(_sealed || (_isVpack && _isVpack.get())){ return; };
   _isVpack = false;
   _modified = true;
-  if(!_builder){
-    _builder = std::make_shared<VBuilder>(_payload);
-  }
+  _payloadLength += length;
+  _payload.append(data, length); //TODO reset to!!! FIXME
+  _payload.resetTo(_payloadLength);
 }
 
 void Message::addBinarySingle(VBuffer&& buffer){
@@ -74,7 +155,9 @@ void Message::addBinarySingle(VBuffer&& buffer){
   _isVpack = false;
   _sealed = true;
   _modified = true;
+  _payloadLength += buffer.byteSize();
   _payload = std::move(buffer);
+  _payload.resetTo(_payloadLength);
 }
 
 
@@ -101,7 +184,8 @@ std::vector<VSlice>const & Message::slices(){
 
 // get payload as binary
 std::pair<uint8_t const *, std::size_t> Message::payload(){
-  return { _payload.data(), _payload.byteSize() };
+  //return { _payload.data(), _payload.byteSize() };
+  return { _payload.data(), _payloadLength };
 }
 
 

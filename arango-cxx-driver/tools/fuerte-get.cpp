@@ -22,6 +22,10 @@
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
+#define ENABLE_FUERTE_LOG_ERROR 1
+#define ENABLE_FUERTE_LOG_DEBUG 0
+#define ENABLE_FUERTE_LOG_TRACE 0
+
 #include <fuerte/connection.h>
 #include <iostream>
 #include <fuerte/message.h>
@@ -138,8 +142,13 @@ int main(int argc, char* argv[]) {
                         std::unique_ptr<Response> response) {
     std::cout << "--------------------------------------------------------------------------" << std::endl;
     std::cout << "received result:\n"
-              << arangodb::fuerte::payloadToString(request->slices(), std::string("request"))
-              << arangodb::fuerte::payloadToString(response->slices(), std::string("response"))
+              << "request - payload:\n"
+              << arangodb::fuerte::sliceToString(request->slices())
+              << "---\n"
+              << "response header:\n"
+              << arangodb::fuerte::to_string(response->header)
+              << "response - payload:\n"
+              << arangodb::fuerte::sliceToString(response->slices())
               << std::endl;
   };
 
@@ -147,7 +156,9 @@ int main(int argc, char* argv[]) {
                         std::unique_ptr<Response> response) {
     std::cout << "--------------------------------------------------------------------------" << std::endl;
     std::cout << "received error: " << err << std::endl
-              << arangodb::fuerte::payloadToString(request->slices(), std::string("request"))
+              << to_string(request->header)
+              << "request payload:"
+              << arangodb::fuerte::sliceToString(request->slices())
               << std::endl;
   };
 

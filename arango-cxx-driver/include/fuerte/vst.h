@@ -106,7 +106,7 @@ inline std::unique_ptr<Response> fromNetwork(VBuffer&){ throw std::logic_error("
 MessageHeader messageHeaderFromSlice(VSlice const& headerSlice);
 // validates if a data range contains a slice and converts it
 // to a message Hader and returns size occupied by the sloce via reference
-MessageHeader validateAndExtractMessageHeader(uint8_t const * const vpStart, std::size_t length, std::size_t& headerLength);\
+MessageHeader validateAndExtractMessageHeader(int const& vstVersionID, uint8_t const * const vpStart, std::size_t length, std::size_t& headerLength);\
 
 //Validates if payload consitsts of valid velocypack slices
 std::size_t validateAndCount(uint8_t const* vpHeaderStart, std::size_t len);

@@ -23,30 +23,39 @@
 #ifndef ARANGO_CXX_DRIVER_FUERTE_LOGGER
 #define ARANGO_CXX_DRIVER_FUERTE_LOGGER 1
 
-#define ENABLE_FUERTE_LOG_ERROR 1
-#define ENABLE_FUERTE_LOG_DEBUG 1
-#define ENABLE_FUERTE_LOG_TRACE 1
 
-#if defined(ENABLE_FUERTE_LOG_TRACE) || defined(ENABLE_FUERTE_LOG_DEBUG) || defined(ENABLE_FUERTE_LOG_ERROR) 
+#ifndef ENABLE_FUERTE_LOG_ERROR
+  #define ENABLE_FUERTE_LOG_ERROR 1
+#endif
+
+#ifndef ENABLE_FUERTE_LOG_DEBUG
+  #define ENABLE_FUERTE_LOG_DEBUG 0
+#endif
+
+#ifndef ENABLE_FUERTE_LOG_TRACE
+  #define ENABLE_FUERTE_LOG_TRACE 0
+#endif
+
+#if defined(ENABLE_FUERTE_LOG_TRACE) || defined(ENABLE_FUERTE_LOG_DEBUG) || defined(ENABLE_FUERTE_LOG_ERROR)
 #include <iostream>
 #endif
 
-#ifdef ENABLE_FUERTE_LOG_ERROR
-#define FUERTE_LOG_ERROR std::cout
+#if ENABLE_FUERTE_LOG_ERROR > 0
+  #define FUERTE_LOG_ERROR std::cout
 #else
-#define FUERTE_LOG_ERROR if (0) std::cout
+  #define FUERTE_LOG_ERROR if (0) std::cout
 #endif
 
-#ifdef ENABLE_FUERTE_LOG_DEBUG
-#define FUERTE_LOG_DEBUG std::cout
+#if ENABLE_FUERTE_LOG_DEBUG > 0
+  #define FUERTE_LOG_DEBUG std::cout
 #else
-#define FUERTE_LOG_DEBUG if (0) std::cout
+  #define FUERTE_LOG_DEBUG if (0) std::cout
 #endif
 
-#ifdef ENABLE_FUERTE_LOG_TRACE
-#define FUERTE_LOG_TRACE std::cout
+#if ENABLE_FUERTE_LOG_TRACE > 0
+  #define FUERTE_LOG_TRACE std::cout
 #else
-#define FUERTE_LOG_TRACE if (0) std::cout
+  #define FUERTE_LOG_TRACE if (0) std::cout
 #endif
 
 #endif

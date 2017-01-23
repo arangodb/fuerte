@@ -295,6 +295,8 @@ std::pair<T const*, std::size_t> bufferToPointerAndSize(boost::asio::const_buffe
 }
 
 void VstConnection::handleRead(const boost::system::error_code& error, std::size_t transferred){
+  static const int vstVersionID = 1;
+
   FUERTE_LOG_DEBUG << "R" << transferred;
 
   if (!transferred) {
@@ -322,6 +324,8 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
   auto vstChunkHeader = vst::readChunkHeaderV1_0(pair.first);
   cursor += vstChunkHeader._chunkHeaderLength;
   length -= vstChunkHeader._chunkHeaderLength;
+
+  FUERTE_LOG_DEBUG << "ChunkHeaderLenth: " << vstChunkHeader._chunkHeaderLength << std::endl;
 
   ::std::map<MessageID,std::shared_ptr<RequestItem>>::iterator found;
   {
@@ -355,14 +359,11 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
     cursor = item._responseBuffer.data();
     length = item._responseBuffer.byteSize();
     std::size_t messageHeaderLength;
-    MessageHeader messageHeader = validateAndExtractMessageHeader(cursor, length, messageHeaderLength);
+    MessageHeader messageHeader = validateAndExtractMessageHeader(vstVersionID, cursor, length, messageHeaderLength);
     cursor += messageHeaderLength;
-    length += messageHeaderLength;
+    length -= messageHeaderLength;
 
-    auto response = std::unique_ptr<Response>(new Response());
-    //add header and strings!!!!
-    throw std::logic_error("implement me");
-
+    auto response = std::unique_ptr<Response>(new Response(std::move(messageHeader)));
     // finally add payload
 
     // avoiding the copy would imply that we mess with offsets
@@ -371,9 +372,17 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
     // allocated memory could be reused.
     if(messageHeader.contentType == ContentType::VPack){
       auto numPayloads = vst::validateAndCount(cursor,length);
+      FUERTE_LOG_DEBUG << "number of slices: " << numPayloads << std::endl;
       VBuffer buffer;
       buffer.append(cursor,length); //we should avoid this copy FIXME
+      buffer.resetTo(length);
+      auto slice = VSlice(cursor);
+      FUERTE_LOG_DEBUG << slice.toJson() << " , " << slice.byteSize() << std::endl;
+      FUERTE_LOG_DEBUG << "buffer size" << " , " << buffer.size() << std::endl;
       response->addVPack(std::move(buffer)); //ASK jan
+      FUERTE_LOG_DEBUG << "payload size" << " , " << response->payload().second << std::endl;
+    } else {
+      response->addBinary(cursor,length);
     }
     // call callback
     item._onSuccess(std::move(item._request),std::move(response));
