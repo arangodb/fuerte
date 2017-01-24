@@ -13,36 +13,11 @@ namespace boost { namespace  asio {
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
 class Work;
-class LoopProvider;
+class Loop;
 
 namespace vst {
   class VstConnection;
 }
-
-class Loop{
-  friend class LoopProvider;
-  friend class vst::VstConnection;
-
-public:
-  Loop();
-  bool run();
-  void ask_to_stop();
-  void poll(bool block);
-
-private:
-  void setIoService(::boost::asio::io_service * service);
-  void setIoServiceTakeOwnership(::boost::asio::io_service* service);
-  void* getIoService();
-
-private:
-  std::shared_ptr<::boost::asio::io_service> _serviceSharedPtr;
-  ::boost::asio::io_service* _service;
-  std::shared_ptr<Work> _work;
-  bool _owning;
-  bool _sealed;
-  bool _running;
-  bool _pollMode;
-};
 
 namespace http{
   class HttpCommunicator;
@@ -90,6 +65,31 @@ private:
   std::shared_ptr<http::HttpCommunicator> _httpLoop;
 };
 
+// for internal usage
+class Loop{
+  friend class LoopProvider;
+  friend class vst::VstConnection;
+
+public:
+  Loop();
+  bool run();
+  void ask_to_stop();
+  void poll(bool block);
+
+private:
+  void setIoService(::boost::asio::io_service * service);
+  void setIoServiceTakeOwnership(::boost::asio::io_service* service);
+  ::boost::asio::io_service* getIoService();
+
+private:
+  std::shared_ptr<::boost::asio::io_service> _serviceSharedPtr;
+  ::boost::asio::io_service* _service;
+  std::shared_ptr<Work> _work;
+  bool _owning;
+  bool _sealed;
+  bool _running;
+  bool _pollMode;
+};
 
 // pools the services
 // when blocking is true asio will do all outstanding communication and return.

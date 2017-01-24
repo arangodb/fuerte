@@ -88,7 +88,7 @@ void Loop::setIoServiceTakeOwnership(::boost::asio::io_service* service){
   _service = service;
 }
 
-void* Loop::getIoService(){
+boost::asio::io_service* Loop::getIoService(){
   _sealed = true;
   return _service;
 }

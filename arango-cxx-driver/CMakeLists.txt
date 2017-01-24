@@ -80,7 +80,6 @@ target_link_libraries(fuerte-get PRIVATE
 #########################################################################################
 # Tests
 if(FUERTE_TESTS)
-#if(CMAKE_TESTING)
     add_subdirectory(3rdParty/googletest)
     add_subdirectory(tests)
 endif()

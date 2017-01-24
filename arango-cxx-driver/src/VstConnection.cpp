@@ -71,13 +71,13 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
   }
 
   if(doWrite){
-    auto self = shared_from_this();
     // this allows sendRequest to return immediatly and
     // not to block until all writing is done
     Lock lockConnected(_connectedMutex);
     if(_connected){
       _connectedMutex.unlock();
       FUERTE_LOG_DEBUG << "queue write" << std::endl;
+      auto self = shared_from_this();
       _ioService->post( [this,self](){ startWrite(); } );
     }
 
@@ -414,6 +414,7 @@ void VstConnection::startWrite(bool possiblyEmpty){
 
   if(_sendQueue.empty()){
     assert(possiblyEmpty);
+    return;
   }
 
   // no lock required here to accesse the first element as it can not change
