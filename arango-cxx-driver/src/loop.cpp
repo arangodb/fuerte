@@ -1,3 +1,25 @@
+////////////////////////////////////////////////////////////////////////////////
+/// DISCLAIMER
+///
+/// Copyright 2016 ArangoDB GmbH, Cologne, Germany
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+/// Copyright holder is ArangoDB GmbH, Cologne, Germany
+///
+/// @author Jan Christoph Uhde
+////////////////////////////////////////////////////////////////////////////////
+
 #include <memory>
 #include <boost/asio/io_service.hpp>
 #include <fuerte/loop.h>
@@ -39,13 +61,14 @@ bool Loop::run(){
         _service->run();
         break; // run() exited normally
       }
-      catch (std::exception& e)
+      catch (std::exception const& e)
       {
         FUERTE_LOG_ERROR << e.what() << std::endl; //return to loop
+        _service->reset();
       }
       catch(...){
-        FUERTE_LOG_ERROR << "unknown execeotion: terminating";
-        std::abort();
+        FUERTE_LOG_ERROR << "unknown exception";
+        _service->reset();
       }
     }
     return true;
@@ -62,6 +85,7 @@ void Loop::poll(bool block){
   if(block){
     _pollMode=true;
     _service->run();
+    _service->reset();
     _pollMode=false;
   } else {
     _service->poll();

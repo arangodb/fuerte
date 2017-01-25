@@ -33,7 +33,7 @@ namespace http {
 
 using namespace arangodb::fuerte::detail;
 
-HttpConnection::HttpConnection( ConnectionConfiguration configuration)
+HttpConnection::HttpConnection(ConnectionConfiguration const& configuration)
     : _communicator(LoopProvider::getProvider().getHttpLoop()), _configuration(configuration) {}
 
 MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request,

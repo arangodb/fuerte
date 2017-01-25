@@ -35,7 +35,7 @@ inline namespace v1 {
 namespace http {
 class HttpConnection : public ConnectionInterface {
  public:
-  HttpConnection(detail::ConnectionConfiguration);
+  explicit HttpConnection(detail::ConnectionConfiguration const&);
 
  public:
   MessageID sendRequest(std::unique_ptr<Request>, OnErrorCallback,

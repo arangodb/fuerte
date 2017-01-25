@@ -1,4 +1,26 @@
+////////////////////////////////////////////////////////////////////////////////
+/// DISCLAIMER
+///
+/// Copyright 2016 ArangoDB GmbH, Cologne, Germany
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+/// Copyright holder is ArangoDB GmbH, Cologne, Germany
+///
+/// @author Jan Christoph Uhde
+////////////////////////////////////////////////////////////////////////////////
 #pragma once
+
 #ifndef ARANGO_CXX_DRIVER_CONNECTION
 #define ARANGO_CXX_DRIVER_CONNECTION
 
@@ -16,26 +38,26 @@ class Connection : public std::enable_shared_from_this<Connection> {
   friend class ConnectionBuilder;
 
   public:
-    std::shared_ptr<Database> getDatabase(std::string name);
-    std::shared_ptr<Database> createDatabase(std::string name);
-    bool deleteDatabase(std::string name);
+    std::shared_ptr<Database> getDatabase(std::string const& name);
+    std::shared_ptr<Database> createDatabase(std::string const& name);
+    bool deleteDatabase(std::string const& name);
 
     std::unique_ptr<Response> sendRequest(std::unique_ptr<Request> r){
       return _realConnection->sendRequest(std::move(r));
-    };
+    }
 
     // callback may be called in parallel - think about possible races!
     MessageID sendRequest(std::unique_ptr<Request> r, OnErrorCallback e, OnSuccessCallback c){
       return _realConnection->sendRequest(std::move(r), e, c);
-    };
+    }
 
     MessageID sendRequest(Request const& r, OnErrorCallback e, OnSuccessCallback c){
       std::unique_ptr<Request> copy(new Request(r));
       return _realConnection->sendRequest(std::move(copy), e, c);
-    };
+    }
 
   private:
-    Connection(detail::ConnectionConfiguration conf);
+    Connection(detail::ConnectionConfiguration const& conf);
     std::shared_ptr<ConnectionInterface>  _realConnection;
     detail::ConnectionConfiguration _configuration;
 };

@@ -17,9 +17,9 @@
 ///
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
-/// @author Frank Celler
-/// @author Jan Uhde
+/// @author Jan Christoph Uhde
 ////////////////////////////////////////////////////////////////////////////////
+#pragma once
 
 #ifndef ARANGO_CXX_DRIVER_VST_CONNECTION_H
 #define ARANGO_CXX_DRIVER_VST_CONNECTION_H 1
@@ -68,7 +68,7 @@ class VstConnection : public std::enable_shared_from_this<VstConnection>, public
 //
 
 public:
-  VstConnection(detail::ConnectionConfiguration);
+  explicit VstConnection(detail::ConnectionConfiguration const&);
 
 public:
   // this function prepares the request for sending

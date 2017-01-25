@@ -17,8 +17,7 @@
 ///
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
-/// @author Frank Celler
-/// @author Jan Uhde
+/// @author Jan Christoph Uhde
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "FuerteLogger.h"
@@ -80,48 +79,46 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
       auto self = shared_from_this();
       _ioService->post( [this,self](){ startWrite(); } );
     }
-
   }
   return item->_messageId;
 }
 
 std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
-    FUERTE_LOG_DEBUG << "start sync request" << std::endl;
-    // TODO - we expect the loop to be runniung even for sync requests
-    // maybe we could call poll on the ioservice in this function if
-    // it is not running.
-    std::mutex mutex;
-    std::condition_variable conditionVar;
-    bool done = false;
+  FUERTE_LOG_DEBUG << "start sync request" << std::endl;
+  // TODO - we expect the loop to be runniung even for sync requests
+  // maybe we could call poll on the ioservice in this function if
+  // it is not running.
+  std::mutex mutex;
+  std::condition_variable conditionVar;
+  bool done = false;
 
-    auto rv = std::unique_ptr<Response>(nullptr);
-    auto onError  = [&](::arangodb::fuerte::v1::Error error, RequestUP request, ResponseUP response){
-      rv = std::move(response);
-      done = true;
-      mutex.unlock();
-      conditionVar.notify_one();
-    };
+  auto rv = std::unique_ptr<Response>(nullptr);
+  auto onError  = [&](::arangodb::fuerte::v1::Error error, RequestUP request, ResponseUP response){
+    rv = std::move(response);
+    done = true;
+    //mutex.unlock();
+    conditionVar.notify_one();
+  };
 
-    auto onSuccess  = [&](RequestUP request, ResponseUP response){
-      rv = std::move(response);
-      done = true;
-      mutex.unlock();
-      conditionVar.notify_one();
-    };
+  auto onSuccess  = [&](RequestUP request, ResponseUP response){
+    rv = std::move(response);
+    done = true;
+    //mutex.unlock();
+    conditionVar.notify_one();
+  };
 
+  {
+    std::unique_lock<std::mutex> lock(mutex);
     sendRequest(std::move(request),onError,onSuccess);
     LoopProvider::getProvider().pollAsio(true); //REVIEW
-
-    {
-      //wait for handler to call notify_one
-      std::unique_lock<std::mutex> lock(mutex);
-      conditionVar.wait(lock, [&]{ return done; });
-    }
-    return std::move(rv);
+    //wait for handler to call notify_one
+    conditionVar.wait(lock, [&]{ return done; });
+  }
+  return std::move(rv);
 }
 
 
-VstConnection::VstConnection(ConnectionConfiguration configuration)
+VstConnection::VstConnection(ConnectionConfiguration const& configuration)
     : _asioLoop(LoopProvider::getProvider().getAsioLoop())
     , _ioService(reinterpret_cast<ba::io_service*>(LoopProvider::getProvider().getAsioIoService()))
     , _socket(nullptr)
@@ -189,7 +186,6 @@ void VstConnection::restartConnection(){
 }
 
 void VstConnection::startConnect(bt::resolver::iterator endpointItr){
-  using namespace std::placeholders;
   if (endpointItr != boost::asio::ip::tcp::resolver::iterator()){
     FUERTE_LOG_DEBUG << "trying to connect to: " << endpointItr->endpoint() << "..." << std::endl;
 
@@ -251,7 +247,7 @@ void VstConnection::startHandshake(){
   if(!_configuration._ssl){
     finishInitialization();
   }
-  FUERTE_LOG_DEBUG << "starting ssl handshake: ";
+  FUERTE_LOG_DEBUG << "starting ssl handshake " << std::endl;
   auto self = shared_from_this();
   _sslSocket->async_handshake(bs::stream_base::client
                              ,[this,self](BoostEC const& error){
@@ -259,7 +255,7 @@ void VstConnection::startHandshake(){
                                  shutdownSocket();
                                  throw std::runtime_error("unable to perform ssl handshake");
                                }
-                               FUERTE_LOG_DEBUG << "ssl handshake done";
+                               FUERTE_LOG_DEBUG << "ssl handshake done" << std::endl ;
                                finishInitialization();
                               }
                             );
@@ -339,7 +335,7 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
     Lock lock(_mapMutex);
     found = _messageMap.find(vstChunkHeader._messageID);
     if (found == _messageMap.end()) {
-      throw std::logic_error("got message with not matching request");
+      throw std::logic_error("got message with no matching request");
     }
   }
 
@@ -412,14 +408,16 @@ void VstConnection::startWrite(bool possiblyEmpty){
     return;
   }
 
-  if(_sendQueue.empty()){
-    assert(possiblyEmpty);
-    return;
+  std::shared_ptr<RequestItem> next;
+  {
+    Lock sendQueueLock(_sendQueueMutex);
+    if(_sendQueue.empty()){
+      assert(possiblyEmpty);
+      return;
+    }
+    next = _sendQueue.front();
   }
 
-  // no lock required here to accesse the first element as it can not change
-  // front will be only modified at the end of this function
-  auto next = _sendQueue.front();
   {
     Lock mapLock(_mapMutex);
     _messageMap.emplace(next->_messageId,next);

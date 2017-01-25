@@ -1,3 +1,25 @@
+////////////////////////////////////////////////////////////////////////////////
+/// DISCLAIMER
+///
+/// Copyright 2016 ArangoDB GmbH, Cologne, Germany
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+/// Copyright holder is ArangoDB GmbH, Cologne, Germany
+///
+/// @author Jan Christoph Uhde
+////////////////////////////////////////////////////////////////////////////////
+
 #include <fuerte/types.h>
 #include <fuerte/vst.h>
 #include <velocypack/Validator.h>
@@ -84,6 +106,7 @@ static ChunkHeader createFollowUpChunkHeader(int vstVersionID
 
 template <typename T>
 std::size_t appendToBuffer(VBuffer& buffer, T &value) {
+  //TODO -- fix endianess
   constexpr std::size_t len = sizeof(T);
   uint8_t charArray[len];
   uint8_t* charPtr = charArray;
@@ -101,7 +124,7 @@ static std::size_t addVstChunkHeader(std::size_t vstVersionID
   appendToBuffer(buffer, header._messageID);              // 3 - messageid - 8 byte
 
   if ((header._isFirst && header._numberOfChunks > 1) || (vstVersionID > 1)) {
-    appendToBuffer(buffer, header._totalMessageLength);   // 4 - lmessage lenth - 8 byte
+    appendToBuffer(buffer, header._totalMessageLength);   // 4 - lmessage length - 8 byte
   }
 
   return buffer.byteSize();
@@ -112,7 +135,7 @@ static void addVstMessageHeader(VBuilder& builder
                                       ,MessageHeader const& header
                                       ,mapss const& headerStrings)
 {
-  static std::string const message = "for message not set";
+  static std::string const message = " for message not set";
   auto startSize = builder.size();
 
   assert(builder.isClosed());
@@ -185,18 +208,13 @@ static void addVstMessageHeader(VBuilder& builder
 
 std::shared_ptr<VBuffer> toNetwork(Request& request){
   auto buffer = std::make_shared<VBuffer>();
-  std::size_t vstVersionID = 1;
+  std::size_t const vstVersionID = 1;
 
   // setting defaults
   request.header.version = vstVersionID;
   if(!request.header.database){
     request.header.database = "_system";
   }
-
-
-  // TODO we really need a to network chunk:
-  // taking the complete payload, offset into the payload, totoak messageLen
-  // number of chunks currentchunk number.
 
   // add chunk header
   auto vstChunkHeader = createSingleChunkHeader(vstVersionID, request.messageid, 0); //size is unfortunatly unknown
@@ -254,7 +272,7 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
   //                 << chunkHeaderLength
   //                 << std::endl;
   assert(vstChunkHeader._chunkLength == buffer->byteSize());
-  return std::move(buffer);
+  return buffer;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -262,12 +280,12 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
 ///////////////////////////////////////////////////////////////////////////////////
 
 std::size_t isChunkComplete(uint8_t const * const begin, std::size_t const length) {
-  uint32_t lengthThisChunk;
   if (length < sizeof(uint32_t)) { // there is not enought to read the length of
-                                   // the chunk
     return 0;
   }
   // read chunk length
+  uint32_t lengthThisChunk;
+  // TODO -- fix endianess
   std::memcpy(&lengthThisChunk, begin, sizeof(uint32_t));
   if (length < lengthThisChunk) {
     FUERTE_LOG_DEBUG << "\nchunk incomplete: " << lengthThisChunk << length << "/" << lengthThisChunk << std::endl;
@@ -279,6 +297,7 @@ std::size_t isChunkComplete(uint8_t const * const begin, std::size_t const lengt
 
 
 ChunkHeader readChunkHeaderV1_0(uint8_t const * const bufferBegin) {
+  // TODO -- fix endianess
   ChunkHeader header;
 
   auto cursor = bufferBegin;
@@ -310,7 +329,7 @@ ChunkHeader readChunkHeaderV1_0(uint8_t const * const bufferBegin) {
   return header;
 }
 
-MessageHeader messageHeaderFromSlice(int const& vstVersionID, VSlice const& headerSlice){
+MessageHeader messageHeaderFromSlice(int vstVersionID, VSlice const& headerSlice){
   assert(headerSlice.isArray());
   MessageHeader header;
   header.byteSize = headerSlice.byteSize(); //for debugging
@@ -325,7 +344,7 @@ MessageHeader messageHeaderFromSlice(int const& vstVersionID, VSlice const& head
     case MessageType::Authentication:
       //header.encryption = headerSlice.at(6);                                      //encryption (plain) should be 2
       header.user = headerSlice.at(2).copyString();                                 //user
-      header.user = headerSlice.at(3).copyString();                                 //password
+      header.password = headerSlice.at(3).copyString();                             //password
       break;
 
     case MessageType::Request:
@@ -337,7 +356,7 @@ MessageHeader messageHeaderFromSlice(int const& vstVersionID, VSlice const& head
       break;
 
     case MessageType::Response:
-      header.responseCode = headerSlice.at(2).getInt();
+      header.responseCode = headerSlice.at(2).getUInt(); // TODO fix me
       break;
     default:
       break;
@@ -357,7 +376,7 @@ MessageHeader validateAndExtractMessageHeader(int const& vstVersionID, uint8_t c
     // isSubPart allows the slice to be shorter than the checked buffer.
     validator.validate(vpStart, length , isSubPart);
   } catch (std::exception const& e) {
-    throw std::runtime_error(std::string("error during validation of incoming VPack") + e.what());
+    throw std::runtime_error(std::string("error during validation of incoming VPack: ") + e.what());
   }
   slice = VSlice(vpStart);
   headerLength = slice.byteSize();
@@ -391,7 +410,7 @@ std::size_t validateAndCount(uint8_t const * const vpStart, std::size_t length){
       numPayloads++;
       FUERTE_LOG_TRACE << sliceSize << " ";
     } catch (std::exception const& e) {
-      throw std::runtime_error(std::string("error during validation of incoming VPack") + e.what());
+      throw std::runtime_error(std::string("error during validation of incoming VPack ") + e.what());
     }
   }
   FUERTE_LOG_TRACE << std::endl;
