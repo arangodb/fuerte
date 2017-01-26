@@ -28,7 +28,7 @@
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
 // Helper and Implementation
-  std::unique_ptr<Request>
+  std::unique_ptr<Request> inline
   createRequest(MessageHeader&& messageHeader
                ,mapss&& headerStrings
                ,RestVerb const& verb
@@ -49,7 +49,7 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
     return request;
   }
 
-  std::unique_ptr<Request>
+  std::unique_ptr<Request> inline
   createRequest(MessageHeader const& messageHeader
                ,mapss const& headerStrings
                ,std::string const& database
@@ -61,7 +61,7 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
     return createRequest(std::move(header), std::move(strings), database, verb, contentType);
   }
 
-  std::unique_ptr<Request>
+  std::unique_ptr<Request> inline
   createRequest(RestVerb const& verb
                ,ContentType const& contentType
                ){
@@ -69,7 +69,7 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
   }
 
 // For User
-  std::unique_ptr<Request>
+  std::unique_ptr<Request> inline
   createRequest(RestVerb verb
                ,std::string const& path
                ,mapss const& parameter
@@ -82,7 +82,7 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
     return request;
   }
 
-  std::unique_ptr<Request>
+  std::unique_ptr<Request> inline
   createRequest(RestVerb verb
                ,std::string const& path
                ,mapss const& parameter
@@ -95,4 +95,15 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
     return request;
   }
 
+  std::unique_ptr<Request> inline
+  createRequest(RestVerb verb
+               ,std::string const& path
+               ,mapss const& parameter = mapss()
+               )
+  {
+    auto request = createRequest(verb, ContentType::VPack);
+    request->header.path = path;
+    request->header.parameter = parameter;
+    return request;
+  }
 }}}

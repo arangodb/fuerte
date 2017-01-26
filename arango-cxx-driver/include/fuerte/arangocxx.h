@@ -5,5 +5,7 @@
 #include "connection.h"
 #include "database.h"
 #include "collection.h"
+#include "requests.h"
+#include "helper.h"
 
 #endif

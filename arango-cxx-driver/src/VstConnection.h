@@ -92,7 +92,9 @@ private:
   void shutdownSocket();
   void shutdownConnection();
   void restartConnection();
+
   virtual void start() override { initSocket(); }
+  virtual void restart() override { initSocket(); }
 
   //handler to be posted to loop
   //this handler call their handle counterpart on completion
@@ -119,27 +121,28 @@ private:
   void handleWrite(boost::system::error_code const&, std::size_t transferred, std::shared_ptr<RequestItem>);
 
 private:
-  // TODO FIXME -- fix aligenment when done so mutexes are not on the same cacheline etc
+  // TODO FIXME -- fix alignment when done so mutexes are not on the same cacheline etc
   std::shared_ptr<Loop> _asioLoop;
-  ::boost::asio::io_service* _ioService;
   detail::ConnectionConfiguration _configuration;
-  ::boost::asio::ip::tcp::resolver::iterator _endpoints;
-  ::std::atomic_int _handlercount;
   ::std::atomic_uint_least64_t _messageId;
+  // socket
+  ::boost::asio::io_service* _ioService;
   ::std::shared_ptr<::boost::asio::ip::tcp::socket> _socket;
   ::boost::asio::ssl::context _context;
   ::std::shared_ptr<::boost::asio::ssl::stream<::boost::asio::ip::tcp::socket&>> _sslSocket;
-  ::std::atomic_bool _pleaseStop;
-  ::std::atomic_bool _stopped;
-  ::boost::asio::deadline_timer _deadline;
+  ::boost::asio::ip::tcp::resolver::iterator _endpoints;
   ::boost::asio::ip::tcp::endpoint _peer;
-  ::boost::asio::streambuf _receiveBuffer;
+  ::boost::asio::deadline_timer _deadline;
+  // reset
+  ::std::atomic_bool _connected;
+  ::std::atomic_bool _pleaseStop;
+  ::std::atomic_bool _reading;
+  //queues
+  ::boost::asio::streambuf _receiveBuffer; // async read can not run concurrent
   ::std::mutex _sendQueueMutex;
   ::std::deque<std::shared_ptr<RequestItem>> _sendQueue;
   ::std::mutex _mapMutex;
   ::std::map<MessageID,std::shared_ptr<RequestItem>> _messageMap;
-  ::std::atomic_bool _connected;
-  ::std::mutex _connectedMutex;
 };
 
 }

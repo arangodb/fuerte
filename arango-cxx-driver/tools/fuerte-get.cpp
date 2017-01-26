@@ -18,7 +18,7 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author Frank Celler
-/// @author Jan Uhde
+/// @author Jan Christoph Uhde
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -39,6 +39,8 @@ using Request = arangodb::fuerte::Request;
 using MessageHeader = arangodb::fuerte::MessageHeader;
 using Response = arangodb::fuerte::Response;
 using RestVerb = arangodb::fuerte::RestVerb;
+
+namespace fu = ::arangodb::fuerte;
 
 static void usage(char const* name) {
   // clang-format off
@@ -81,7 +83,7 @@ int main(int argc, char* argv[]) {
   arangodb::fuerte::mapss meta;
   arangodb::fuerte::mapss parameter;
 
-#warning TODO: add database flag
+//#warning TODO: add database flag
 
   bool allowFlags = true;
   int i = 1;
@@ -143,12 +145,12 @@ int main(int argc, char* argv[]) {
     std::cout << "--------------------------------------------------------------------------" << std::endl;
     std::cout << "received result:\n"
               << "request - payload:\n"
-              << arangodb::fuerte::sliceToString(request->slices())
+              << fu::to_string(request->slices())
               << "---\n"
               << "response header:\n"
               << arangodb::fuerte::to_string(response->header)
               << "response - payload:\n"
-              << arangodb::fuerte::sliceToString(response->slices())
+              << fu::to_string(response->slices())
               << std::endl;
   };
 
@@ -158,7 +160,7 @@ int main(int argc, char* argv[]) {
     std::cout << "received error: " << err << std::endl
               << to_string(request->header)
               << "request payload:"
-              << arangodb::fuerte::sliceToString(request->slices())
+              << fu::to_string(request->slices())
               << std::endl;
   };
 

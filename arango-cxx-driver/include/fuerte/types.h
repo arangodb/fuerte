@@ -67,10 +67,32 @@ class VpackInit {
 // -----------------------------------------------------------------------------
 
 enum class ErrorCondition : Error {
-  CouldNotConnect = 1000,
-  Timeout = 1001,
-  CurlError = 1002
+  NoError = 0,
+  ErrorCastError = 1,
+
+  ConnectionError = 1000,
+  CouldNotConnect = 1001,
+  Timeout = 1002,
+  VstReadError = 1102,
+  VstWriteError =1103,
+  VstCanceldDuringReset = 1104,
+
+  CurlError = 3000,
+
 };
+
+inline Error errorToInt(ErrorCondition cond){
+  return static_cast<Error>(cond);
+}
+
+inline ErrorCondition intToError(Error integral){
+  static const std::vector<Error> valid = { 0, 1000, 1001, 1002, 1102, 1104, 3000 };
+  auto pos = std::find(valid.begin(), valid.end(), integral);
+  if(pos != valid.end()){
+    return static_cast<ErrorCondition>(integral);
+  }
+  return ErrorCondition::ErrorCastError;
+}
 
 // -----------------------------------------------------------------------------
 // --SECTION--                                               enum class RestVerb

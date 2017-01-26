@@ -72,12 +72,19 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
   if(doWrite){
     // this allows sendRequest to return immediatly and
     // not to block until all writing is done
-    Lock lockConnected(_connectedMutex);
     if(_connected){
-      _connectedMutex.unlock();
       FUERTE_LOG_DEBUG << "queue write" << std::endl;
       auto self = shared_from_this();
-      _ioService->post( [this,self](){ startWrite(); } );
+      //_ioService->dispatch( [this,self](){ startWrite(); } );
+      startWrite();
+
+      bool alreadyReading = _reading.exchange(true);
+      if (!alreadyReading){
+        FUERTE_LOG_TRACE << "starting new read" << std::endl;
+        startRead();
+      } else {
+        FUERTE_LOG_TRACE << "NOT starting new read" << std::endl;
+      }
     }
   }
   return item->_messageId;
@@ -96,22 +103,21 @@ std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
   auto onError  = [&](::arangodb::fuerte::v1::Error error, RequestUP request, ResponseUP response){
     rv = std::move(response);
     done = true;
-    //mutex.unlock();
     conditionVar.notify_one();
   };
 
   auto onSuccess  = [&](RequestUP request, ResponseUP response){
     rv = std::move(response);
     done = true;
-    //mutex.unlock();
     conditionVar.notify_one();
   };
 
   {
     std::unique_lock<std::mutex> lock(mutex);
     sendRequest(std::move(request),onError,onSuccess);
-    LoopProvider::getProvider().pollAsio(true); //REVIEW
-    //wait for handler to call notify_one
+    if(!_asioLoop->_running){
+      arangodb::fuerte::poll(true);
+    }
     conditionVar.wait(lock, [&]{ return done; });
   }
   return std::move(rv);
@@ -119,13 +125,14 @@ std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
 
 
 VstConnection::VstConnection(ConnectionConfiguration const& configuration)
-    : _asioLoop(LoopProvider::getProvider().getAsioLoop())
-    , _ioService(reinterpret_cast<ba::io_service*>(LoopProvider::getProvider().getAsioIoService()))
+    : _asioLoop(getProvider().getAsioLoop())
+    , _ioService(_asioLoop->getIoService())
     , _socket(nullptr)
     , _context(bs::context::method::sslv23)
     , _sslSocket(nullptr)
+    , _connected(false)
     , _pleaseStop(false)
-    , _stopped(false)
+    , _reading(false)
     , _configuration(configuration)
     , _deadline(*_ioService)
 {
@@ -140,40 +147,49 @@ VstConnection::VstConnection(ConnectionConfiguration const& configuration)
     //initSocket(); -- make_shared_from_this not allowed in constructor -- called after creation
 }
 
+// CONNECT RECONNECT //////////////////////////////////////////////////////////
+
 void VstConnection::initSocket(){
   FUERTE_LOG_DEBUG << "begin init" << std::endl;
-  _pleaseStop = false;
   _socket.reset(new bt::socket(*_ioService));
   _sslSocket.reset(new bs::stream<bt::socket&>(*_socket, _context));
-  _stopped = false;
+  _pleaseStop = false;
   auto endpoints = _endpoints; //copy as connect modifies iterator
   startConnect(endpoints);
 }
 
 void VstConnection::shutdownSocket(){
+  std::unique_lock<std::mutex> queueLock(_sendQueueMutex, std::defer_lock);
+  std::unique_lock<std::mutex> mapLock(_mapMutex, std::defer_lock);
+  std::lock(queueLock,mapLock);
+
   FUERTE_LOG_DEBUG << "begin shutdown socket" << std::endl;
-  _pleaseStop = true;
+
   _deadline.cancel();
-  _sslSocket->shutdown();
-  _socket->shutdown(bt::socket::shutdown_both);
-
-  //delete requests in flight
-  //reset streams
-  _stopped = true; // create a timer that periodically checks this variable
-                   // and reinitalises the loop - this way we avoid deeper stacks
-
-  //_socket->close(); will be closed on deconstruction
-  _socket->close();
+  BoostEC error;
+  _sslSocket->shutdown(error);
+  _socket->shutdown(bt::socket::shutdown_both,error);
+  _socket->close(error);
+  _sslSocket = nullptr;
+  _socket = nullptr;
 }
 
 void VstConnection::shutdownConnection(){
+  // this function must be used in handlers
+  bool alreadyStopping = _pleaseStop.exchange(true);
+  _reading = false;
+  if (alreadyStopping){
+    return;
+  }
+
   FUERTE_LOG_DEBUG << "begin shutdown connection" << std::endl;
   shutdownSocket();
 
   Lock mapLock(_mapMutex);
   for(auto& item : _messageMap){
-    // answer requests TODO
-    item.second->_onError(100,std::move(item.second->_request),nullptr);
+    item.second->_onError(errorToInt(ErrorCondition::VstCanceldDuringReset)
+                         ,std::move(item.second->_request)
+                         ,nullptr);
   }
   _messageMap.clear();
 
@@ -184,6 +200,8 @@ void VstConnection::restartConnection(){
   shutdownConnection();
   initSocket();
 }
+
+// ASIO CONNECT
 
 void VstConnection::startConnect(bt::resolver::iterator endpointItr){
   if (endpointItr != boost::asio::ip::tcp::resolver::iterator()){
@@ -217,16 +235,12 @@ void VstConnection::handleConnect(BoostEC const& error, bt::resolver::iterator e
       return;
     }
   } else {
-    FUERTE_LOG_DEBUG << "connecting failed - no further endpoints" << std::endl;
-    //if error - start connect with next endpoint
-    //startConnect(++endpointItr);
-    //::boost::asio::async_connect iterates the endpoint list
-    //so we need to check for the end endpoint
-
-    //if (endpointItr != boost::asio::ip::tcp::resolver::iterator()){
-    // There are no more endpoints to try. Shut down the client.
-    shutdownSocket();
-    throw std::runtime_error("unable to connect");
+    FUERTE_LOG_ERROR << error.message() << std::endl;
+    shutdownConnection();
+    if(endpointItr == bt::resolver::iterator()){
+      FUERTE_LOG_DEBUG << "no further endpoint" << std::endl;
+    }
+    throw std::runtime_error("unable to connect -- " + error.message() );
     return;
   }
   throw std::logic_error("you should not end up here!!!");
@@ -235,12 +249,13 @@ void VstConnection::handleConnect(BoostEC const& error, bt::resolver::iterator e
 void VstConnection::finishInitialization(){
   FUERTE_LOG_DEBUG << "finish initialization" << std::endl;
   {
-    Lock lockConnected(_connectedMutex);
     _connected = true;
   }
-
   startWrite(true); // there might be no requests enqueued
-  startRead();
+  bool alreadyReading = _reading.exchange(true);
+  if (!alreadyReading){
+    startRead();
+  }
 }
 
 void VstConnection::startHandshake(){
@@ -253,6 +268,7 @@ void VstConnection::startHandshake(){
                              ,[this,self](BoostEC const& error){
                                if(error){
                                  shutdownSocket();
+                                 FUERTE_LOG_ERROR << error.message() << std::endl;
                                  throw std::runtime_error("unable to perform ssl handshake");
                                }
                                FUERTE_LOG_DEBUG << "ssl handshake done" << std::endl ;
@@ -262,8 +278,10 @@ void VstConnection::startHandshake(){
 
 }
 
+// READING WRITING / NORMAL OPERATIONS  ///////////////////////////////////////
+
 void VstConnection::startRead(){
-  FUERTE_LOG_DEBUG << "-";
+  FUERTE_LOG_DEBUG << "-" << std::endl;
   if (_pleaseStop) {
     return;
   }
@@ -273,13 +291,15 @@ void VstConnection::startRead(){
     std::unique_lock<std::mutex> mapLock(_mapMutex, std::defer_lock);
     std::lock(queueLock,mapLock);
     if(_messageMap.empty() && _sendQueue.empty()){
+      _reading = false;
+      FUERTE_LOG_DEBUG << "returning from read loop" << std::endl;
       return;
     }
   }
 
   // gets data from network and fill
   _deadline.expires_from_now(boost::posix_time::seconds(30));
-  FUERTE_LOG_DEBUG << "r";
+  FUERTE_LOG_DEBUG << "r" << std::endl;
   auto self = shared_from_this();
   ba::async_read(*_socket
                 ,_receiveBuffer
@@ -298,16 +318,23 @@ std::pair<T const*, std::size_t> bufferToPointerAndSize(boost::asio::const_buffe
 }
 
 void VstConnection::handleRead(const boost::system::error_code& error, std::size_t transferred){
+  if (error){
+    FUERTE_LOG_DEBUG << "Error while reading form socket";
+    FUERTE_LOG_ERROR << error.message() << std::endl;
+    restartConnection();
+  }
   static const int vstVersionID = 1;
 
   FUERTE_LOG_DEBUG << "R" << transferred;
 
-  if (!transferred) {
-    throw std::logic_error("handler called without receiving data");
-  }
   if(_pleaseStop) {
     return;
   }
+
+  //THIS WIL MAKE THE CODE FAIL WHEN RECONNECTING
+  //if (!transferred) {
+  // throw std::logic_error("handler called without receiving data");
+  //}
 
   boost::asio::const_buffer received = _receiveBuffer.data(); //no copy
   std::size_t size = boost::asio::buffer_size(received);
@@ -403,7 +430,7 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
 }
 
 void VstConnection::startWrite(bool possiblyEmpty){
-  FUERTE_LOG_TRACE << "+";
+  FUERTE_LOG_TRACE << "+" << std::endl;
   if (_pleaseStop) {
     return;
   }
@@ -423,7 +450,7 @@ void VstConnection::startWrite(bool possiblyEmpty){
     _messageMap.emplace(next->_messageId,next);
   }
 
-  FUERTE_LOG_DEBUG << "s";
+  FUERTE_LOG_DEBUG << "s" << std::endl;
 
   // make sure we are connected and handshake has been done
   auto self = shared_from_this();
@@ -441,6 +468,7 @@ void VstConnection::handleWrite(BoostEC const& error, std::size_t transferred, R
   FUERTE_LOG_DEBUG << "S";
 
   if (error){
+    FUERTE_LOG_ERROR << error.message() << std::endl;
     _pleaseStop = true; //stop reading as well
     {
       Lock lock(_mapMutex);
@@ -448,7 +476,7 @@ void VstConnection::handleWrite(BoostEC const& error, std::size_t transferred, R
     }
 
     //let user know that this request caused the error
-    item->_onError(100,std::move(item->_request),nullptr);
+    item->_onError(errorToInt(ErrorCondition::VstWriteError),std::move(item->_request),nullptr);
 
     restartConnection();
 

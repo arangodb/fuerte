@@ -27,6 +27,11 @@
 #include <utility>
 #include <memory>
 
+
+// run / runWithWork / poll for Loop mapping to ioservice
+// free function run with threads / with thread group barrier and work
+
+
 namespace boost { namespace  asio {
   class io_service;
 }}
@@ -121,6 +126,7 @@ private:
 // ready handler so it will not wait for things like epoll on a socket.
 // You want to use poll(false) if you are using fuerte with your own event loop.
 inline void poll(bool block){ LoopProvider::getProvider().poll(block); };
+inline LoopProvider& getProvider(){ return LoopProvider::getProvider(); };
 
 }}}
 #endif

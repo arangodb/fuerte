@@ -8,26 +8,34 @@ class BasicsF : public ::testing::Test {
  protected:
   BasicsF(){
     _server = "vst://127.0.0.1:8529";
+  }
+  virtual ~BasicsF() noexcept {}
 
+  virtual void SetUp() override {
     f::ConnectionBuilder cbuilder;
     cbuilder.host(_server);
     _connection = cbuilder.connect();
-
-
+    f::getProvider().pollAsio(true);
   }
-  virtual ~BasicsF() noexcept {}
-  virtual void SetUp() override {}
-  virtual void TearDown() override {}
+
+  virtual void TearDown() override {
+    _connection.reset();
+  }
+
+  std::shared_ptr<f::Connection> _connection;
 
  private:
   std::string _server;
   std::string _port;
-  std::shared_ptr<f::Connection> _connection;
 
 };
 
+namespace fu = ::arangodb::fuerte;
+
 TEST_F(BasicsF, version){
   ASSERT_TRUE(true);
-  std::cout << "in the test method" << std::endl;
-  f::poll(true);
+  auto request = fu::createRequest(fu::RestVerb::Get, "/api/version");
+  auto result = _connection->sendRequest(std::move(request));
+  std::cout << fu::to_string(result->header);
+  std::cout << fu::to_string(result->slices()[0]);
 }
