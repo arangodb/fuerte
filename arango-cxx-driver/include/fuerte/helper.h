@@ -7,6 +7,7 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
 
 std::string to_string(VSlice const& slice);
 std::string to_string(std::vector<VSlice> const& payload);
+mapss sliceToStringMap(VSlice const&);
 
 namespace http {
   std::string urlDecode(std::string const& str);

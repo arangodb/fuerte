@@ -36,6 +36,10 @@
   #define ENABLE_FUERTE_LOG_TRACE 1
 #endif
 
+#ifndef ENABLE_FUERTE_LOG_VSTTRACE
+  #define ENABLE_FUERTE_LOG_VSTTRACE 0
+#endif
+
 #if defined(ENABLE_FUERTE_LOG_TRACE) || defined(ENABLE_FUERTE_LOG_DEBUG) || defined(ENABLE_FUERTE_LOG_ERROR)
 #include <iostream>
 #endif
@@ -56,6 +60,12 @@
   #define FUERTE_LOG_TRACE std::cout
 #else
   #define FUERTE_LOG_TRACE if (0) std::cout
+#endif
+
+#if ENABLE_FUERTE_LOG_VSTTRACE > 0
+  #define FUERTE_LOG_VSTTRACE std::cout
+#else
+  #define FUERTE_LOG_VSTTRACE if (0) std::cout
 #endif
 
 #endif

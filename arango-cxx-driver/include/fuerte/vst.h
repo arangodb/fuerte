@@ -72,7 +72,7 @@ struct ChunkHeader {
 
   uint32_t updateTotalPayload(uint8_t* headerStartInBuffer, uint64_t messageLength){
     _totalMessageLength = messageLength;
-    auto pos = headerStartInBuffer + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint64_t);
+    auto pos = headerStartInBuffer + sizeof(_chunkLength) + sizeof(_chunk) + sizeof(_messageID);
     std::memcpy(pos, &_totalMessageLength, sizeof(_totalMessageLength)); //target, source, length
     return _totalMessageLength;
   }
@@ -81,11 +81,10 @@ struct ChunkHeader {
 inline constexpr std::size_t chunkHeaderLength(int version, bool isFirst, bool isSingle){
   // until there is the next version we should use c++14 :P
   return (version == 1) ?
-    // chunkLength uint32 , chunkX uint32 , id uint64 , messageLength unit64
-    sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint64_t) + (isFirst && !isSingle ? sizeof(uint64_t) : 0)
+    sizeof(ChunkHeader::_chunkLength) + sizeof(ChunkHeader::_chunk) +
+    sizeof(ChunkHeader::_messageID) + (isFirst && !isSingle ? sizeof(ChunkHeader::_totalMessageLength) : 0)
     :
-    // chunkLength uint32 , chunkX uint32 , id uint64 , messageLength unit64
-    sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint64_t) + sizeof(uint64_t)
+    sizeof(ChunkHeader::_chunkLength) + sizeof(ChunkHeader::_chunk) + sizeof(ChunkHeader::_messageID)
     ;
 }
 

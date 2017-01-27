@@ -3,7 +3,18 @@
 #include <stdexcept>
 #include <sstream>
 
+#include <velocypack/Iterator.h>
+
 namespace arangodb { namespace fuerte { inline namespace v1 {
+
+mapss sliceToStringMap(VSlice const& slice){
+  mapss rv;
+  assert(slice.isObject());
+  for(auto const& it : ::arangodb::velocypack::ObjectIterator(slice)){
+    rv.insert({it.key.copyString(), it.value.copyString()});
+  }
+  return rv;
+}
 
 std::string to_string(VSlice const& slice){
   std::stringstream ss;

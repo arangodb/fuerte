@@ -22,6 +22,7 @@
 
 #include <fuerte/types.h>
 #include <fuerte/vst.h>
+#include <fuerte/helper.h>
 #include <velocypack/Validator.h>
 #include <sstream>
 #include "FuerteLogger.h"
@@ -288,10 +289,10 @@ std::size_t isChunkComplete(uint8_t const * const begin, std::size_t const lengt
   // TODO -- fix endianess
   std::memcpy(&lengthThisChunk, begin, sizeof(uint32_t));
   if (lengthAvailalbe < lengthThisChunk) {
-    FUERTE_LOG_DEBUG << "\nchunk incomplete: " << lengthAvailalbe << "/" << lengthThisChunk << "(available/len)" << std::endl;
+    FUERTE_LOG_VSTTRACE << "\nchunk incomplete: " << lengthAvailalbe << "/" << lengthThisChunk << "(available/len)" << std::endl;
     return 0;
   }
-  FUERTE_LOG_DEBUG << "\nchunk complete: " << lengthThisChunk << " bytes" << std::endl;
+  FUERTE_LOG_VSTTRACE << "\nchunk complete: " << lengthThisChunk << " bytes" << std::endl;
   return lengthThisChunk;
 }
 
@@ -336,6 +337,9 @@ MessageHeader messageHeaderFromSlice(int vstVersionID, VSlice const& headerSlice
 
   if(vstVersionID == 1){
     header.contentType = ContentType::VPack;
+  } else {
+    // found in params
+    header.contentType = ContentType::Unset;
   }
 
   header.version = headerSlice.at(0).getNumber<int>();                              //version
@@ -351,12 +355,17 @@ MessageHeader messageHeaderFromSlice(int vstVersionID, VSlice const& headerSlice
       header.database = headerSlice.at(2).copyString();                             // databse
       header.restVerb = static_cast<RestVerb>(headerSlice.at(3).getInt());          // rest verb
       header.path = headerSlice.at(4).copyString();                                 // request (path)
-      //header.parameter = headerSlice.at(5);                                       // params
-      //header.parameter = headerSlice.at(6);                                       // meta
+      header.parameter = sliceToStringMap(headerSlice.at(5));                       // params
+      header.meta = sliceToStringMap(headerSlice.at(6));                            // meta
       break;
 
+    //resoponse should get content type
     case MessageType::Response:
       header.responseCode = headerSlice.at(2).getUInt(); // TODO fix me
+      header.contentType = ContentType::VPack;
+      if (headerSlice.length() >= 4) {
+        header.meta = sliceToStringMap(headerSlice.at(3));                          // meta
+      }
       break;
     default:
       break;
@@ -392,10 +401,10 @@ std::size_t validateAndCount(uint8_t const * const vpStart, std::size_t length){
   std::size_t numPayloads = 0; // fist item is the header
   bool isSubPart = true;
 
-  FUERTE_LOG_DEBUG << "buffer length to validate: " << length << std::endl;
+  FUERTE_LOG_VSTTRACE << "buffer length to validate: " << length << std::endl;
 
 
-  FUERTE_LOG_TRACE << "sliceSizes: ";
+  FUERTE_LOG_VSTTRACE << "sliceSizes: ";
   while (length) {
     try {
       // isSubPart allows the slice to be shorter than the checked buffer.
@@ -408,12 +417,12 @@ std::size_t validateAndCount(uint8_t const * const vpStart, std::size_t length){
       length -= sliceSize;
       cursor += sliceSize;
       numPayloads++;
-      FUERTE_LOG_TRACE << sliceSize << " ";
+      FUERTE_LOG_VSTTRACE << sliceSize << " ";
     } catch (std::exception const& e) {
       throw std::runtime_error(std::string("error during validation of incoming VPack ") + e.what());
     }
   }
-  FUERTE_LOG_TRACE << std::endl;
+  FUERTE_LOG_VSTTRACE << std::endl;
   return numPayloads;
 }
 

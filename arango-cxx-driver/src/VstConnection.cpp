@@ -66,14 +66,14 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
     Lock lockQueue(_sendQueueMutex);
     doWrite = _sendQueue.empty();
     _sendQueue.push_back(item);
-    FUERTE_LOG_DEBUG << "request queued" << std::endl;
+    FUERTE_LOG_VSTTRACE << "request queued" << std::endl;
   }
 
   if(doWrite){
     // this allows sendRequest to return immediatly and
     // not to block until all writing is done
     if(_connected){
-      FUERTE_LOG_DEBUG << "queue write" << std::endl;
+      FUERTE_LOG_VSTTRACE << "queue write" << std::endl;
       auto self = shared_from_this();
       //_ioService->dispatch( [this,self](){ startWrite(); } );
       startWrite();
@@ -91,7 +91,7 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
 }
 
 std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
-  FUERTE_LOG_DEBUG << "start sync request" << std::endl;
+  FUERTE_LOG_VSTTRACE << "start sync request" << std::endl;
   // TODO - we expect the loop to be runniung even for sync requests
   // maybe we could call poll on the ioservice in this function if
   // it is not running.
@@ -282,7 +282,7 @@ void VstConnection::startHandshake(){
 // READING WRITING / NORMAL OPERATIONS  ///////////////////////////////////////
 
 void VstConnection::startRead(){
-  FUERTE_LOG_DEBUG << "-" << std::endl;
+  FUERTE_LOG_DEBUG << "-";
   if (_pleaseStop) {
     return;
   }
@@ -293,14 +293,15 @@ void VstConnection::startRead(){
     std::lock(queueLock,mapLock);
     if(_messageMap.empty() && _sendQueue.empty()){
       _reading = false;
-      FUERTE_LOG_DEBUG << "returning from read loop" << std::endl;
+      FUERTE_LOG_VSTTRACE << "returning from read loop";
+      FUERTE_LOG_DEBUG <<  std::endl;
       return;
     }
   }
 
   // gets data from network and fill
   _deadline.expires_from_now(boost::posix_time::seconds(30));
-  FUERTE_LOG_DEBUG << "r" << std::endl;
+  FUERTE_LOG_DEBUG << "r";
   auto self = shared_from_this();
   ba::async_read(*_socket
                 ,_receiveBuffer
@@ -319,23 +320,23 @@ std::pair<T const*, std::size_t> bufferToPointerAndSize(boost::asio::const_buffe
 }
 
 std::tuple<bool,std::shared_ptr<RequestItem>,std::size_t> VstConnection::processChunk(uint8_t const * cursor, std::size_t length){
-  FUERTE_LOG_DEBUG << "\n\n\nENTER PROCESS CHUNK" << std::endl;
+  FUERTE_LOG_VSTTRACE << "\n\n\nENTER PROCESS CHUNK" << std::endl;
   auto vstChunkHeader = vst::readChunkHeaderV1_0(cursor);
   //peek next chunk
   bool nextChunkAvailable = false;
   if(length > vstChunkHeader._chunkLength + sizeof(ChunkHeader::_chunkLength)){
-    FUERTE_LOG_DEBUG << "processing chunk with messageid: " << vstChunkHeader._messageID << std::endl;
-    FUERTE_LOG_DEBUG << "peeking into next chunk!" << std::endl;
+    FUERTE_LOG_VSTTRACE << "processing chunk with messageid: " << vstChunkHeader._messageID << std::endl;
+    FUERTE_LOG_VSTTRACE << "peeking into next chunk!" << std::endl;
     nextChunkAvailable = vst::isChunkComplete(cursor + vstChunkHeader._chunkLength
                                              ,length - vstChunkHeader._chunkLength);
-    FUERTE_LOG_DEBUG << "next availalbe: " << nextChunkAvailable << std::endl;
+    FUERTE_LOG_VSTTRACE << "next availalbe: " << nextChunkAvailable << std::endl;
   }
 
   cursor += vstChunkHeader._chunkHeaderLength;
   length -= vstChunkHeader._chunkHeaderLength;
 
 
-  FUERTE_LOG_DEBUG << "ChunkHeaderLenth: " << vstChunkHeader._chunkHeaderLength << std::endl;
+  FUERTE_LOG_VSTTRACE << "ChunkHeaderLenth: " << vstChunkHeader._chunkHeaderLength << std::endl;
 
   ::std::map<MessageID,std::shared_ptr<RequestItem>>::iterator found;
   {
@@ -349,24 +350,24 @@ std::tuple<bool,std::shared_ptr<RequestItem>,std::size_t> VstConnection::process
 
   RequestItemSP item = found->second;
 
-  FUERTE_LOG_DEBUG << "appending to item with length: " << vstChunkHeader._chunkPayloadLength << std::endl;
+  FUERTE_LOG_VSTTRACE << "appending to item with length: " << vstChunkHeader._chunkPayloadLength << std::endl;
   // copy payload to buffer
   item->_responseBuffer.append(cursor,vstChunkHeader._chunkPayloadLength);
 
   cursor += vstChunkHeader._chunkPayloadLength;
   length -= vstChunkHeader._chunkPayloadLength;
 
-  FUERTE_LOG_DEBUG << "next chunk availalbe: " << std::boolalpha << nextChunkAvailable  << std::endl;
+  FUERTE_LOG_VSTTRACE << "next chunk availalbe: " << std::boolalpha << nextChunkAvailable  << std::endl;
 
   if(vstChunkHeader._isSingle){ //we got a single chunk containing the complete message
-    FUERTE_LOG_DEBUG << "adding single chunk " << std::endl;
+    FUERTE_LOG_VSTTRACE << "adding single chunk " << std::endl;
     item->_responseBuffer.resetTo(vstChunkHeader._chunkPayloadLength);
     return std::tuple<bool,RequestItemSP,std::size_t>(nextChunkAvailable, std::move(item), vstChunkHeader._chunkLength);
   } else if (!vstChunkHeader._isFirst){
     //there is chunk that continues a message
     item->_responseChunk++;
     if(item->_responseChunks == vstChunkHeader._numberOfChunks){ //last chunk reached
-      FUERTE_LOG_DEBUG << "adding multi chunk " << std::endl;
+      FUERTE_LOG_VSTTRACE << "adding multi chunk " << std::endl;
       // TODO TODO TODO TODO should multichunk not be working start looking here!!!!!!!
       // the VPackBuffer is unable to track how much has been written to it. Maybe this is
       // fixed when you read this.
@@ -374,13 +375,13 @@ std::tuple<bool,std::shared_ptr<RequestItem>,std::size_t> VstConnection::process
       item->_responseBuffer.resetTo(item->_responseLength);
       return std::tuple<bool,RequestItemSP,std::size_t>(nextChunkAvailable, std::move(item),vstChunkHeader._chunkLength);
     }
-    FUERTE_LOG_DEBUG << "multi chunk incomplte" << std::endl;
+    FUERTE_LOG_VSTTRACE << "multi chunk incomplte" << std::endl;
   } else {
     //the chunk stats a multipart message
     item->_responseLength = vstChunkHeader._totalMessageLength;
     item->_responseChunks = vstChunkHeader._numberOfChunks;
     item->_responseChunk = 1;
-    FUERTE_LOG_DEBUG << "starting multi chunk" << std::endl;
+    FUERTE_LOG_VSTTRACE << "starting multi chunk" << std::endl;
   }
 
   return std::tuple<bool,RequestItemSP,std::size_t>(nextChunkAvailable, nullptr, vstChunkHeader._chunkLength);
@@ -388,7 +389,7 @@ std::tuple<bool,std::shared_ptr<RequestItem>,std::size_t> VstConnection::process
 
 void VstConnection::processCompleteItem(std::shared_ptr<RequestItem>&& itempointer){
   RequestItem& item = *itempointer;
-  FUERTE_LOG_DEBUG << "completing item with messageid: " << item._messageId << std::endl;
+  FUERTE_LOG_VSTTRACE << "completing item with messageid: " << item._messageId << std::endl;
   auto itemCursor = item._responseBuffer.data();
   auto itemLength = item._responseBuffer.byteSize();
   std::size_t messageHeaderLength;
@@ -405,15 +406,15 @@ void VstConnection::processCompleteItem(std::shared_ptr<RequestItem>&& itempoint
   // allocated memory could be reused.
   if(messageHeader.contentType == ContentType::VPack){
     auto numPayloads = vst::validateAndCount(itemCursor,itemLength);
-    FUERTE_LOG_DEBUG << "number of slices: " << numPayloads << std::endl;
+    FUERTE_LOG_VSTTRACE << "number of slices: " << numPayloads << std::endl;
     VBuffer buffer;
     buffer.append(itemCursor,itemLength); //we should avoid this copy FIXME
     buffer.resetTo(itemLength);
     auto slice = VSlice(itemCursor);
-    FUERTE_LOG_DEBUG << slice.toJson() << " , " << slice.byteSize() << std::endl;
-    FUERTE_LOG_DEBUG << "buffer size" << " , " << buffer.size() << std::endl;
+    FUERTE_LOG_VSTTRACE << slice.toJson() << " , " << slice.byteSize() << std::endl;
+    FUERTE_LOG_VSTTRACE << "buffer size" << " , " << buffer.size() << std::endl;
     response->addVPack(std::move(buffer)); //ASK jan
-    FUERTE_LOG_DEBUG << "payload size" << " , " << response->payload().second << std::endl;
+    FUERTE_LOG_VSTTRACE << "payload size" << " , " << response->payload().second << std::endl;
   } else {
     response->addBinary(itemCursor,itemLength);
   }
@@ -432,7 +433,7 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
     restartConnection();
   }
 
-  FUERTE_LOG_DEBUG << "R" << transferred;
+  FUERTE_LOG_DEBUG << "R(" << transferred << ")" ;
 
   if(_pleaseStop) {
     return;
@@ -495,7 +496,7 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
 }
 
 void VstConnection::startWrite(bool possiblyEmpty){
-  FUERTE_LOG_TRACE << "+" << std::endl;
+  FUERTE_LOG_TRACE << "+" ;
   if (_pleaseStop) {
     return;
   }
@@ -515,7 +516,7 @@ void VstConnection::startWrite(bool possiblyEmpty){
     _messageMap.emplace(next->_messageId,next);
   }
 
-  FUERTE_LOG_DEBUG << "s" << std::endl;
+  FUERTE_LOG_DEBUG << "s";
 
   // make sure we are connected and handshake has been done
   auto self = shared_from_this();

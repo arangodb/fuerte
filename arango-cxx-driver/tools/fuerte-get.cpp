@@ -144,6 +144,8 @@ int main(int argc, char* argv[]) {
                         std::unique_ptr<Response> response) {
     std::cout << "--------------------------------------------------------------------------" << std::endl;
     std::cout << "received result:\n"
+              << "request header:\n"
+              << arangodb::fuerte::to_string(request->header)
               << "request - payload:\n"
               << fu::to_string(request->slices())
               << "---\n"
