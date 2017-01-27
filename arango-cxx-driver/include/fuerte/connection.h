@@ -47,6 +47,11 @@ class Connection : public std::enable_shared_from_this<Connection> {
       return _realConnection->sendRequest(std::move(r));
     }
 
+    std::unique_ptr<Response> sendRequest(Request const& r){
+      std::unique_ptr<Request> copy(new Request(r));
+      return _realConnection->sendRequest(std::move(copy));
+    }
+
     // callback may be called in parallel - think about possible races!
     MessageID sendRequest(std::unique_ptr<Request> r, OnErrorCallback e, OnSuccessCallback c){
       return _realConnection->sendRequest(std::move(r), e, c);
