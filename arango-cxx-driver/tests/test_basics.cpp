@@ -15,7 +15,6 @@ class BasicsF : public ::testing::Test {
     f::ConnectionBuilder cbuilder;
     cbuilder.host(_server);
     _connection = cbuilder.connect();
-    f::getProvider().pollAsio(true);
   }
 
   virtual void TearDown() override {
@@ -32,10 +31,65 @@ class BasicsF : public ::testing::Test {
 
 namespace fu = ::arangodb::fuerte;
 
-TEST_F(BasicsF, version){
+TEST_F(BasicsF, ApiVersionSync){
   ASSERT_TRUE(true);
-  auto request = fu::createRequest(fu::RestVerb::Get, "/api/version");
+  auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
   auto result = _connection->sendRequest(std::move(request));
-  std::cout << fu::to_string(result->header);
-  std::cout << fu::to_string(result->slices()[0]);
+  auto slice = result->slices().front();
+  auto version = slice.get("version").copyString();
+  auto server = slice.get("server").copyString();
+  ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
+  ASSERT_TRUE(version[0] == '3');
 }
+
+TEST_F(BasicsF, ApiVersionASync){
+  ASSERT_TRUE(true);
+  auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
+  fu::OnErrorCallback onError = [](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
+    ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
+  };
+  fu::OnSuccessCallback onSuccess = [](std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
+    auto slice = res->slices().front();
+    auto version = slice.get("version").copyString();
+    auto server = slice.get("server").copyString();
+    ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
+    ASSERT_TRUE(version[0] == '3');
+  };
+  _connection->sendRequest(std::move(request),onError,onSuccess);
+  fu::poll(true);
+}
+
+TEST_F(BasicsF, ApiVersionSync20){
+  ASSERT_TRUE(true);
+  auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
+  fu::Request req = *request;
+  for(int i = 0; i < 20; i++){
+    auto result = _connection->sendRequest(req);
+    auto slice = result->slices().front();
+    auto version = slice.get("version").copyString();
+    auto server = slice.get("server").copyString();
+    ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
+    ASSERT_TRUE(version[0] == '3');
+  }
+}
+
+TEST_F(BasicsF, ApiVersionASync20){
+  ASSERT_TRUE(true);
+  auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
+  fu::OnErrorCallback onError = [](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
+    ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
+  };
+  fu::OnSuccessCallback onSuccess = [](std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
+    auto slice = res->slices().front();
+    auto version = slice.get("version").copyString();
+    auto server = slice.get("server").copyString();
+    ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
+    ASSERT_TRUE(version[0] == '3');
+  };
+  fu::Request req = *request;
+  for(int i = 0; i < 20; i++){
+    _connection->sendRequest(req,onError,onSuccess);
+  }
+  fu::poll(true);
+}
+

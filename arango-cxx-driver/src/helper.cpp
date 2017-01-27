@@ -5,7 +5,7 @@
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
-  std::string to_string(VSlice const& slice){
+std::string to_string(VSlice const& slice){
   std::stringstream ss;
   try {
     std::string json = slice.toJson();
@@ -19,6 +19,7 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
 
   return ss.str();
 }
+
 
 std::string to_string(std::vector<VSlice> const& slices){
   std::stringstream ss;
