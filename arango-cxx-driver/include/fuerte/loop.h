@@ -77,17 +77,11 @@ public:
   void setAsioService(::boost::asio::io_service*, bool running);
   void setAsioServiceTakeOwnership(::boost::asio::io_service*, bool running);
   // get pointer to the ioservice
-  void* getAsioIoService();
   std::shared_ptr<Loop> getAsioLoop();
 
-  // run asio loop / poll vst connection
-  bool runAsio();
-  void stopAsio();
-  void pollAsio(bool block);
-  bool isAsioPolling();
-
-  // poll both loops
-  void poll(bool block);
+  // poll / run both loops
+  void poll();
+  void run();
 
 private:
   std::shared_ptr<Loop> _asioLoop;
@@ -101,9 +95,10 @@ class Loop{
 
 public:
   Loop();
-  bool run();
-  void ask_to_stop();
-  void poll(bool block);
+  //void run();
+  //void ask_to_stop();
+  void run_ready();
+  void poll();
 
 private:
   void setIoService(::boost::asio::io_service * service);
@@ -117,7 +112,7 @@ private:
   bool _owning;
   bool _sealed;
   bool _running;
-  bool _pollMode;
+  bool _singleRunMode;
 };
 
 // pools the services
@@ -125,7 +120,8 @@ private:
 // Otherwise (blocking == false) it will return immediately if there is no
 // ready handler so it will not wait for things like epoll on a socket.
 // You want to use poll(false) if you are using fuerte with your own event loop.
-inline void poll(bool block){ LoopProvider::getProvider().poll(block); };
+inline void poll(){ LoopProvider::getProvider().poll(); };
+inline void run(){ LoopProvider::getProvider().run(); };
 inline LoopProvider& getProvider(){ return LoopProvider::getProvider(); };
 
 }}}

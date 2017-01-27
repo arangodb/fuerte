@@ -23,7 +23,15 @@
 
 #include "message.h"
 
-// TODO -- move impl to cpp
+// This file will be a bit messy in the near future
+//
+// Maybe we will use some kind of mpl library that allows us to use named and
+// defaulted arguments (not only at the end of signature) for constructors.
+// The way it is now we need too supply too many different make functions.
+// At the is probably the best to create request manually and fill in the
+// required fields
+//
+// TODO -- move impl to cpp once done
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 

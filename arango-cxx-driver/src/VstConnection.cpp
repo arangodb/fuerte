@@ -116,7 +116,7 @@ std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
     std::unique_lock<std::mutex> lock(mutex);
     sendRequest(std::move(request),onError,onSuccess);
     if(!_asioLoop->_running){
-      arangodb::fuerte::poll(true);
+      arangodb::fuerte::run();
     }
     conditionVar.wait(lock, [&]{ return done; });
   }
@@ -480,7 +480,7 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
 
   /// end new function
 
-  if(!_asioLoop->_pollMode){
+  if(!_asioLoop->_singleRunMode){
     startRead(); //start next read - code below might run in parallel to new read
   }
 
@@ -490,7 +490,7 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
     }
   }
 
-  if(_asioLoop->_pollMode){
+  if(_asioLoop->_singleRunMode){
     startRead();
   }
 }

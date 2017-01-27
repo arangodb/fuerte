@@ -182,7 +182,7 @@ int main(int argc, char* argv[]) {
   }
 
   try {
-    arangodb::fuerte::poll(true);
+    arangodb::fuerte::run();
   } catch (std::exception const& ex) {
     std::cerr << "exception: " << ex.what() << std::endl;
     exit(EXIT_FAILURE);

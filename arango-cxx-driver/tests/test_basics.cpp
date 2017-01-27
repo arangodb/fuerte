@@ -56,7 +56,7 @@ TEST_F(BasicsF, ApiVersionASync){
     ASSERT_TRUE(version[0] == '3');
   };
   _connection->sendRequest(std::move(request),onError,onSuccess);
-  fu::poll(true);
+  fu::run();
 }
 
 TEST_F(BasicsF, ApiVersionSync20){
@@ -90,6 +90,6 @@ TEST_F(BasicsF, ApiVersionASync20){
   for(int i = 0; i < 20; i++){
     _connection->sendRequest(req,onError,onSuccess);
   }
-  fu::poll(true);
+  fu::run();
 }
 

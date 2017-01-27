@@ -47,55 +47,26 @@ Loop::Loop()
   ,_sealed(false)
   ,_owning(true)
   ,_running(false)
-  ,_pollMode(false)
+  ,_singleRunMode(false)
   {}
 
-bool Loop::run(){
-  if(!_running && _service && _owning){
-    _running = true;
-    _sealed = true;
-    _work = std::make_shared<Work>(*_service);
-    while(_work){
-      try
-      {
-        _service->run();
-        break; // run() exited normally
-      }
-      catch (std::exception const& e)
-      {
-        FUERTE_LOG_ERROR << e.what() << std::endl; //return to loop
-        _service->reset();
-      }
-      catch(...){
-        FUERTE_LOG_ERROR << "unknown exception";
-        _service->reset();
-      }
-    }
-    return true;
-  }
-  return false;
-};
-
-void Loop::poll(bool block){
+void Loop::run_ready(){
   _sealed = true;
   if(!_owning){
     return;
   }
-
-  if(block){
-    _pollMode=true;
-    _service->run();
-    _service->reset();
-    _pollMode=false;
-  } else {
-    _service->poll();
-  }
+  _singleRunMode=true;
+  _service->run();
+  _service->reset();
+  _singleRunMode=false;
 }
 
-void Loop::ask_to_stop(){
-  if(!_running || !_owning) { return; }
-  _work.reset();
-  _running = false;
+void Loop::poll(){
+  _sealed = true;
+  if(!_owning){
+    return;
+  }
+  _service->poll();
 }
 
 void Loop::setIoService(::boost::asio::io_service * service){
@@ -137,27 +108,9 @@ std::shared_ptr<Loop> LoopProvider::getAsioLoop(){
   return _asioLoop;
 }
 
-void* LoopProvider::getAsioIoService(){
-  return _asioLoop->getIoService();
-}
-
-bool LoopProvider::runAsio(){
-  return _asioLoop->run();
-}
-
-void LoopProvider::pollAsio(bool block){
-  _asioLoop->poll(block);
-}
-
-bool LoopProvider::isAsioPolling(){
-  return _asioLoop->_pollMode;
-}
-
-
-void LoopProvider::poll(bool block){
-  //poll asio
+void LoopProvider::run(){
   if(_asioLoop){
-    pollAsio(block);  //polls until io_service has no further tasks
+    _asioLoop->run_ready();  //runs unitl all work is done
   }
 
   //poll http -- spins busy for http
@@ -170,4 +123,50 @@ void LoopProvider::poll(bool block){
   }
 }
 
+void LoopProvider::poll(){
+  //poll asio
+  if(_asioLoop){
+    _asioLoop->poll();  //polls until io_service has no further tasks
+  }
+
+  //poll http
+  if(_httpLoop){
+    int left = _httpLoop->workOnce();
+  }
+}
+
 }}}
+
+
+
+//void Loop::run(){
+//  if(!_running && _service && _owning){
+//    _running = true;
+//    _sealed = true;
+//    _work = std::make_shared<Work>(*_service);
+//    while(_work){
+//      try
+//      {
+//        _service->run();
+//        break; // run() exited normally
+//      }
+//      catch (std::exception const& e)
+//      {
+//        FUERTE_LOG_ERROR << e.what() << std::endl; //return to loop
+//        _service->reset();
+//      }
+//      catch(...){
+//        FUERTE_LOG_ERROR << "unknown exception";
+//        _service->reset();
+//      }
+//    }
+//    return true;
+//  }
+//  return false;
+//};
+// void Loop::ask_to_stop(){
+//   if(!_running || !_owning) { return; }
+//   _work.reset();
+//   _running = false;
+// }
+//
