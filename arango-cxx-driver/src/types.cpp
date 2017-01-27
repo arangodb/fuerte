@@ -163,5 +163,40 @@ std::string to_string(ContentType type) {
   return "undefined";
 }
 
+ErrorCondition intToError(Error integral){
+  static const std::vector<Error> valid = { 0, 1000, 1001, 1002, 1102, 1104, 3000 };
+  auto pos = std::find(valid.begin(), valid.end(), integral);
+  if(pos != valid.end()){
+    return static_cast<ErrorCondition>(integral);
+  }
+  return ErrorCondition::ErrorCastError;
+}
+
+std::string to_string(ErrorCondition error){
+  switch(error){
+    case ErrorCondition::NoError:
+      return "No Error";
+    case ErrorCondition::ErrorCastError:
+      return "Error: casting int to ErrorCondition";
+
+    case ErrorCondition::ConnectionError:
+      return "Error: in connection";
+    case ErrorCondition::CouldNotConnect:
+      return "Error: unable to connect";
+    case ErrorCondition::Timeout:
+      return "Error: timeout";
+    case ErrorCondition::VstReadError:
+      return "Error: reading vst";
+    case ErrorCondition::VstWriteError:
+      return "Error: writing vst";
+    case ErrorCondition::VstCanceldDuringReset:
+      return "Error: cancel as result of other error";
+
+    case ErrorCondition::CurlError:
+      return "Error: in curl";
+
+  }
+}
+
 
 }}}

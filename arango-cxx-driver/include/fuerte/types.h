@@ -84,15 +84,8 @@ enum class ErrorCondition : Error {
 inline Error errorToInt(ErrorCondition cond){
   return static_cast<Error>(cond);
 }
-
-inline ErrorCondition intToError(Error integral){
-  static const std::vector<Error> valid = { 0, 1000, 1001, 1002, 1102, 1104, 3000 };
-  auto pos = std::find(valid.begin(), valid.end(), integral);
-  if(pos != valid.end()){
-    return static_cast<ErrorCondition>(integral);
-  }
-  return ErrorCondition::ErrorCastError;
-}
+ErrorCondition intToError(Error integral);
+std::string to_string(ErrorCondition error);
 
 // -----------------------------------------------------------------------------
 // --SECTION--                                               enum class RestVerb
