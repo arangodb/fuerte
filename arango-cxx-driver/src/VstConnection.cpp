@@ -135,6 +135,7 @@ VstConnection::VstConnection(ConnectionConfiguration const& configuration)
     , _reading(false)
     , _configuration(configuration)
     , _deadline(*_ioService)
+    , _vstVersionID(1)
 {
     bt::resolver resolver(*_ioService);
 
@@ -317,13 +318,119 @@ std::pair<T const*, std::size_t> bufferToPointerAndSize(boost::asio::const_buffe
                        , boost::asio::buffer_size(buffer));
 }
 
+std::tuple<bool,std::shared_ptr<RequestItem>,std::size_t> VstConnection::processChunk(uint8_t const * cursor, std::size_t length){
+  FUERTE_LOG_DEBUG << "\n\n\nENTER PROCESS CHUNK" << std::endl;
+  auto vstChunkHeader = vst::readChunkHeaderV1_0(cursor);
+  //peek next chunk
+  bool nextChunkAvailable = false;
+  if(length > vstChunkHeader._chunkLength + sizeof(ChunkHeader::_chunkLength)){
+    FUERTE_LOG_DEBUG << "processing chunk with messageid: " << vstChunkHeader._messageID << std::endl;
+    FUERTE_LOG_DEBUG << "peeking into next chunk!" << std::endl;
+    nextChunkAvailable = vst::isChunkComplete(cursor + vstChunkHeader._chunkLength
+                                             ,length - vstChunkHeader._chunkLength);
+    FUERTE_LOG_DEBUG << "next availalbe: " << nextChunkAvailable << std::endl;
+  }
+
+  cursor += vstChunkHeader._chunkHeaderLength;
+  length -= vstChunkHeader._chunkHeaderLength;
+
+
+  FUERTE_LOG_DEBUG << "ChunkHeaderLenth: " << vstChunkHeader._chunkHeaderLength << std::endl;
+
+  ::std::map<MessageID,std::shared_ptr<RequestItem>>::iterator found;
+  {
+    Lock lock(_mapMutex);
+    found = _messageMap.find(vstChunkHeader._messageID);
+    if (found == _messageMap.end()) {
+      throw std::logic_error("got message with no matching request");
+    }
+  }
+
+
+  RequestItemSP item = found->second;
+
+  FUERTE_LOG_DEBUG << "appending to item with length: " << vstChunkHeader._chunkPayloadLength << std::endl;
+  // copy payload to buffer
+  item->_responseBuffer.append(cursor,vstChunkHeader._chunkPayloadLength);
+
+  cursor += vstChunkHeader._chunkPayloadLength;
+  length -= vstChunkHeader._chunkPayloadLength;
+
+  FUERTE_LOG_DEBUG << "next chunk availalbe: " << std::boolalpha << nextChunkAvailable  << std::endl;
+
+  if(vstChunkHeader._isSingle){ //we got a single chunk containing the complete message
+    FUERTE_LOG_DEBUG << "adding single chunk " << std::endl;
+    item->_responseBuffer.resetTo(vstChunkHeader._chunkPayloadLength);
+    return std::tuple<bool,RequestItemSP,std::size_t>(nextChunkAvailable, std::move(item), vstChunkHeader._chunkLength);
+  } else if (!vstChunkHeader._isFirst){
+    //there is chunk that continues a message
+    item->_responseChunk++;
+    if(item->_responseChunks == vstChunkHeader._numberOfChunks){ //last chunk reached
+      FUERTE_LOG_DEBUG << "adding multi chunk " << std::endl;
+      // TODO TODO TODO TODO should multichunk not be working start looking here!!!!!!!
+      // the VPackBuffer is unable to track how much has been written to it. Maybe this is
+      // fixed when you read this.
+      //assert(item->_responseBuffer.length() == item->_responseLength);
+      item->_responseBuffer.resetTo(item->_responseLength);
+      return std::tuple<bool,RequestItemSP,std::size_t>(nextChunkAvailable, std::move(item),vstChunkHeader._chunkLength);
+    }
+    FUERTE_LOG_DEBUG << "multi chunk incomplte" << std::endl;
+  } else {
+    //the chunk stats a multipart message
+    item->_responseLength = vstChunkHeader._totalMessageLength;
+    item->_responseChunks = vstChunkHeader._numberOfChunks;
+    item->_responseChunk = 1;
+    FUERTE_LOG_DEBUG << "starting multi chunk" << std::endl;
+  }
+
+  return std::tuple<bool,RequestItemSP,std::size_t>(nextChunkAvailable, nullptr, vstChunkHeader._chunkLength);
+}
+
+void VstConnection::processCompleteItem(std::shared_ptr<RequestItem>&& itempointer){
+  RequestItem& item = *itempointer;
+  FUERTE_LOG_DEBUG << "completing item with messageid: " << item._messageId << std::endl;
+  auto itemCursor = item._responseBuffer.data();
+  auto itemLength = item._responseBuffer.byteSize();
+  std::size_t messageHeaderLength;
+  MessageHeader messageHeader = validateAndExtractMessageHeader(_vstVersionID, itemCursor, itemLength, messageHeaderLength);
+  itemCursor += messageHeaderLength;
+  itemLength -= messageHeaderLength;
+
+  auto response = std::unique_ptr<Response>(new Response(std::move(messageHeader)));
+  // finally add payload
+
+  // avoiding the copy would imply that we mess with offsets
+  // if feels like Velocypack could gain some options like
+  // adding some offset for a buffer that way the already
+  // allocated memory could be reused.
+  if(messageHeader.contentType == ContentType::VPack){
+    auto numPayloads = vst::validateAndCount(itemCursor,itemLength);
+    FUERTE_LOG_DEBUG << "number of slices: " << numPayloads << std::endl;
+    VBuffer buffer;
+    buffer.append(itemCursor,itemLength); //we should avoid this copy FIXME
+    buffer.resetTo(itemLength);
+    auto slice = VSlice(itemCursor);
+    FUERTE_LOG_DEBUG << slice.toJson() << " , " << slice.byteSize() << std::endl;
+    FUERTE_LOG_DEBUG << "buffer size" << " , " << buffer.size() << std::endl;
+    response->addVPack(std::move(buffer)); //ASK jan
+    FUERTE_LOG_DEBUG << "payload size" << " , " << response->payload().second << std::endl;
+  } else {
+    response->addBinary(itemCursor,itemLength);
+  }
+  // call callback
+  item._onSuccess(std::move(item._request),std::move(response));
+  {
+    Lock mapLock(_mapMutex);
+    _messageMap.erase(item._messageId);
+  }
+}
+
 void VstConnection::handleRead(const boost::system::error_code& error, std::size_t transferred){
   if (error){
     FUERTE_LOG_DEBUG << "Error while reading form socket";
     FUERTE_LOG_ERROR << error.message() << std::endl;
     restartConnection();
   }
-  static const int vstVersionID = 1;
 
   FUERTE_LOG_DEBUG << "R" << transferred;
 
@@ -338,94 +445,52 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
 
   boost::asio::const_buffer received = _receiveBuffer.data(); //no copy
   std::size_t size = boost::asio::buffer_size(received);
-  assert(transferred == size);
-  auto pair = bufferToPointerAndSize(received); //get write access
-  auto cursor = pair.first;
-  auto length = pair.second;
 
-  _receiveBuffer.consume(length); //remove chung form input
+  //assert(transferred == size); // could be longer because we do not take everyting form the buffer
+  auto pair = bufferToPointerAndSize<uint8_t>(received); //get write access
   if (!vst::isChunkComplete(pair.first, pair.second)){
+    FUERTE_LOG_DEBUG << "no complete chunk continue reading" << std::endl;
     startRead();
     return;
   }
 
-  bool processData = false; // will be set to true if we have a complete message
+  uint8_t const* cursor = pair.first;
+  auto length = pair.second;
+  std::size_t consumed = 0;
+  std::vector<std::shared_ptr<RequestItem>> items;
 
-  auto vstChunkHeader = vst::readChunkHeaderV1_0(pair.first);
-  cursor += vstChunkHeader._chunkHeaderLength;
-  length -= vstChunkHeader._chunkHeaderLength;
+  { // limit socpe of vars
+    RequestItemSP item = nullptr; // id is given only when a chunk is complete
+    bool processMoreChunks = true;
+    std::size_t consume;
 
-  FUERTE_LOG_DEBUG << "ChunkHeaderLenth: " << vstChunkHeader._chunkHeaderLength << std::endl;
-
-  ::std::map<MessageID,std::shared_ptr<RequestItem>>::iterator found;
-  {
-    Lock lock(_mapMutex);
-    found = _messageMap.find(vstChunkHeader._messageID);
-    if (found == _messageMap.end()) {
-      throw std::logic_error("got message with no matching request");
+    while(processMoreChunks){
+      std::tie(processMoreChunks,item,consume) = processChunk(cursor, length);
+      consumed += consume;
+      cursor += consume;
+      length -= consume;
+      if(item){
+        items.push_back(std::move(item));
+      }
     }
+
+    _receiveBuffer.consume(consumed); //remove chunk from input
   }
 
-  RequestItem& item = *(found->second);
-  item._responseBuffer.append(cursor,length);
-
-  if(vstChunkHeader._isSingle){ //we got a single chunk containing the complete message
-    processData = true;
-  } else if (!vstChunkHeader._isFirst){ //there is chunk that continues a message
-    item._responseLength = vstChunkHeader._totalMessageLength;
-    item._responseChunks = vstChunkHeader._numberOfChunks;
-    item._responseChunk = 1;
-  } else { //the chunk stats a multipart message
-    item._responseChunk++;
-    assert(item._responseChunk == vstChunkHeader._numberOfChunks); //V1.0
-    if(item._responseChunks == vstChunkHeader._numberOfChunks){ //last chunk reached
-      processData = true;
-    }
-  }
+  /// end new function
 
   if(!_asioLoop->_pollMode){
     startRead(); //start next read - code below might run in parallel to new read
   }
 
-  if(processData){
-    cursor = item._responseBuffer.data();
-    length = item._responseBuffer.byteSize();
-    std::size_t messageHeaderLength;
-    MessageHeader messageHeader = validateAndExtractMessageHeader(vstVersionID, cursor, length, messageHeaderLength);
-    cursor += messageHeaderLength;
-    length -= messageHeaderLength;
-
-    auto response = std::unique_ptr<Response>(new Response(std::move(messageHeader)));
-    // finally add payload
-
-    // avoiding the copy would imply that we mess with offsets
-    // if feels like Velocypack could gain some options like
-    // adding some offset for a buffer that way the already
-    // allocated memory could be reused.
-    if(messageHeader.contentType == ContentType::VPack){
-      auto numPayloads = vst::validateAndCount(cursor,length);
-      FUERTE_LOG_DEBUG << "number of slices: " << numPayloads << std::endl;
-      VBuffer buffer;
-      buffer.append(cursor,length); //we should avoid this copy FIXME
-      buffer.resetTo(length);
-      auto slice = VSlice(cursor);
-      FUERTE_LOG_DEBUG << slice.toJson() << " , " << slice.byteSize() << std::endl;
-      FUERTE_LOG_DEBUG << "buffer size" << " , " << buffer.size() << std::endl;
-      response->addVPack(std::move(buffer)); //ASK jan
-      FUERTE_LOG_DEBUG << "payload size" << " , " << response->payload().second << std::endl;
-    } else {
-      response->addBinary(cursor,length);
-    }
-    // call callback
-    item._onSuccess(std::move(item._request),std::move(response));
-    {
-      Lock mapLock(_mapMutex);
-      _messageMap.erase(item._messageId);
+  if(!items.empty()){
+    for(auto itempointer : items){
+      processCompleteItem(std::move(itempointer)); //maybe as ref or plain pointer?!
     }
   }
 
   if(_asioLoop->_pollMode){
-    startRead(); //start next read - code below might run in parallel to new read
+    startRead();
   }
 }
 

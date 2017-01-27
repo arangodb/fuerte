@@ -279,16 +279,16 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
 // receiving vst
 ///////////////////////////////////////////////////////////////////////////////////
 
-std::size_t isChunkComplete(uint8_t const * const begin, std::size_t const length) {
-  if (length < sizeof(uint32_t)) { // there is not enought to read the length of
+std::size_t isChunkComplete(uint8_t const * const begin, std::size_t const lengthAvailalbe) {
+  if (lengthAvailalbe < sizeof(uint32_t)) { // there is not enought to read the length of
     return 0;
   }
   // read chunk length
   uint32_t lengthThisChunk;
   // TODO -- fix endianess
   std::memcpy(&lengthThisChunk, begin, sizeof(uint32_t));
-  if (length < lengthThisChunk) {
-    FUERTE_LOG_DEBUG << "\nchunk incomplete: " << lengthThisChunk << length << "/" << lengthThisChunk << std::endl;
+  if (lengthAvailalbe < lengthThisChunk) {
+    FUERTE_LOG_DEBUG << "\nchunk incomplete: " << lengthAvailalbe << "/" << lengthThisChunk << "(available/len)" << std::endl;
     return 0;
   }
   FUERTE_LOG_DEBUG << "\nchunk complete: " << lengthThisChunk << " bytes" << std::endl;

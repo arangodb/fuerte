@@ -114,6 +114,10 @@ private:
   // takes complete chunks form the socket and starts a new read action. After
   // triggering the next read it processes the received data.
   void handleRead(boost::system::error_code const&, std::size_t transferred);
+  // processes single chunks and updates cursor to the next position
+  // returns bool signaling if more chunks need to be processed and MessageID of the just processed chunk
+  std::tuple<bool,std::shared_ptr<RequestItem>,std::size_t> processChunk(uint8_t const* cursor, std::size_t length);
+  void processCompleteItem(std::shared_ptr<RequestItem>&& item);
 
   // writes data form task queue to network using boost::asio::async_write
   void startWrite(bool possiblyEmpty = false);
@@ -143,6 +147,7 @@ private:
   ::std::deque<std::shared_ptr<RequestItem>> _sendQueue;
   ::std::mutex _mapMutex;
   ::std::map<MessageID,std::shared_ptr<RequestItem>> _messageMap;
+  int _vstVersionID;
 };
 
 }

@@ -51,7 +51,8 @@ struct ChunkHeader {
   uint32_t _chunkLength;           // length of this chunk includig chunkHeader
   uint32_t _chunk;                 // number of chunks or chunk number
   uint64_t _messageID;             // messageid
-  uint64_t _totalMessageLength;    // length of total unencrypeted payload +vstMessageHeader
+  uint64_t _totalMessageLength;    // length of total unencrypeted payload + vstMessageHeader
+                                   // but without chunk headers
 
   // additional data that is not in the protocl
   std::size_t _chunkHeaderLength;  // lenght of vstChunkHeader
