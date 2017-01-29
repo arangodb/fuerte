@@ -19,7 +19,7 @@
 ///
 /// @author Frank Celler
 ////////////////////////////////////////////////////////////////////////////////
-
+#pragma once
 #ifndef ARANGO_CXX_DRIVER_FUERTE_LOGGER
 #define ARANGO_CXX_DRIVER_FUERTE_LOGGER 1
 

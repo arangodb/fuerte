@@ -20,6 +20,8 @@
 /// @author Jan Christoph Uhde
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#ifndef ARANGO_CXX_DRIVER_CONNECTION_INTERFACE
+#define ARANGO_CXX_DRIVER_CONNECTION_INTERFACE
 
 #include "message.h"
 namespace arangodb { namespace fuerte { inline namespace v1 {
@@ -38,3 +40,4 @@ public:
 };
 
 }}}
+#endif

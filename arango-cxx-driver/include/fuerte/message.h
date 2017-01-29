@@ -20,6 +20,8 @@
 /// @author Jan Christoph Uhde
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#ifndef ARANGO_CXX_DRIVER_MESSAGE
+#define ARANGO_CXX_DRIVER_MESSAGE
 
 #include "types.h"
 
@@ -146,3 +148,4 @@ public:
 //std::unique_ptr<Response> createResponse(unsigned code);
 
 }}}
+#endif

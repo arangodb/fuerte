@@ -21,7 +21,7 @@
 /// @author Jan Uhde
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
-
+#pragma once
 #ifndef ARANGO_CXX_DRIVER_HTTP_CONNECTION_H
 #define ARANGO_CXX_DRIVER_HTTP_CONNECTION_H 1
 

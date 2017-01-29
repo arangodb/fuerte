@@ -20,6 +20,8 @@
 /// @author Jan Christoph Uhde
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#ifndef ARANGO_CXX_DRIVER_VST
+#define ARANGO_CXX_DRIVER_VST
 
 #include "types.h"
 
@@ -131,6 +133,8 @@ MessageHeader validateAndExtractMessageHeader(int const& vstVersionID, uint8_t c
 std::size_t validateAndCount(uint8_t const* vpHeaderStart, std::size_t len);
 
 }}}}
+#endif
+
 
 //// this function will be called when we send multiple compressed
 //// or uncompressed chunks

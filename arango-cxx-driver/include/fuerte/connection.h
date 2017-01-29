@@ -20,7 +20,6 @@
 /// @author Jan Christoph Uhde
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
-
 #ifndef ARANGO_CXX_DRIVER_CONNECTION
 #define ARANGO_CXX_DRIVER_CONNECTION
 

@@ -21,8 +21,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 
-#ifndef ARANGO_CXX_DRIVER_COMMON_TYPES
-#define ARANGO_CXX_DRIVER_COMMON_TYPES
+#ifndef ARANGO_CXX_DRIVER_TYPES
+#define ARANGO_CXX_DRIVER_TYPES
 
 #include <velocypack/Slice.h>
 #include <velocypack/Buffer.h>

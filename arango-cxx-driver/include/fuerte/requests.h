@@ -20,6 +20,8 @@
 /// @author Jan Christoph Uhde
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#ifndef ARANGO_CXX_DRIVER_REQUESTS
+#define ARANGO_CXX_DRIVER_REQUESTS
 
 #include "message.h"
 
@@ -115,3 +117,4 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
     return request;
   }
 }}}
+#endif

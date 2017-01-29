@@ -20,7 +20,7 @@
 /// @author Andreas Streichardt
 /// @author Frank Celler
 ////////////////////////////////////////////////////////////////////////////////
-
+#pragma once
 #ifndef ARANGO_CXX_DRIVER_HTTP_COMMUNICATOR_H
 #define ARANGO_CXX_DRIVER_HTTP_COMMUNICATOR_H 1
 
