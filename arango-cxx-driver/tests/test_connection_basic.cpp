@@ -1,3 +1,24 @@
+////////////////////////////////////////////////////////////////////////////////
+/// DISCLAIMER
+///
+/// Copyright 2016 ArangoDB GmbH, Cologne, Germany
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+/// Copyright holder is ArangoDB GmbH, Cologne, Germany
+///
+/// @author Jan Christoph Uhde
+////////////////////////////////////////////////////////////////////////////////
 #include "test_main.h"
 #include <fuerte/arangocxx.h>
 #include <fuerte/loop.h>
@@ -32,7 +53,6 @@ class ConnectionBasicF : public ::testing::Test {
 namespace fu = ::arangodb::fuerte;
 
 TEST_F(ConnectionBasicF, ApiVersionSync){
-  ASSERT_TRUE(true);
   auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
   auto result = _connection->sendRequest(std::move(request));
   auto slice = result->slices().front();
@@ -43,7 +63,6 @@ TEST_F(ConnectionBasicF, ApiVersionSync){
 }
 
 TEST_F(ConnectionBasicF, ApiVersionASync){
-  ASSERT_TRUE(true);
   auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
   fu::OnErrorCallback onError = [](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
     ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
@@ -60,7 +79,6 @@ TEST_F(ConnectionBasicF, ApiVersionASync){
 }
 
 TEST_F(ConnectionBasicF, ApiVersionSync20){
-  ASSERT_TRUE(true);
   auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
   fu::Request req = *request;
   for(int i = 0; i < 20; i++){
@@ -74,7 +92,6 @@ TEST_F(ConnectionBasicF, ApiVersionSync20){
 }
 
 TEST_F(ConnectionBasicF, ApiVersionASync20){
-  ASSERT_TRUE(true);
   auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
   fu::OnErrorCallback onError = [](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
     ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
