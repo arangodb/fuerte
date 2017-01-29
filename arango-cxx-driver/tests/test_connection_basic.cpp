@@ -4,12 +4,12 @@
 
 namespace f = ::arangodb::fuerte;
 
-class BasicsF : public ::testing::Test {
+class ConnectionBasicF : public ::testing::Test {
  protected:
-  BasicsF(){
+  ConnectionBasicF(){
     _server = "vst://127.0.0.1:8529";
   }
-  virtual ~BasicsF() noexcept {}
+  virtual ~ConnectionBasicF() noexcept {}
 
   virtual void SetUp() override {
     f::ConnectionBuilder cbuilder;
@@ -31,7 +31,7 @@ class BasicsF : public ::testing::Test {
 
 namespace fu = ::arangodb::fuerte;
 
-TEST_F(BasicsF, ApiVersionSync){
+TEST_F(ConnectionBasicF, ApiVersionSync){
   ASSERT_TRUE(true);
   auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
   auto result = _connection->sendRequest(std::move(request));
@@ -42,7 +42,7 @@ TEST_F(BasicsF, ApiVersionSync){
   ASSERT_TRUE(version[0] == '3');
 }
 
-TEST_F(BasicsF, ApiVersionASync){
+TEST_F(ConnectionBasicF, ApiVersionASync){
   ASSERT_TRUE(true);
   auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
   fu::OnErrorCallback onError = [](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
@@ -59,7 +59,7 @@ TEST_F(BasicsF, ApiVersionASync){
   fu::run();
 }
 
-TEST_F(BasicsF, ApiVersionSync20){
+TEST_F(ConnectionBasicF, ApiVersionSync20){
   ASSERT_TRUE(true);
   auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
   fu::Request req = *request;
@@ -73,7 +73,7 @@ TEST_F(BasicsF, ApiVersionSync20){
   }
 }
 
-TEST_F(BasicsF, ApiVersionASync20){
+TEST_F(ConnectionBasicF, ApiVersionASync20){
   ASSERT_TRUE(true);
   auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
   fu::OnErrorCallback onError = [](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
