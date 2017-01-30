@@ -1,16 +1,13 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.6)
 project(arango-node-driver)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC") #curlpp has broken build system
 add_subdirectory(arango-cxx-driver)
 
 add_library(arango-node-driver SHARED
-    Connection.cpp
-    init.cpp
-    Server.cpp
-    Database.cpp
-    Collection.cpp
-    Document.cpp
+    node_init.cpp
+    node_connection.cpp
+    node_collection.cpp
 )
 
 # Gives our library file a .node extension without any "lib" prefix

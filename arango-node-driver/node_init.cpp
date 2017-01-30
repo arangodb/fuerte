@@ -21,22 +21,17 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include <iostream>
 
-#include "init.h"
-#include "Connection.h"
-#include "Server.h"
-#include "Database.h"
-#include "Collection.h"
-#include "Document.h"
+#include "node_init.h"
 
 namespace arangodb { namespace dbnodejs {
 
 void InitAll(v8::Local<v8::Object> exports) {
   std::cout << "About to init classes" << std::endl;
-  Connection::Init(exports);
-  Server::Init(exports);
-  Database::Init(exports);
-  Collection::Init(exports);
-  Document::Init(exports);
+  //Connection::Init(exports);
+  //Server::Init(exports);
+  //Database::Init(exports);
+  //Collection::Init(exports);
+  //Document::Init(exports);
 }
 
 }}

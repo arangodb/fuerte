@@ -1,11 +1,10 @@
 #ifndef FUERTE_NODE_COLLECTION_H
 #define FUERTE_NODE_COLLECTION_H
 
-#include <fuerte/Server.h>
-#include <fuerte/Collection.h>
+#include <fuerte/collection.h>
 #include <nan.h>
 
-namespace arangodb { namespace dbnodejs {
+namespace arangodb { namespace fuerte { namespace js {
 
 class Collection : public Nan::ObjectWrap {
  public:
