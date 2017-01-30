@@ -324,9 +324,7 @@ void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
 
     }
   }
-
-  response->headerStrings = std::move(responseHeaders);
-
+  response->header.meta = std::move(responseHeaders);
 
 }
 
@@ -388,9 +386,11 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
       break;
   }
 
-  for (auto const& header : request->headerStrings) {
-    std::string thisHeader(header.first + ": " + header.second);
-    requestHeaders = curl_slist_append(requestHeaders, thisHeader.c_str());
+  if(request->header.meta){
+    for (auto const& header : request->header.meta.get()) {
+      std::string thisHeader(header.first + ": " + header.second);
+      requestHeaders = curl_slist_append(requestHeaders, thisHeader.c_str());
+    }
   }
 
   std::string url = createSafeDottedCurlUrl(rip->_request._destination);

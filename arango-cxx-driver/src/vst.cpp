@@ -133,8 +133,8 @@ static std::size_t addVstChunkHeader(std::size_t vstVersionID
 
 // section - VstMessageHeader
 static void addVstMessageHeader(VBuilder& builder
-                                      ,MessageHeader const& header
-                                      ,mapss const& headerStrings)
+                               ,MessageHeader const& header
+                               )
 {
   static std::string const message = " for message not set";
   auto startSize = builder.size();
@@ -229,7 +229,7 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
   //             message can be longer than max chunk len
 
   // add message header
-  addVstMessageHeader(builder, request.header, request.headerStrings);
+  addVstMessageHeader(builder, request.header);
   auto slice = VSlice(buffer->data()+chunkHeaderLength);
   auto headerLength = slice.byteSize();
   buffer->resetTo(chunkHeaderLength+headerLength);

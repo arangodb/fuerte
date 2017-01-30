@@ -33,13 +33,13 @@ std::string to_string(MessageHeader const& header){
   ::boost::optional<MessageType> type;
   ::boost::optional<unsigned> responseCode;
   ::boost::optional<std::string> database;
-  ::boost::optional<RestVerb> restVerb;
-  ::boost::optional<std::string> path;
-  ::boost::optional<mapss> parameter;
-  ::boost::optional<mapss> meta;
+  ::boost::optional<RestVerb> restVerb;           // GET POST ...
+  ::boost::optional<std::string> path;            // equivalent of http path
+  ::boost::optional<mapss> parameter;             // equivalent of http parametes ?foo=bar
+  ::boost::optional<mapss> meta;                  // equivalent of http headers
   ::boost::optional<std::string> user;
   ::boost::optional<std::string> password;
-  ::boost::optional<ContentType> contentType;
+  ::boost::optional<ContentType> contentType;     // remove?! -- data should be found in meta
   std::stringstream ss;
 
   if(header.byteSize){

@@ -69,28 +69,33 @@ public:
          ,mapss&& headerStrings = mapss()
          )
          :header(std::move(messageHeader))
-         ,headerStrings(std::move(headerStrings))
          ,_sealed(false)
          ,_modified(true)
          ,_isVpack(boost::none)
          ,_builder(nullptr)
          ,_payloadLength(0)
-         {}
+         {
+           if (!headerStrings.empty()){
+            header.meta = std::move(headerStrings);
+           }
+         }
 
   Message(MessageHeader const& messageHeader
          ,mapss const& headerStrings
          )
          :header(messageHeader)
-         ,headerStrings(headerStrings)
          ,_sealed(false)
          ,_modified(true)
          ,_isVpack(boost::none)
          ,_builder(nullptr)
          ,_payloadLength(0)
-         {}
+         {
+           if (!headerStrings.empty()){
+            header.meta = std::move(headerStrings);
+           }
+         }
 
   MessageHeader header;
-  mapss headerStrings;
   uint64_t messageid; //generate by some singleton
 
   ///////////////////////////////////////////////
