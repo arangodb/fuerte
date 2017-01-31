@@ -1,8 +1,8 @@
 #ifndef FUERTE_NODE_COLLECTION_H
 #define FUERTE_NODE_COLLECTION_H
 
+#include "node_upstream.h"
 #include <fuerte/collection.h>
-#include <nan.h>
 
 namespace arangodb { namespace fuerte { namespace js {
 
@@ -20,13 +20,13 @@ class Collection : public Nan::ObjectWrap {
   static NAN_METHOD(New);
   static NAN_METHOD(create);
 
-  std::shared_ptr<arangodb::dbinterface::Collection>& cppClass() {
+  std::shared_ptr<arangodb::fuerte::Collection>& cppClass() {
     return _cppCollection;
   }
  private:
-   std::shared_ptr<arangodb::dbinterface::Collection> _cppCollection;
-   Collection(std::shared_ptr<arangodb::dbinterface::Database> const& database, const std::string name)
-     : _cppCollection(std::make_shared<arangodb::dbinterface::Collection>(database, name))
+   std::shared_ptr<arangodb::fuerte::Collection> _cppCollection;
+   Collection(std::shared_ptr<arangodb::fuerte::Database> const& database, const std::string name)
+     : _cppCollection(std::make_shared<arangodb::fuerte::Collection>(database, name))
      {}
 
   static Nan::Persistent<v8::Function>& constructor(){
@@ -36,6 +36,5 @@ class Collection : public Nan::ObjectWrap {
 
 };
 
-}}
+}}}
 #endif  // FUERTE_NODEDATABASE_H
-

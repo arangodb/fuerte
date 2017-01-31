@@ -19,7 +19,6 @@
 ///
 /// @author Jan Christoph Uhde
 ////////////////////////////////////////////////////////////////////////////////
-#pragma once
 
 #include <fuerte/connection.h>
 #include <fuerte/database.h>

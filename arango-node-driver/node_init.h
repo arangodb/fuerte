@@ -19,7 +19,8 @@
 ///
 /// @author John Bufton
 ////////////////////////////////////////////////////////////////////////////////
-#include <v8.h>
+
+#include "node_upstream.h"
 
 namespace arangodb { namespace dbnodejs {
 

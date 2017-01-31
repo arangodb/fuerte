@@ -1,11 +1,8 @@
 #include <iostream>
 #include <memory>
+#include "node_collection.h"
 
-#include "Collection.h"
-#include "Database.h"
-#include "Connection.h"
-
-namespace arangodb { namespace dbnodejs {
+namespace arangodb { namespace fuerte { namespace js {
 
 NAN_METHOD(Collection::New) {
   if (info.IsConstructCall()) {
@@ -38,8 +35,8 @@ NAN_METHOD(Collection::create) {
     Nan::ThrowTypeError("Not 1 Argument");
   }
   Nan::ObjectWrap::Unwrap<Collection>(info.Holder())->_cppCollection->create(
-    Nan::ObjectWrap::Unwrap<Connection>(info[0]->ToObject())->cppClass()
+    Nan::ObjectWrap::Unwrap<Collection>(info[0]->ToObject())->cppClass()
   );
 }
 
-}}
+}}}
