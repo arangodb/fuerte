@@ -21,18 +21,20 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "node_init.h"
+#include "node_connection.h"
 #include <iostream>
 
-namespace arangodb { namespace dbnodejs {
+namespace arangodb { namespace fuerte { namespace js {
 
 void InitAll(v8::Local<v8::Object> exports) {
   std::cout << "About to init classes" << std::endl;
+
 }
 
-}}
+}}}
 
 //
 // Names the node and the function call to initialise
 // the functionality it will provide
 //
-NODE_MODULE(arango_node_driver, arangodb::fuerte::InitAll);
+NODE_MODULE(arango_node_driver, ::arangodb::fuerte::js::InitAll);

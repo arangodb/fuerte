@@ -26,6 +26,55 @@
 
 namespace arangodb { namespace fuerte { namespace js {
 
+// NConnectionBuilder
+NAN_METHOD(NConnectionBuilder::New) {
+  if (info.IsConstructCall()) {
+      NConnectionBuilder* obj = new NConnectionBuilder();
+      obj->Wrap(info.This());
+      info.GetReturnValue().Set(info.This());
+  } else {
+    v8::Local<v8::Function> cons = Nan::New(constructor());
+    info.GetReturnValue().Set(Nan::NewInstance(cons).ToLocalChecked());
+ }
+}
+
+NAN_METHOD(NConnectionBuilder::connect){
+  std::shared_ptr<fu::Connection> connection =  Nan::ObjectWrap::Unwrap<NConnectionBuilder>(info.Holder())->_cppClass.connect();
+	//wrap
+  //info.GetReturnValue().Set(connection);
+	throw std::logic_error("implement!");
+}
+
+NAN_METHOD(NConnectionBuilder::host){
+  if (info.Length() != 1 ) {
+    Nan::ThrowTypeError("Wrong number of Arguments");
+  }
+  unwrap<NConnectionBuilder>(info)->_cppClass.host(to<std::string>(info[0]));
+  info.GetReturnValue().Set(info.This());
+}
+NAN_METHOD(NConnectionBuilder::async){
+  if (info.Length() != 1 ) {
+    Nan::ThrowTypeError("Wrong number of Arguments");
+  }
+  unwrap<NConnectionBuilder>(info)->_cppClass.async(to<bool>(info[0]));
+  info.GetReturnValue().Set(info.This());
+}
+NAN_METHOD(NConnectionBuilder::user){
+  if (info.Length() != 1 ) {
+    Nan::ThrowTypeError("Wrong number of Arguments");
+  }
+  unwrap<NConnectionBuilder>(info)->_cppClass.user(to<std::string>(info[0]));
+  info.GetReturnValue().Set(info.This());
+}
+
+NAN_METHOD(NConnectionBuilder::password){
+  if (info.Length() != 1 ) {
+    Nan::ThrowTypeError("Wrong number of Arguments");
+  }
+  unwrap<NConnectionBuilder>(info)->_cppClass.password(to<std::string>(info[0]));
+  info.GetReturnValue().Set(info.This());
+}
+
 //NAN_METHOD(Connection::New) {
 //  if (info.IsConstructCall()) {
 //    if (info.Length() !=2 ) {

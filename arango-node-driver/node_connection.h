@@ -25,23 +25,61 @@
 #define FUERTE_NODE_CONNECTION_H
 
 #include "node_upstream.h"
-#include <fuerte/connection.h>
-
 namespace arangodb { namespace fuerte { namespace js {
 
-class Connection : public Nan::ObjectWrap {
+class NConnectionBuilder : public Nan::ObjectWrap {
+    NConnectionBuilder(): _cppClass(){}
+
+public:
+  static NAN_MODULE_INIT(Init) {
+    v8::Local<v8::FunctionTemplate> tpl = Nan::New<v8::FunctionTemplate>(New);
+    tpl->SetClassName(Nan::New("ConnectionBuilder").ToLocalChecked());
+    tpl->InstanceTemplate()->SetInternalFieldCount(1); //should be equal to the number of data members
+    Nan::SetPrototypeMethod(tpl, "connect", NConnectionBuilder::connect);
+    Nan::SetPrototypeMethod(tpl, "host", NConnectionBuilder::host);
+    Nan::SetPrototypeMethod(tpl, "async", NConnectionBuilder::async);
+    Nan::SetPrototypeMethod(tpl, "user", NConnectionBuilder::user);
+    Nan::SetPrototypeMethod(tpl, "password", NConnectionBuilder::password);
+    constructor().Reset(tpl->GetFunction());
+    target->Set( Nan::New("ConnectionBuilder").ToLocalChecked() , tpl->GetFunction()); //put in module init?!
+  }
+
+  static NAN_METHOD(New);
+  static NAN_METHOD(connect);
+  static NAN_METHOD(host);
+  static NAN_METHOD(async);
+  static NAN_METHOD(user);
+  static NAN_METHOD(password);
+
+  arangodb::fuerte::ConnectionBuilder& cppClass() {
+    return _cppClass;
+  }
+
+private:
+  arangodb::fuerte::ConnectionBuilder _cppClass;
+
+  static Nan::Persistent<v8::Function>& constructor(){
+    static Nan::Persistent<v8::Function> ctor;
+    return ctor;
+  }
+
+};
+
+class NConnection : public Nan::ObjectWrap {
 public:
   static NAN_MODULE_INIT(Init) {
     v8::Local<v8::FunctionTemplate> tpl = Nan::New<v8::FunctionTemplate>(New);
     tpl->SetClassName(Nan::New("Connection").ToLocalChecked());
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
-    Nan::SetPrototypeMethod(tpl, "create", Connection::create);
+    //Nan::SetPrototypeMethod(tpl, "create", NConnection::create);
+    Nan::SetPrototypeMethod(tpl, "sendRequest", NConnection::sendRequest);
     constructor().Reset(tpl->GetFunction());
     target->Set( Nan::New("Connection").ToLocalChecked() , tpl->GetFunction()); //put in module init?!
   }
 
   static NAN_METHOD(New);
-  static NAN_METHOD(create);
+  //static NAN_METHOD(create);
+  static NAN_METHOD(sendRequest);
 
   std::shared_ptr<arangodb::fuerte::Connection>& cppClass() {
     return _cppClass;

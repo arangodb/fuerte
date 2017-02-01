@@ -23,8 +23,8 @@
 
 #include "node_upstream.h"
 
-namespace arangodb { namespace fuerte {
+namespace arangodb { namespace fuerte { namespace js {
 
 void InitAll(v8::Local<v8::Object> exports);
 
-}}
+}}}
