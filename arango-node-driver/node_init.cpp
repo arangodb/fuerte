@@ -17,21 +17,16 @@
 ///
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
-/// @author John Bufton
+/// @author Jan Christoph Uhde
 ////////////////////////////////////////////////////////////////////////////////
-#include <iostream>
 
 #include "node_init.h"
+#include <iostream>
 
 namespace arangodb { namespace dbnodejs {
 
 void InitAll(v8::Local<v8::Object> exports) {
   std::cout << "About to init classes" << std::endl;
-  //Connection::Init(exports);
-  //Server::Init(exports);
-  //Database::Init(exports);
-  //Collection::Init(exports);
-  //Document::Init(exports);
 }
 
 }}
@@ -40,4 +35,4 @@ void InitAll(v8::Local<v8::Object> exports) {
 // Names the node and the function call to initialise
 // the functionality it will provide
 //
-NODE_MODULE(arango_node_driver, arangodb::dbnodejs::InitAll);
+NODE_MODULE(arango_node_driver, arangodb::fuerte::InitAll);

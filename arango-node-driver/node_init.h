@@ -17,12 +17,13 @@
 ///
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
-/// @author John Bufton
+/// @author Jan Christoph Uhde
 ////////////////////////////////////////////////////////////////////////////////
+#pragma once
 
 #include "node_upstream.h"
 
-namespace arangodb { namespace dbnodejs {
+namespace arangodb { namespace fuerte {
 
 void InitAll(v8::Local<v8::Object> exports);
 
