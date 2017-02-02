@@ -31,7 +31,8 @@ class NConnection;
 
 class NRequest : public Nan::ObjectWrap {
     friend class NConnection;
-    NRequest(): _cppClass(){}
+    NRequest(): _cppClass(new fu::Request){}
+    NRequest(std::unique_ptr<fu::Request> re): _cppClass(std::move(re)){}
 
 public:
   static NAN_MODULE_INIT(Init) {
@@ -72,12 +73,12 @@ public:
   static NAN_METHOD(addParameter);
   static NAN_METHOD(addMeta);
 
-  arangodb::fuerte::Request& cppClass() {
-    return _cppClass;
+  arangodb::fuerte::Request* cppClass() {
+    return _cppClass.get();
   }
 
 private:
-  arangodb::fuerte::Request _cppClass;
+  std::unique_ptr<arangodb::fuerte::Request> _cppClass;
 
   static Nan::Persistent<v8::Function>& constructor(){
     static Nan::Persistent<v8::Function> ctor;

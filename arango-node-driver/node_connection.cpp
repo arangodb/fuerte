@@ -81,28 +81,54 @@ NAN_METHOD(NConnection::sendRequest) {
     Nan::ThrowTypeError("Not 3 Arguments");
   }
 
-  Request req = unwrap<NRequest>(info[0])->_cppClass;
+  // get isolate - has node only one context??!?!? how do they work
+  // context is probably a lighter version of isolate but does not allow threads
+  ::v8::Isolate* iso = ::v8::Isolate::GetCurrent();
 
   auto jsOnErr = v8::Local<v8::Function>::Cast(info[1]);
+  ::v8::Persistent<v8::Function> persOnErr;
+  persOnErr.Reset(iso, jsOnErr);
+
   auto jsOnSucc = v8::Local<v8::Function>::Cast(info[2]);
+  ::v8::Persistent<v8::Function> persOnSucc;
+  persOnSucc.Reset(iso, jsOnSucc);
 
-  ::v8::Isolate* iso = ::v8::Isolate::GetCurrent();
-  v8::Local<::v8::Context> cont = iso->GetCurrentContext();
-  v8::Local<::v8::Context> cont2 = iso->GetCurrentContext()->Global();
-  v8::Context* contp = *cont2;
-
-  fu::OnErrorCallback err = [iso](unsigned err
+  fu::OnErrorCallback err = [iso,&persOnErr](unsigned err
                               ,std::unique_ptr<fu::Request> creq
                               ,std::unique_ptr<fu::Response> cres)
   {
+    v8::HandleScope scope(iso);
+    v8::Local<v8::Function> jsOnErr = v8::Local<v8::Function>::New(iso,persOnErr);
+
+    // wrap request
+    NRequest* objReq = new NRequest(std::move(creq));
+    auto reqObj = Nan::New<v8::Object>();
+    objReq->Wrap(reqObj);
+
+    // wrap response
+    NRequest* objRes = new NRequest(std::move(creq)); //Response!!!!
+    auto resObj = Nan::New<v8::Object>();
+    objRes->Wrap(reqObj); //Response
+
+    // build args
+    const unsigned argc = 3;
+    v8::Local<v8::Value> argv[argc] = { Nan::New<v8::Integer>(err), reqObj, resObj };
+
+    // call and dispose
+    jsOnErr->Call(v8::Null(iso), argc, argv);
+    persOnErr.Reset(); // dispose of persistent
 
   };
 
-  fu::OnSuccessCallback succ = [](std::unique_ptr<fu::Request> creq
+  fu::OnSuccessCallback succ = [iso,&persOnSucc](std::unique_ptr<fu::Request> creq
                                  ,std::unique_ptr<fu::Response> cres)
-  {};
+  {
+    throw std::logic_error("not implemented!");
+  };
 
-  unwrapSelf<NConnection>(info)->_cppClass->sendRequest(req, err, succ);
+  //finally invoke the c++ callback
+  auto req = std::unique_ptr<fu::Request>(new fu::Request(*(unwrap<NRequest>(info[0])->_cppClass)));
+  unwrapSelf<NConnection>(info)->_cppClass->sendRequest(std::move(req), err, succ);
 }
 
 }}}

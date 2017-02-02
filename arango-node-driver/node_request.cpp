@@ -49,7 +49,7 @@ NAN_METHOD(NRequest::addVPack){ //slice
   uint8_t* data = reinterpret_cast<uint8_t*>(::node::Buffer::Data(info[0])); /// aaaaijajaiai
   std::size_t length = ::node::Buffer::Length(info[0]);
 
-  unwrapSelf<NRequest>(info)->_cppClass.addVPack(fu::VSlice(data));
+  unwrapSelf<NRequest>(info)->_cppClass->addVPack(fu::VSlice(data));
   info.GetReturnValue().Set(info.This());
 }
 
@@ -61,7 +61,7 @@ NAN_METHOD(NRequest::addBinary){
   uint8_t* data = reinterpret_cast<uint8_t*>(::node::Buffer::Data(info[0])); /// aaaaijajaiai
   std::size_t length = ::node::Buffer::Length(info[0]);
 
-  unwrapSelf<NRequest>(info)->_cppClass.addBinary(data,length);
+  unwrapSelf<NRequest>(info)->_cppClass->addBinary(data,length);
   info.GetReturnValue().Set(info.This());
 }
 
@@ -69,7 +69,7 @@ NAN_METHOD(NRequest::setPath){
   if (info.Length() != 1 ) {
     Nan::ThrowTypeError("Wrong number of Arguments");
   }
-  unwrapSelf<NRequest>(info)->_cppClass.header.path = to<std::string>(info[0]);
+  unwrapSelf<NRequest>(info)->_cppClass->header.path = to<std::string>(info[0]);
   info.GetReturnValue().Set(info.This());
 }
 
@@ -77,7 +77,7 @@ NAN_METHOD(NRequest::setDatabase){
   if (info.Length() != 1 ) {
     Nan::ThrowTypeError("Wrong number of Arguments");
   }
-  unwrapSelf<NRequest>(info)->_cppClass.header.database = to<std::string>(info[0]);
+  unwrapSelf<NRequest>(info)->_cppClass->header.database = to<std::string>(info[0]);
   info.GetReturnValue().Set(info.This());
 }
 
@@ -107,7 +107,7 @@ NAN_METHOD(NRequest::setRestVerb){
     Nan::ThrowTypeError("invalid rest parameter get/put/post/put/delete are supported");
   }
 
-  unwrapSelf<NRequest>(info)->_cppClass.header.restVerb = verb;
+  unwrapSelf<NRequest>(info)->_cppClass->header.restVerb = verb;
   info.GetReturnValue().Set(info.This());
 }
 
@@ -115,7 +115,7 @@ NAN_METHOD(NRequest::setPassword){
   if (info.Length() != 1 ) {
     Nan::ThrowTypeError("Wrong number of Arguments");
   }
-  unwrapSelf<NRequest>(info)->_cppClass.header.password = to<std::string>(info[0]);
+  unwrapSelf<NRequest>(info)->_cppClass->header.password = to<std::string>(info[0]);
   info.GetReturnValue().Set(info.This());
 }
 
@@ -123,7 +123,7 @@ NAN_METHOD(NRequest::setUser){
   if (info.Length() != 1 ) {
     Nan::ThrowTypeError("Wrong number of Arguments");
   }
-  unwrapSelf<NRequest>(info)->_cppClass.header.user = to<std::string>(info[0]);
+  unwrapSelf<NRequest>(info)->_cppClass->header.user = to<std::string>(info[0]);
   info.GetReturnValue().Set(info.This());
 }
 
@@ -135,7 +135,7 @@ NAN_METHOD(NRequest::addParameter){
   if (info.Length() != 2 ) {
     Nan::ThrowTypeError("Wrong number of Arguments");
   }
-  boost::optional<fu::mapss>& params = unwrapSelf<NRequest>(info)->_cppClass.header.parameter;
+  boost::optional<fu::mapss>& params = unwrapSelf<NRequest>(info)->_cppClass->header.parameter;
   if(!params){
     params = fu::mapss();
   }
@@ -147,7 +147,7 @@ NAN_METHOD(NRequest::addMeta){
   if (info.Length() != 2 ) {
     Nan::ThrowTypeError("Wrong number of Arguments");
   }
-  boost::optional<fu::mapss>& params = unwrapSelf<NRequest>(info)->_cppClass.header.meta;
+  boost::optional<fu::mapss>& params = unwrapSelf<NRequest>(info)->_cppClass->header.meta;
   if(!params){
     params = fu::mapss();
   }
