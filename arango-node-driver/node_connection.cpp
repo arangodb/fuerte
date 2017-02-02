@@ -21,6 +21,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "node_connection.h"
+#include "node_request.h"
 #include <iostream>
 #include <memory>
 
@@ -39,7 +40,7 @@ NAN_METHOD(NConnectionBuilder::New) {
 }
 
 NAN_METHOD(NConnectionBuilder::connect){
-  std::shared_ptr<fu::Connection> connection =  Nan::ObjectWrap::Unwrap<NConnectionBuilder>(info.Holder())->_cppClass.connect();
+  std::shared_ptr<fu::Connection> connection =  unwrapSelf<NConnectionBuilder>(info)->_cppClass.connect();
 	//wrap
   //info.GetReturnValue().Set(connection);
 	throw std::logic_error("implement!");
@@ -49,21 +50,21 @@ NAN_METHOD(NConnectionBuilder::host){
   if (info.Length() != 1 ) {
     Nan::ThrowTypeError("Wrong number of Arguments");
   }
-  unwrap<NConnectionBuilder>(info)->_cppClass.host(to<std::string>(info[0]));
+  unwrapSelf<NConnectionBuilder>(info)->_cppClass.host(to<std::string>(info[0]));
   info.GetReturnValue().Set(info.This());
 }
 NAN_METHOD(NConnectionBuilder::async){
   if (info.Length() != 1 ) {
     Nan::ThrowTypeError("Wrong number of Arguments");
   }
-  unwrap<NConnectionBuilder>(info)->_cppClass.async(to<bool>(info[0]));
+  unwrapSelf<NConnectionBuilder>(info)->_cppClass.async(to<bool>(info[0]));
   info.GetReturnValue().Set(info.This());
 }
 NAN_METHOD(NConnectionBuilder::user){
   if (info.Length() != 1 ) {
     Nan::ThrowTypeError("Wrong number of Arguments");
   }
-  unwrap<NConnectionBuilder>(info)->_cppClass.user(to<std::string>(info[0]));
+  unwrapSelf<NConnectionBuilder>(info)->_cppClass.user(to<std::string>(info[0]));
   info.GetReturnValue().Set(info.This());
 }
 
@@ -71,43 +72,37 @@ NAN_METHOD(NConnectionBuilder::password){
   if (info.Length() != 1 ) {
     Nan::ThrowTypeError("Wrong number of Arguments");
   }
-  unwrap<NConnectionBuilder>(info)->_cppClass.password(to<std::string>(info[0]));
+  unwrapSelf<NConnectionBuilder>(info)->_cppClass.password(to<std::string>(info[0]));
   info.GetReturnValue().Set(info.This());
 }
 
-//NAN_METHOD(Connection::New) {
-//  if (info.IsConstructCall()) {
-//    if (info.Length() !=2 ) {
-//      Nan::ThrowTypeError("Not 2 Arguments");
-//    }
-//    if (info[0]->IsObject() && info[1]->IsString()){
-//      Connection* obj = new Connection(Nan::ObjectWrap::Unwrap<Database>(info[0]->ToObject())->cppClass() , *Nan::Utf8String(info[1]));
-//      obj->Wrap(info.This());
-//      info.GetReturnValue().Set(info.This());
-//    } else {
-//      Nan::ThrowTypeError("invalid parameters");
-//    }
-//  } else {
-//    int argc = info.Length();
-//    if (argc > 2) {
-//      argc = 2;
-//    }
-//    v8::Local<v8::Value> argv[2];
-//    for (int i = 0; i < argc; ++i) {
-//      argv[i] = info[i];
-//    }
-//    v8::Local<v8::Function> cons = Nan::New(constructor());
-//    info.GetReturnValue().Set(Nan::NewInstance(cons,argc,argv).ToLocalChecked());
-//  }
-//}
-//
-//NAN_METHOD(Connection::create) {
-//  if (info.Length() != 1 ) {
-//    Nan::ThrowTypeError("Not 1 Argument");
-//  }
-//  Nan::ObjectWrap::Unwrap<Connection>(info.Holder())->_cppConnection->create(
-//    Nan::ObjectWrap::Unwrap<Connection>(info[0]->ToObject())->cppClass()
-//  );
-//}
+NAN_METHOD(NConnection::sendRequest) {
+  if (info.Length() != 3 ) {
+    Nan::ThrowTypeError("Not 3 Arguments");
+  }
+
+  Request req = unwrap<NRequest>(info[0])->_cppClass;
+
+  auto jsOnErr = v8::Local<v8::Function>::Cast(info[1]);
+  auto jsOnSucc = v8::Local<v8::Function>::Cast(info[2]);
+
+  ::v8::Isolate* iso = ::v8::Isolate::GetCurrent();
+  v8::Local<::v8::Context> cont = iso->GetCurrentContext();
+  v8::Local<::v8::Context> cont2 = iso->GetCurrentContext()->Global();
+  v8::Context* contp = *cont2;
+
+  fu::OnErrorCallback err = [iso](unsigned err
+                              ,std::unique_ptr<fu::Request> creq
+                              ,std::unique_ptr<fu::Response> cres)
+  {
+
+  };
+
+  fu::OnSuccessCallback succ = [](std::unique_ptr<fu::Request> creq
+                                 ,std::unique_ptr<fu::Response> cres)
+  {};
+
+  unwrapSelf<NConnection>(info)->_cppClass->sendRequest(req, err, succ);
+}
 
 }}}

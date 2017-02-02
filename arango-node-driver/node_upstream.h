@@ -68,7 +68,8 @@ inline std::string to_string(v8::Local<v8::Value> const& from){
 
 template <typename T
          ,typename std::enable_if<isOneOf<T,bool,int,int32_t,uint32_t,uint64_t
-                                         >::value,int
+                                         >::value
+                                 ,int
                                  >::type = 1
          >
 T to(v8::Local<v8::Value> const& from){
@@ -77,7 +78,8 @@ T to(v8::Local<v8::Value> const& from){
 
 template <typename T
          ,typename std::enable_if<isOneOf_t<T,std::string
-                                          >::value,int
+                                           >::value
+                                 ,int
                                  >::type = 2
          >
 T to(v8::Local<v8::Value> const& from){
@@ -86,7 +88,8 @@ T to(v8::Local<v8::Value> const& from){
 
 template <typename T
          ,typename std::enable_if<isOneOf_t<T, v8::Boolean, v8::Int32, v8::Integer, v8::Object, v8::Number, v8::String, v8::Uint32
-                                           >::value,int
+                                           >::value
+                                 ,int
                                  >::type = 3
          >
 T to(v8::Local<v8::Value> const& from){
@@ -94,8 +97,14 @@ T to(v8::Local<v8::Value> const& from){
   return  T();
 }
 
+template <typename ClassType>
+ClassType* unwrap(v8::Local<v8::Value> const& info){
+  assert(info->IsObject());
+  return Nan::ObjectWrap::Unwrap<ClassType>(info->ToObject());
+}
+
 template <typename ClassType, typename T>
-ClassType* unwrap(Nan::FunctionCallbackInfo<T> const& info){
+ClassType* unwrapSelf(Nan::FunctionCallbackInfo<T> const& info){
   return Nan::ObjectWrap::Unwrap<ClassType>(info.Holder());
 }
 

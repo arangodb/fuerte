@@ -131,11 +131,15 @@ public:
   Request(MessageHeader&& messageHeader = MessageHeader()
          ,mapss&& headerStrings = mapss()
          ): Message(std::move(messageHeader), std::move(headerStrings))
-         {}
+         {
+           header.type = MessageType::Request;
+         }
   Request(MessageHeader const& messageHeader
          ,mapss const& headerStrings
          ): Message(messageHeader, headerStrings)
-         {}
+         {
+           header.type = MessageType::Request;
+         }
 
 };
 
@@ -145,7 +149,9 @@ public:
           ,mapss&& headerStrings = mapss()
           )
           :Message(std::move(messageHeader), std::move(headerStrings))
-          {}
+          {
+            header.type = MessageType::Response;
+          }
 
 
 };

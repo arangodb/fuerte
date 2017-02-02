@@ -71,14 +71,12 @@ public:
     v8::Local<v8::FunctionTemplate> tpl = Nan::New<v8::FunctionTemplate>(New);
     tpl->SetClassName(Nan::New("Connection").ToLocalChecked());
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
-    //Nan::SetPrototypeMethod(tpl, "create", NConnection::create);
     Nan::SetPrototypeMethod(tpl, "sendRequest", NConnection::sendRequest);
     constructor().Reset(tpl->GetFunction());
     target->Set( Nan::New("Connection").ToLocalChecked() , tpl->GetFunction()); //put in module init?!
   }
 
   static NAN_METHOD(New);
-  //static NAN_METHOD(create);
   static NAN_METHOD(sendRequest);
 
   std::shared_ptr<arangodb::fuerte::Connection>& cppClass() {
