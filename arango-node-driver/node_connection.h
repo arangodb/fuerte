@@ -28,7 +28,7 @@
 namespace arangodb { namespace fuerte { namespace js {
 
 class NConnectionBuilder : public Nan::ObjectWrap {
-    NConnectionBuilder(): _cppClass(){}
+  NConnectionBuilder(): _cppClass(){}
 
 public:
   static NAN_MODULE_INIT(Init) {
@@ -67,6 +67,10 @@ private:
 
 class NConnection : public Nan::ObjectWrap {
 public:
+  friend class NConnectionBuilder;
+  NConnection(): _cppClass(){}
+  NConnection(std::shared_ptr<::fu::Connection> conn): _cppClass(std::move(conn)){}
+
   static NAN_MODULE_INIT(Init) {
     v8::Local<v8::FunctionTemplate> tpl = Nan::New<v8::FunctionTemplate>(New);
     tpl->SetClassName(Nan::New("Connection").ToLocalChecked());
@@ -79,11 +83,11 @@ public:
   static NAN_METHOD(New);
   static NAN_METHOD(sendRequest);
 
-  std::shared_ptr<arangodb::fuerte::Connection>& cppClass() {
+  std::shared_ptr<::fu::Connection>& cppClass() {
     return _cppClass;
   }
 private:
-  std::shared_ptr<arangodb::fuerte::Connection> _cppClass;
+  std::shared_ptr<::fu::Connection> _cppClass;
 
   static Nan::Persistent<v8::Function>& constructor(){
     static Nan::Persistent<v8::Function> ctor;

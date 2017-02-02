@@ -57,7 +57,7 @@ inline std::string to_string(v8::Local<v8::Value> const& from){
     if(!from->IsString()){
       throw std::invalid_argument("argument is not a string");
     }
-    Nan::Utf8String nString(from);
+    ::Nan::Utf8String nString(from);
     return std::string(*nString, nString.length());
   }
   catch(std::exception const& e){
@@ -73,7 +73,7 @@ template <typename T
                                  >::type = 1
          >
 T to(v8::Local<v8::Value> const& from){
-  return Nan::To<T>(from).FromJust();
+  return ::Nan::To<T>(from).FromJust();
 }
 
 template <typename T

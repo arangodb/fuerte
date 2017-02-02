@@ -22,13 +22,17 @@
 
 #include "node_init.h"
 #include "node_connection.h"
+#include "node_request.h"
 #include <iostream>
 
 namespace arangodb { namespace fuerte { namespace js {
 
 void InitAll(v8::Local<v8::Object> exports) {
   std::cout << "About to init classes" << std::endl;
-
+  NConnectionBuilder::Init(exports);
+  NConnection::Init(exports);
+  NRequest::Init(exports);
+  NResponse::Init(exports);
 }
 
 }}}
