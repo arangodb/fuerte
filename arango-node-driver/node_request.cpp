@@ -155,4 +155,55 @@ NAN_METHOD(NRequest::addMeta){
   info.GetReturnValue().Set(info.This());
 }
 
+
+
+// NResponse
+NAN_METHOD(NResponse::New) {
+  if (info.IsConstructCall()) {
+      NResponse* obj = new NResponse();
+      obj->Wrap(info.This());
+      info.GetReturnValue().Set(info.This());
+  } else {
+    v8::Local<v8::Function> cons = Nan::New(constructor());
+    info.GetReturnValue().Set(Nan::NewInstance(cons).ToLocalChecked());
+ }
+}
+
+NAN_METHOD(NResponse::buffers){ //slice
+  fu::Response& res = *unwrapSelf<NResponse>(info)->_cppClass;
+
+  v8::Local<v8::Array> array;
+  for(auto const& slice : res.slices()){
+    Nan::MaybeLocal<v8::Object> buf = Nan::CopyBuffer(
+        slice.startAs<char>(), slice.byteSize());
+    array->Set(0,buf.ToLocalChecked());
+  }
+  info.GetReturnValue().Set(array);
+}
+
+NAN_METHOD(NResponse::payload){
+  fu::Response& res = *unwrapSelf<NResponse>(info)->_cppClass;
+
+  auto payload = res.payload();
+  Nan::MaybeLocal<v8::Object> buf = Nan::CopyBuffer(
+      reinterpret_cast<char const *>(payload.first), payload.second);
+
+  info.GetReturnValue().Set(buf.ToLocalChecked());
+}
+
+NAN_METHOD(NResponse::getResponseCode){
+  auto rv = unwrapSelf<NResponse>(info)->_cppClass->header.responseCode;
+  info.GetReturnValue().Set(info.This());
+}
+
+
+NAN_METHOD(NResponse::getContentType){
+  auto rv = unwrapSelf<NResponse>(info)->_cppClass->header.contentType;
+  if(rv){
+    info.GetReturnValue().Set(Nan::New(fu::to_string(rv.get())).ToLocalChecked());
+  } else {
+    info.GetReturnValue().Set(Nan::New(std::string("vpack")).ToLocalChecked());
+  }
+}
+
 }}}

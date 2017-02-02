@@ -83,14 +83,14 @@ NAN_METHOD(NConnection::sendRequest) {
 
   // get isolate - has node only one context??!?!? how do they work
   // context is probably a lighter version of isolate but does not allow threads
-  ::v8::Isolate* iso = ::v8::Isolate::GetCurrent();
+  v8::Isolate* iso = v8::Isolate::GetCurrent();
 
   auto jsOnErr = v8::Local<v8::Function>::Cast(info[1]);
-  ::v8::Persistent<v8::Function> persOnErr;
+  v8::Persistent<v8::Function> persOnErr;
   persOnErr.Reset(iso, jsOnErr);
 
   auto jsOnSucc = v8::Local<v8::Function>::Cast(info[2]);
-  ::v8::Persistent<v8::Function> persOnSucc;
+  v8::Persistent<v8::Function> persOnSucc;
   persOnSucc.Reset(iso, jsOnSucc);
 
   fu::OnErrorCallback err = [iso,&persOnErr](unsigned err
@@ -106,9 +106,9 @@ NAN_METHOD(NConnection::sendRequest) {
     objReq->Wrap(reqObj);
 
     // wrap response
-    NRequest* objRes = new NRequest(std::move(creq)); //Response!!!!
+    NResponse* objRes = new NResponse(std::move(cres));
     auto resObj = Nan::New<v8::Object>();
-    objRes->Wrap(reqObj); //Response
+    objRes->Wrap(reqObj);
 
     // build args
     const unsigned argc = 3;
@@ -117,17 +117,35 @@ NAN_METHOD(NConnection::sendRequest) {
     // call and dispose
     jsOnErr->Call(v8::Null(iso), argc, argv);
     persOnErr.Reset(); // dispose of persistent
-
   };
 
   fu::OnSuccessCallback succ = [iso,&persOnSucc](std::unique_ptr<fu::Request> creq
                                  ,std::unique_ptr<fu::Response> cres)
   {
-    throw std::logic_error("not implemented!");
+    v8::HandleScope scope(iso);
+    v8::Local<v8::Function> jsOnSucc = v8::Local<v8::Function>::New(iso,persOnSucc);
+
+    // wrap request
+    NRequest* objReq = new NRequest(std::move(creq));
+    auto reqObj = Nan::New<v8::Object>();
+    objReq->Wrap(reqObj);
+
+    // wrap response
+    NResponse* objRes = new NResponse(std::move(cres));
+    auto resObj = Nan::New<v8::Object>();
+    objRes->Wrap(reqObj);
+
+    // build args
+    const unsigned argc = 2;
+    v8::Local<v8::Value> argv[argc] = { reqObj, resObj };
+
+    // call and dispose
+    jsOnSucc->Call(v8::Null(iso), argc, argv);
+    persOnSucc.Reset(); // dispose of persistent
   };
 
   //finally invoke the c++ callback
-  auto req = std::unique_ptr<fu::Request>(new fu::Request(*(unwrap<NRequest>(info[0])->_cppClass)));
+  auto req = std::unique_ptr<fu::Request>(new fu::Request(*(unwrap<NRequest>(info[0])->_cppClass))); //copy request so the old object stays valid
   unwrapSelf<NConnection>(info)->_cppClass->sendRequest(std::move(req), err, succ);
 }
 

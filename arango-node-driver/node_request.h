@@ -86,5 +86,47 @@ private:
   }
 
 };
+
+
+class NResponse : public Nan::ObjectWrap {
+    friend class NConnection;
+    NResponse(): _cppClass(new fu::Response){}
+    NResponse(std::unique_ptr<fu::Response> re): _cppClass(std::move(re)){}
+
+public:
+  static NAN_MODULE_INIT(Init) {
+    v8::Local<v8::FunctionTemplate> tpl = Nan::New<v8::FunctionTemplate>(New);
+    tpl->SetClassName(Nan::New("Response").ToLocalChecked());
+    tpl->InstanceTemplate()->SetInternalFieldCount(1); //should be equal to the number of data members
+
+    Nan::SetPrototypeMethod(tpl, "getContentType", NResponse::getContentType);
+    Nan::SetPrototypeMethod(tpl, "getResponseCode", NResponse::getResponseCode);
+    Nan::SetPrototypeMethod(tpl, "payload", NResponse::payload);
+    Nan::SetPrototypeMethod(tpl, "buffers", NResponse::buffers);
+
+    constructor().Reset(tpl->GetFunction());
+    target->Set( Nan::New("Response").ToLocalChecked() , tpl->GetFunction()); //put in module init?!
+  }
+
+  static NAN_METHOD(New);
+
+  static NAN_METHOD(getContentType);
+  static NAN_METHOD(getResponseCode);
+  static NAN_METHOD(payload);
+  static NAN_METHOD(buffers);
+
+  arangodb::fuerte::Response* cppClass() {
+    return _cppClass.get();
+  }
+
+private:
+  std::unique_ptr<arangodb::fuerte::Response> _cppClass;
+
+  static Nan::Persistent<v8::Function>& constructor(){
+    static Nan::Persistent<v8::Function> ctor;
+    return ctor;
+  }
+
+};
 }}}
 #endif
