@@ -43,10 +43,10 @@ NAN_METHOD(NConnectionBuilder::New) {
 }
 
 NAN_METHOD(NConnectionBuilder::connect){
-  std::shared_ptr<fu::Connection> connection =  unwrapSelf<NConnectionBuilder>(info)->_cppClass.connect();
   v8::Local<v8::Function> connFunction = Nan::New(NConnection::constructor());
-  auto connInstance = Nan::NewInstance(connFunction).ToLocalChecked();
-  unwrap<NConnection>(connInstance)->_cppClass = connection;
+  const int argc = 1;
+  v8::Local<v8::Value> argv[argc] = {info.This()};
+  auto connInstance = Nan::NewInstance(connFunction, argc, argv).ToLocalChecked();
   info.GetReturnValue().Set(connInstance);
 }
 
@@ -87,6 +87,9 @@ NAN_METHOD(NConnectionBuilder::password){
 NAN_METHOD(NConnection::New) {
   if (info.IsConstructCall()) {
     NConnection* obj = new NConnection();
+    if(info[0]->IsObject()){ // NConnectionBuilderObject -- exact type check?
+      obj->_cppClass = unwrap<NConnectionBuilder>(info[0])->_cppClass.connect();
+    }
     obj->Wrap(info.This());
     info.GetReturnValue().Set(info.This());
   } else {
