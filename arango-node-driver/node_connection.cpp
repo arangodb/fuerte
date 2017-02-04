@@ -27,6 +27,7 @@
 
 namespace arangodb { namespace fuerte { namespace js {
 
+
 ///////////////////////////////////////////////////////////////////////////////
 // NConnectionBuilder /////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -36,17 +37,17 @@ NAN_METHOD(NConnectionBuilder::New) {
       obj->Wrap(info.This());
       info.GetReturnValue().Set(info.This());
   } else {
-    v8::Local<v8::Function> cons = Nan::New(constructor());
-    info.GetReturnValue().Set(Nan::NewInstance(cons).ToLocalChecked());
+    v8::Local<v8::Function> builder = Nan::New(constructor());
+    info.GetReturnValue().Set(Nan::NewInstance(builder).ToLocalChecked());
  }
 }
 
 NAN_METHOD(NConnectionBuilder::connect){
   std::shared_ptr<fu::Connection> connection =  unwrapSelf<NConnectionBuilder>(info)->_cppClass.connect();
-	NConnection* objConn = new NConnection(connection);
-  auto connObj = Nan::New<v8::Object>();
-  objConn->Wrap(connObj);
-  info.GetReturnValue().Set(connObj);
+  v8::Local<v8::Function> connFunction = Nan::New(NConnection::constructor());
+  auto connInstance = Nan::NewInstance(connFunction).ToLocalChecked();
+  unwrap<NConnection>(connInstance)->_cppClass = connection;
+  info.GetReturnValue().Set(connInstance);
 }
 
 NAN_METHOD(NConnectionBuilder::host){
@@ -78,8 +79,6 @@ NAN_METHOD(NConnectionBuilder::password){
   unwrapSelf<NConnectionBuilder>(info)->_cppClass.password(to<std::string>(info[0]));
   info.GetReturnValue().Set(info.This());
 }
-
-
 
 
 ///////////////////////////////////////////////////////////////////////////////

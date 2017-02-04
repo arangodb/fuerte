@@ -24,6 +24,7 @@
 #ifndef FUERTE_NODE_CONNECTION_H
 #define FUERTE_NODE_CONNECTION_H
 
+#include <iostream>
 #include "node_upstream.h"
 namespace arangodb { namespace fuerte { namespace js {
 
@@ -69,7 +70,7 @@ class NConnection : public Nan::ObjectWrap {
 public:
   friend class NConnectionBuilder;
   NConnection(): _cppClass(){}
-  NConnection(std::shared_ptr<::fu::Connection> conn): _cppClass(std::move(conn)){}
+  //NConnection(std::shared_ptr<::fu::Connection> conn): _cppClass(std::move(conn)){}
 
   static NAN_MODULE_INIT(Init) {
     v8::Local<v8::FunctionTemplate> tpl = Nan::New<v8::FunctionTemplate>(New);

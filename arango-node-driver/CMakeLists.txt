@@ -9,7 +9,6 @@ add_library(arango-node-driver SHARED
     node_init.cpp
     node_request.cpp
     node_connection.cpp
-    node_collection.cpp
 )
 
 # Gives our library file a .node extension without any "lib" prefix
