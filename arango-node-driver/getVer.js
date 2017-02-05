@@ -18,6 +18,5 @@ var onSuccess = function(req, res){
 
 connection.sendRequest(request, onError, onSuccess);
 
-for(var i = 0; i < 1000; i++){
-  fuerte.poll();
-}
+//fuerte.poll();
+fuerte.run();

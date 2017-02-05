@@ -20,7 +20,7 @@
 /// @author Jan Christoph Uhde
 ////////////////////////////////////////////////////////////////////////////////
 #include "test_main.h"
-#include <fuerte/arangocxx.h>
+#include <fuerte/fuerte.h>
 #include <fuerte/loop.h>
 
 namespace f = ::arangodb::fuerte;

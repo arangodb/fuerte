@@ -32,6 +32,10 @@ NAN_METHOD(poll){
   ::fu::poll();
 }
 
+NAN_METHOD(run){
+  ::fu::run();
+}
+
 NAN_MODULE_INIT(InitAll) {
   std::cout << "About to init classes" << std::endl;
   NConnectionBuilder::Init(target);
@@ -40,6 +44,7 @@ NAN_MODULE_INIT(InitAll) {
   NResponse::Init(target);
 
   NAN_EXPORT(target, poll);
+  NAN_EXPORT(target, run);
 }
 
 }}}
