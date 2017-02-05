@@ -18,4 +18,6 @@ var onSuccess = function(req, res){
 
 connection.sendRequest(request, onError, onSuccess);
 
-//fuerte.poll(); //expose via c++
+for(var i = 0; i < 1000; i++){
+  fuerte.poll();
+}

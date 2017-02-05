@@ -25,6 +25,6 @@
 
 namespace arangodb { namespace fuerte { namespace js {
 
-void InitAll(v8::Local<v8::Object> exports);
+NAN_MODULE_INIT(InitAll);
 
 }}}

@@ -24,15 +24,22 @@
 #include "node_connection.h"
 #include "node_request.h"
 #include <iostream>
+#include <fuerte/loop.h>
 
 namespace arangodb { namespace fuerte { namespace js {
 
-void InitAll(v8::Local<v8::Object> exports) {
+NAN_METHOD(poll){
+  ::fu::poll();
+}
+
+NAN_MODULE_INIT(InitAll) {
   std::cout << "About to init classes" << std::endl;
-  NConnectionBuilder::Init(exports);
-  NConnection::Init(exports);
-  NRequest::Init(exports);
-  NResponse::Init(exports);
+  NConnectionBuilder::Init(target);
+  NConnection::Init(target);
+  NRequest::Init(target);
+  NResponse::Init(target);
+
+  NAN_EXPORT(target, poll);
 }
 
 }}}

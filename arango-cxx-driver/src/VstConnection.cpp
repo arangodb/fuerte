@@ -66,7 +66,7 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
     Lock lockQueue(_sendQueueMutex);
     doWrite = _sendQueue.empty();
     _sendQueue.push_back(item);
-    FUERTE_LOG_VSTTRACE << "request queued" << std::endl;
+    FUERTE_LOG_DEBUG << "request queued" << std::endl;
   }
 
   if(doWrite){
