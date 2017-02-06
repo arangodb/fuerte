@@ -24,6 +24,8 @@
 #include "node_request.h"
 #include <iostream>
 #include <memory>
+#include <mutex>
+#include <atomic>
 
 namespace arangodb { namespace fuerte { namespace js {
 
@@ -98,60 +100,64 @@ NAN_METHOD(NConnection::New) {
  }
 }
 
+
+///////////////////////////////////////////////////////////////////////////////
+// SendRequest ////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+// When we switch to c++14 we should use UniquePersistent and move it into
+// the generalized lambda caputre avoiding the locking alltogehter
+static std::map<fu::MessageID
+               ,std::pair<v8::Persistent<v8::Function> // error
+                         ,v8::Persistent<v8::Function> // success
+                         >
+              > callbackMap;
+
+static std::mutex maplock;
+static std::atomic<uint64_t> jsMessageID(0);
+
 NAN_METHOD(NConnection::sendRequest) {
   if (info.Length() != 3 ) {
     Nan::ThrowTypeError("Not 3 Arguments");
+  }
+
+  if (!info[1]->IsFunction() || !info[2]->IsFunction()){
+    Nan::ThrowTypeError("Callback is not a Function");
   }
 
   // get isolate - has node only one context??!?!? how do they work
   // context is probably a lighter version of isolate but does not allow threads
   v8::Isolate* iso = v8::Isolate::GetCurrent();
 
-  auto jsOnErr = v8::Local<v8::Function>::Cast(info[1]);
-  v8::Persistent<v8::Function> persOnErr;
-  persOnErr.Reset(iso, jsOnErr);
+  uint64_t id =0;
+  {
+    std::lock_guard<std::mutex> lock(maplock);
+    auto& callbackPair = callbackMap[++id]; //create map element
+    auto jsOnErr = v8::Local<v8::Function>::Cast(info[1]);
+    callbackPair.first.Reset(iso, jsOnErr);
 
-  auto jsOnSucc = v8::Local<v8::Function>::Cast(info[2]);
-  v8::Persistent<v8::Function> persOnSucc;
-  persOnSucc.Reset(iso, jsOnSucc);
+    auto jsOnSucc = v8::Local<v8::Function>::Cast(info[2]);
+    callbackPair.second.Reset(iso, jsOnSucc);
+  }
 
-  fu::OnErrorCallback err = [iso,&persOnErr](unsigned err
+  fu::OnErrorCallback err = [iso,id](unsigned err
                               ,std::unique_ptr<fu::Request> creq
                               ,std::unique_ptr<fu::Response> cres)
   {
     v8::HandleScope scope(iso);
-    v8::Local<v8::Function> jsOnErr = v8::Local<v8::Function>::New(iso,persOnErr);
 
+    auto jsOnErr = v8::Local<v8::Function>();
+    { //create local function and dispose persistent
+      std::lock_guard<std::mutex> lock(maplock);
+      auto& mapElement = callbackMap[id];
+      jsOnErr = v8::Local<v8::Function>::New(iso,mapElement.first);
+      mapElement.first.Reset();
+      mapElement.second.Reset();
+      callbackMap.erase(id);
+    }
 
     // wrap request
-    v8::Local<v8::Function> requestProto = Nan::New(NConnection::constructor());
-    auto reqObj = Nan::NewInstance(requestProto).ToLocalChecked();
-    unwrap<NRequest>(reqObj)->setCppClass(std::move(creq));
-
-    // wrap response
-    v8::Local<v8::Function> responseProto = Nan::New(NConnection::constructor());
-    auto resObj = Nan::NewInstance(requestProto).ToLocalChecked();
-    unwrap<NResponse>(resObj)->setCppClass(std::move(cres));
-
-    // build args
-    const unsigned argc = 3;
-    v8::Local<v8::Value> argv[argc] = { Nan::New<v8::Integer>(err), reqObj, resObj };
-
-    // call and dispose
-    jsOnErr->Call(v8::Null(iso), argc, argv);
-    persOnErr.Reset(); // dispose of persistent
-  };
-
-  fu::OnSuccessCallback succ = [iso,&persOnSucc](std::unique_ptr<fu::Request> creq
-                                 ,std::unique_ptr<fu::Response> cres)
-  {
-    v8::HandleScope scope(iso);
-
-    std::cout << std::endl << "req/res " << creq.get() << "/" << cres.get() << std::endl;
-    // wrap request
-    //v8::Local<v8::Function> requestProto = Nan::New(NConnection::constructor()); // with Nan
     v8::Local<v8::Function> requestProto = v8::Local<v8::Function>::New(iso,NConnection::constructor());
-    //auto reqObj = Nan::NewInstance(requestProto).ToLocalChecked(); // with Nan
     auto reqObj = requestProto->NewInstance(iso->GetCurrentContext()).FromMaybe(v8::Local<v8::Object>());
     unwrap<NRequest>(reqObj)->setCppClass(std::move(creq));
 
@@ -161,16 +167,52 @@ NAN_METHOD(NConnection::sendRequest) {
     unwrap<NResponse>(resObj)->setCppClass(std::move(cres));
 
     // build args
+    const unsigned argc = 3;
+    v8::Local<v8::Value> argv[argc] = { Nan::New<v8::Integer>(err), reqObj, resObj };
+
+    // call
+    jsOnErr->Call(iso->GetCurrentContext(), jsOnErr, argc, argv);
+
+  };
+
+  fu::OnSuccessCallback succ = [iso,id](std::unique_ptr<fu::Request> creq
+                                 ,std::unique_ptr<fu::Response> cres)
+  {
+    v8::HandleScope scope(iso);
+
+    auto jsOnSucc = v8::Local<v8::Function>();
+    { // create locacl function and dispose persistent
+      std::lock_guard<std::mutex> lock(maplock);
+      auto& mapElement = callbackMap[id];
+      //create local function
+      jsOnSucc = v8::Local<v8::Function>::New(iso,callbackMap[id].second);
+
+      //dispose map element
+      mapElement.first.Reset(); // do not depend on kResetInDestructorFlag of Persistent
+      mapElement.second.Reset();
+      callbackMap.erase(id);
+    }
+
+    // wrap request
+    //v8::Local<v8::Function> requestProto = Nan::New(NConnection::constructor()); // with Nan
+    v8::Local<v8::Function> requestProto = v8::Local<v8::Function>::New(iso,NConnection::constructor());
+    //auto reqObj = Nan::NewInstance(requestProto).ToLocalChecked(); // with Nan
+    auto reqObj = requestProto->NewInstance(iso->GetCurrentContext()).ToLocalChecked();
+    unwrap<NRequest>(reqObj)->setCppClass(std::move(creq));
+
+    // wrap response
+    v8::Local<v8::Function> responseProto = v8::Local<v8::Function>::New(iso,NConnection::constructor());
+    auto resObj = responseProto->NewInstance(iso->GetCurrentContext()).ToLocalChecked();
+    unwrap<NResponse>(resObj)->setCppClass(std::move(cres));
+
+    // build args
     const unsigned argc = 2;
     v8::Local<v8::Value> argv[argc] = { reqObj, resObj };
 
-    // call and dispose
-    std::cout << std::endl << "running js callback success, with iso: " << iso << std::endl;
-    v8::Local<v8::Function> jsOnSucc = v8::Local<v8::Function>::New(iso,persOnSucc);
+    // call
     //jsOnSucc->Call(v8::Null(iso), argc, argv);
-    jsOnSucc->Call(iso->GetCurrentContext(), iso->GetCurrentContext()->Global(), argc, argv);
-    persOnSucc.Reset(); // dispose of persistent
-    //persOnSucc.Reset(iso,v8::Local<v8::Function>()); // dispose of persistent
+    jsOnSucc->Call(iso->GetCurrentContext(), jsOnSucc, argc, argv);
+    //jsOnSucc->Call(iso->GetCurrentContext(), iso->GetCurrentContext()->Global(), argc, argv);
 
   };
 
