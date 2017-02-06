@@ -122,15 +122,16 @@ NAN_METHOD(NConnection::sendRequest) {
     v8::HandleScope scope(iso);
     v8::Local<v8::Function> jsOnErr = v8::Local<v8::Function>::New(iso,persOnErr);
 
+
     // wrap request
-    NRequest* objReq = new NRequest(std::move(creq));
-    auto reqObj = Nan::New<v8::Object>();
-    objReq->Wrap(reqObj);
+    v8::Local<v8::Function> requestProto = Nan::New(NConnection::constructor());
+    auto reqObj = Nan::NewInstance(requestProto).ToLocalChecked();
+    unwrap<NRequest>(reqObj)->setCppClass(std::move(creq));
 
     // wrap response
-    NResponse* objRes = new NResponse(std::move(cres));
-    auto resObj = Nan::New<v8::Object>();
-    objRes->Wrap(reqObj);
+    v8::Local<v8::Function> responseProto = Nan::New(NConnection::constructor());
+    auto resObj = Nan::NewInstance(requestProto).ToLocalChecked();
+    unwrap<NResponse>(resObj)->setCppClass(std::move(cres));
 
     // build args
     const unsigned argc = 3;
@@ -145,23 +146,26 @@ NAN_METHOD(NConnection::sendRequest) {
                                  ,std::unique_ptr<fu::Response> cres)
   {
     v8::HandleScope scope(iso);
-    v8::Local<v8::Function> jsOnSucc = v8::Local<v8::Function>::New(iso,persOnSucc);
 
+    std::cout << std::endl << "req/res " << creq.get() << "/" << cres.get() << std::endl;
     // wrap request
-    NRequest* objReq = new NRequest(std::move(creq));
-    auto reqObj = Nan::New<v8::Object>();
-    objReq->Wrap(reqObj);
+    v8::Local<v8::Function> requestProto = v8::Local<v8::Function>::New(iso,NConnection::constructor());
+    auto reqObj = requestProto->NewInstance(iso->GetCurrentContext()).FromMaybe(v8::Local<v8::Object>());
+    //auto reqObj = Nan::NewInstance(requestProto).ToLocalChecked();
+    unwrap<NRequest>(reqObj)->setCppClass(std::move(creq));
 
     // wrap response
-    NResponse* objRes = new NResponse(std::move(cres));
-    auto resObj = Nan::New<v8::Object>();
-    objRes->Wrap(reqObj);
+    v8::Local<v8::Function> responseProto = v8::Local<v8::Function>::New(iso,NConnection::constructor());
+    auto resObj = responseProto->NewInstance(iso->GetCurrentContext()).FromMaybe(v8::Local<v8::Object>());
+    unwrap<NResponse>(resObj)->setCppClass(std::move(cres));
 
     // build args
     const unsigned argc = 2;
     v8::Local<v8::Value> argv[argc] = { reqObj, resObj };
 
     // call and dispose
+    std::cout << std::endl << "running js callback success, with iso: " << iso << std::endl;
+    v8::Local<v8::Function> jsOnSucc = v8::Local<v8::Function>::New(iso,persOnSucc);
     jsOnSucc->Call(v8::Null(iso), argc, argv);
     persOnSucc.Reset(); // dispose of persistent
   };

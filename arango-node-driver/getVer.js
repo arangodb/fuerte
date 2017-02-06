@@ -9,11 +9,11 @@ request.setRestVerb("get");
 request.setPath("_api/version/");
 
 var onError = function(code, req, res){
-  console.log("error")
+  console.log("\n#### error ####\n")
 }
 
 var onSuccess = function(req, res){
-  console.log("succes")
+  console.log("\n#### succes ####\n")
 }
 
 connection.sendRequest(request, onError, onSuccess);

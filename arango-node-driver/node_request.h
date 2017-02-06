@@ -77,6 +77,10 @@ public:
     return _cppClass.get();
   }
 
+  void setCppClass(std::unique_ptr<arangodb::fuerte::Request> request) {
+    _cppClass = std::move(request);
+  }
+
 private:
   std::unique_ptr<arangodb::fuerte::Request> _cppClass;
 
@@ -117,6 +121,10 @@ public:
 
   arangodb::fuerte::Response* cppClass() {
     return _cppClass.get();
+  }
+
+  void setCppClass(std::unique_ptr<arangodb::fuerte::Response> response) {
+    _cppClass = std::move(response);
   }
 
 private:
