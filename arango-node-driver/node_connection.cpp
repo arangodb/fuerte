@@ -149,9 +149,10 @@ NAN_METHOD(NConnection::sendRequest) {
 
     std::cout << std::endl << "req/res " << creq.get() << "/" << cres.get() << std::endl;
     // wrap request
+    //v8::Local<v8::Function> requestProto = Nan::New(NConnection::constructor()); // with Nan
     v8::Local<v8::Function> requestProto = v8::Local<v8::Function>::New(iso,NConnection::constructor());
+    //auto reqObj = Nan::NewInstance(requestProto).ToLocalChecked(); // with Nan
     auto reqObj = requestProto->NewInstance(iso->GetCurrentContext()).FromMaybe(v8::Local<v8::Object>());
-    //auto reqObj = Nan::NewInstance(requestProto).ToLocalChecked();
     unwrap<NRequest>(reqObj)->setCppClass(std::move(creq));
 
     // wrap response
@@ -166,8 +167,11 @@ NAN_METHOD(NConnection::sendRequest) {
     // call and dispose
     std::cout << std::endl << "running js callback success, with iso: " << iso << std::endl;
     v8::Local<v8::Function> jsOnSucc = v8::Local<v8::Function>::New(iso,persOnSucc);
-    jsOnSucc->Call(v8::Null(iso), argc, argv);
+    //jsOnSucc->Call(v8::Null(iso), argc, argv);
+    jsOnSucc->Call(iso->GetCurrentContext(), iso->GetCurrentContext()->Global(), argc, argv);
     persOnSucc.Reset(); // dispose of persistent
+    //persOnSucc.Reset(iso,v8::Local<v8::Function>()); // dispose of persistent
+
   };
 
   //finally invoke the c++ callback
