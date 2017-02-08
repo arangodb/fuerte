@@ -69,6 +69,10 @@ void Loop::poll(){
   _service->poll();
 }
 
+void Loop::reset(){
+  _service->reset();
+}
+
 void Loop::setIoService(::boost::asio::io_service * service){
   if(_sealed){ return; }
   _owning = false;
@@ -135,6 +139,11 @@ void LoopProvider::poll(){
   }
 }
 
+void LoopProvider::resetIoService(){
+  if(_asioLoop){
+    _asioLoop->reset();
+  }
+}
 }}}
 
 

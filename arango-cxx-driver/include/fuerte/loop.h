@@ -82,6 +82,7 @@ public:
   // poll / run both loops
   void poll();
   void run();
+  void resetIoService();
 
 private:
   std::shared_ptr<Loop> _asioLoop;
@@ -99,6 +100,7 @@ public:
   //void ask_to_stop();
   void run_ready();
   void poll();
+  void reset();
 
 private:
   void setIoService(::boost::asio::io_service * service);
@@ -121,8 +123,17 @@ private:
 // ready handler so it will not wait for things like epoll on a socket.
 // You want to use poll(false) if you are using fuerte with your own event loop.
 inline void poll(){ LoopProvider::getProvider().poll(); };
-inline void run(){ LoopProvider::getProvider().run(); };
-inline LoopProvider& getProvider(){ return LoopProvider::getProvider(); };
+
+inline void run(){
+  static auto& provider = LoopProvider::getProvider();
+  provider.run();
+  provider.resetIoService();
+};
+
+inline LoopProvider& getProvider(){
+  static auto& provider = LoopProvider::getProvider();
+  return provider;
+};
 
 }}}
 #endif
