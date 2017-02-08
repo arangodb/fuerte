@@ -129,10 +129,10 @@ NAN_METHOD(NConnection::sendRequest) {
   // context is probably a lighter version of isolate but does not allow threads
   v8::Isolate* iso = v8::Isolate::GetCurrent();
 
-  uint64_t id =0;
+  uint64_t id = jsMessageID.fetch_add(1);
   {
     std::lock_guard<std::mutex> lock(maplock);
-    auto& callbackPair = callbackMap[++id]; //create map element
+    auto& callbackPair = callbackMap[id]; //create map element
     auto jsOnErr = v8::Local<v8::Function>::Cast(info[1]);
     callbackPair.first.Reset(iso, jsOnErr);
 

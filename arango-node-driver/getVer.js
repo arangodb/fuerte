@@ -16,7 +16,16 @@ var onSuccess = function(req, res){
   console.log("\n#### succes ####\n")
 }
 
+console.log("queue 1")
 connection.sendRequest(request, onError, onSuccess);
-
-//fuerte.poll();
 fuerte.run();
+console.log("1 done")
+console.log("------------------------------------------")
+
+console.log("queue 2")
+connection.sendRequest(request, onError, onSuccess);
+console.log("queue 3")
+connection.sendRequest(request, onError, onSuccess);
+fuerte.run();
+console.log("2,3 done")
+console.log("------------------------------------------")
