@@ -195,13 +195,13 @@ NAN_METHOD(NConnection::sendRequest) {
 
     // wrap request
     //v8::Local<v8::Function> requestProto = Nan::New(NConnection::constructor()); // with Nan
-    v8::Local<v8::Function> requestProto = v8::Local<v8::Function>::New(iso,NConnection::constructor());
+    v8::Local<v8::Function> requestProto = v8::Local<v8::Function>::New(iso,NRequest::constructor());
     //auto reqObj = Nan::NewInstance(requestProto).ToLocalChecked(); // with Nan
     auto reqObj = requestProto->NewInstance(iso->GetCurrentContext()).ToLocalChecked();
     unwrap<NRequest>(reqObj)->setCppClass(std::move(creq));
 
     // wrap response
-    v8::Local<v8::Function> responseProto = v8::Local<v8::Function>::New(iso,NConnection::constructor());
+    v8::Local<v8::Function> responseProto = v8::Local<v8::Function>::New(iso,NResponse::constructor());
     auto resObj = responseProto->NewInstance(iso->GetCurrentContext()).ToLocalChecked();
     unwrap<NResponse>(resObj)->setCppClass(std::move(cres));
 

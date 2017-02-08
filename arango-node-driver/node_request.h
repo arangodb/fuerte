@@ -40,6 +40,8 @@ public:
     tpl->SetClassName(Nan::New("Request").ToLocalChecked());
     tpl->InstanceTemplate()->SetInternalFieldCount(1); //should be equal to the number of data members
 
+    Nan::SetPrototypeMethod(tpl, "notNull", NRequest::notNull);
+
     Nan::SetPrototypeMethod(tpl, "addVPack", NRequest::addVPack);
     Nan::SetPrototypeMethod(tpl, "addBinary", NRequest::addBinary);
 
@@ -59,6 +61,8 @@ public:
   }
 
   static NAN_METHOD(New);
+
+  static NAN_METHOD(notNull);
 
   static NAN_METHOD(addVPack);
   static NAN_METHOD(addBinary);
@@ -103,6 +107,8 @@ public:
     tpl->SetClassName(Nan::New("Response").ToLocalChecked());
     tpl->InstanceTemplate()->SetInternalFieldCount(1); //should be equal to the number of data members
 
+    Nan::SetPrototypeMethod(tpl, "notNull", NResponse::notNull);
+
     Nan::SetPrototypeMethod(tpl, "getContentType", NResponse::getContentType);
     Nan::SetPrototypeMethod(tpl, "getResponseCode", NResponse::getResponseCode);
     Nan::SetPrototypeMethod(tpl, "payload", NResponse::payload);
@@ -113,6 +119,8 @@ public:
   }
 
   static NAN_METHOD(New);
+
+  static NAN_METHOD(notNull);
 
   static NAN_METHOD(getContentType);
   static NAN_METHOD(getResponseCode);

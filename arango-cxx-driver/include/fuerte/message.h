@@ -44,7 +44,7 @@ struct MessageHeader {
 
   ::boost::optional<int> version;
   ::boost::optional<MessageType> type;
-  ::boost::optional<unsigned> responseCode;
+  ::boost::optional<uint32_t> responseCode;
   ::boost::optional<std::string> database;
   ::boost::optional<RestVerb> restVerb;
   ::boost::optional<std::string> path;

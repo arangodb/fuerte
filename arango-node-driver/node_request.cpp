@@ -41,6 +41,14 @@ NAN_METHOD(NRequest::New) {
  }
 }
 
+NAN_METHOD(NRequest::notNull) {
+  if(unwrapSelf<NRequest>(info)->_cppClass){
+    info.GetReturnValue().Set(Nan::True());
+  } else {
+    info.GetReturnValue().Set(Nan::False());
+  }
+}
+
 NAN_METHOD(NRequest::addVPack){ //slice
   if (info.Length() != 1 ) {
     Nan::ThrowTypeError("Wrong number of Arguments");
@@ -169,31 +177,42 @@ NAN_METHOD(NResponse::New) {
  }
 }
 
-NAN_METHOD(NResponse::buffers){ //slice
-  fu::Response& res = *unwrapSelf<NResponse>(info)->_cppClass;
+NAN_METHOD(NResponse::notNull) {
+  if(unwrapSelf<NResponse>(info)->_cppClass){
+    info.GetReturnValue().Set(Nan::True());
+  } else {
+    info.GetReturnValue().Set(Nan::False());
+  }
+}
 
+NAN_METHOD(NResponse::buffers){ //slice
   v8::Local<v8::Array> array;
-  for(auto const& slice : res.slices()){
-    Nan::MaybeLocal<v8::Object> buf = Nan::CopyBuffer(
-        slice.startAs<char>(), slice.byteSize());
-    array->Set(0,buf.ToLocalChecked());
+  if (unwrapSelf<NResponse>(info)->_cppClass) {
+    fu::Response& res = *unwrapSelf<NResponse>(info)->_cppClass;
+    for(auto const& slice : res.slices()){
+      Nan::MaybeLocal<v8::Object> buf = Nan::CopyBuffer(
+          slice.startAs<char>(), slice.byteSize());
+      array->Set(0,buf.ToLocalChecked());
+    }
   }
   info.GetReturnValue().Set(array);
 }
 
 NAN_METHOD(NResponse::payload){
-  fu::Response& res = *unwrapSelf<NResponse>(info)->_cppClass;
-
-  auto payload = res.payload();
-  Nan::MaybeLocal<v8::Object> buf = Nan::CopyBuffer(
-      reinterpret_cast<char const *>(payload.first), payload.second);
-
-  info.GetReturnValue().Set(buf.ToLocalChecked());
+  if (unwrapSelf<NResponse>(info)->_cppClass) {
+    fu::Response& res = *unwrapSelf<NResponse>(info)->_cppClass;
+    auto payload = res.payload();
+    Nan::MaybeLocal<v8::Object> buf = Nan::CopyBuffer(
+        reinterpret_cast<char const *>(payload.first), payload.second);
+    info.GetReturnValue().Set(buf.ToLocalChecked());
+  }
 }
 
 NAN_METHOD(NResponse::getResponseCode){
-  auto rv = unwrapSelf<NResponse>(info)->_cppClass->header.responseCode;
-  info.GetReturnValue().Set(info.This());
+  if (unwrapSelf<NResponse>(info)->_cppClass) {
+    uint32_t rv = unwrapSelf<NResponse>(info)->_cppClass->header.responseCode.get();
+    info.GetReturnValue().Set(Nan::New<v8::Uint32>(rv));
+  }
 }
 
 

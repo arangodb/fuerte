@@ -6,7 +6,7 @@ var connection = builder.host("vst://127.0.0.1:8529").connect();
 
 var request = new fuerte.Request();
 request.setRestVerb("get");
-request.setPath("_api/version/");
+request.setPath("/_api/version");
 
 var onError = function(code, req, res){
   console.log("\n#### error ####\n")
@@ -14,6 +14,11 @@ var onError = function(code, req, res){
 
 var onSuccess = function(req, res){
   console.log("\n#### succes ####\n")
+  // we maybe return a pure js objects (req/res)
+  if(res.notNull()){
+    console.log("response code: " + res.getResponseCode())
+    console.log("payload raw vpack: " + res.payload())
+  }
 }
 
 console.log("queue 1")
