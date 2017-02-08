@@ -10,7 +10,7 @@
     "nan": "^2.5.1"
   },
   "scripts": {
-    "test": "node getVer.js",
+    "test": "node example.js",
     "install": "VERBOSE=1 cmake-js configure -D && cmake-js print-build"
   },
   "gypfile": true
