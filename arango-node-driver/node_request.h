@@ -111,6 +111,7 @@ public:
 
     Nan::SetPrototypeMethod(tpl, "getContentType", NResponse::getContentType);
     Nan::SetPrototypeMethod(tpl, "getResponseCode", NResponse::getResponseCode);
+    Nan::SetPrototypeMethod(tpl, "getMeta", NResponse::getMeta);
     Nan::SetPrototypeMethod(tpl, "payload", NResponse::payload);
     Nan::SetPrototypeMethod(tpl, "buffers", NResponse::buffers);
 
@@ -124,6 +125,7 @@ public:
 
   static NAN_METHOD(getContentType);
   static NAN_METHOD(getResponseCode);
+  static NAN_METHOD(getMeta);
   static NAN_METHOD(payload);
   static NAN_METHOD(buffers);
 

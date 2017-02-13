@@ -215,6 +215,31 @@ NAN_METHOD(NResponse::getResponseCode){
   }
 }
 
+NAN_METHOD(NResponse::getMeta){
+  if (unwrapSelf<NResponse>(info)->_cppClass) {
+    auto maybe = unwrapSelf<NResponse>(info)->_cppClass->header.meta;
+
+    if(!maybe){
+        Nan::ThrowError("C++ Response Object ist missing meta in header");
+    }
+
+    fu::mapss meta = maybe.get();
+    auto headers = Nan::New<v8::Object>();
+    for(auto& pair : meta){
+      std::string const& key = pair.first;
+      std::string const& val = pair.second;
+      auto k = Nan::New(key);
+      auto v = Nan::New(val);
+      auto done = headers->Set(info.GetIsolate()->GetCurrentContext(),k.ToLocalChecked(),v.ToLocalChecked());
+      if(!done.FromJust()){
+        Nan::ThrowError("Unable to write meta value to v8 object.");
+      }
+    }
+    info.GetReturnValue().Set(headers);
+  } else {
+    Nan::ThrowError("C++ Response Object is a nullptr");
+  }
+}
 
 NAN_METHOD(NResponse::getContentType){
   auto rv = unwrapSelf<NResponse>(info)->_cppClass->header.contentType;
