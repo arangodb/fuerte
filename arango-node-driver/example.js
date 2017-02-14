@@ -1,4 +1,4 @@
-var fuerte = require('./index.js')
+var fuerte = require('.')
 var vpack = require('node-velocypack')
 
 // create server

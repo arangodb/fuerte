@@ -70,7 +70,7 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
   }
 
   if(doWrite){
-    // this allows sendRequest to return immediatly and
+    // this allows sendRequest to return immediately and
     // not to block until all writing is done
     if(_connected){
       FUERTE_LOG_VSTTRACE << "queue write" << std::endl;
@@ -92,7 +92,7 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
 
 std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
   FUERTE_LOG_VSTTRACE << "start sync request" << std::endl;
-  // TODO - we expect the loop to be runniung even for sync requests
+  // TODO - we expect the loop to be running even for sync requests
   // maybe we could call poll on the ioservice in this function if
   // it is not running.
   std::mutex mutex;
@@ -320,7 +320,7 @@ std::pair<T const*, std::size_t> bufferToPointerAndSize(boost::asio::const_buffe
 }
 
 std::tuple<bool,std::shared_ptr<RequestItem>,std::size_t> VstConnection::processChunk(uint8_t const * cursor, std::size_t length){
-  FUERTE_LOG_VSTTRACE << "\n\n\nENTER PROCESS CHUNK" << std::endl;
+  FUERTE_LOG_VSTTRACE << "\n\n\nENTER PROCESS CHUNK, address: " << cursor << " length: " <<  length << std::endl;
   auto vstChunkHeader = vst::readChunkHeaderV1_0(cursor);
   //peek next chunk
   bool nextChunkAvailable = false;
@@ -329,14 +329,20 @@ std::tuple<bool,std::shared_ptr<RequestItem>,std::size_t> VstConnection::process
     FUERTE_LOG_VSTTRACE << "peeking into next chunk!" << std::endl;
     nextChunkAvailable = vst::isChunkComplete(cursor + vstChunkHeader._chunkLength
                                              ,length - vstChunkHeader._chunkLength);
-    FUERTE_LOG_VSTTRACE << "next availalbe: " << nextChunkAvailable << std::endl;
+    FUERTE_LOG_VSTTRACE << "next available: " << nextChunkAvailable << std::endl;
   }
 
+  FUERTE_LOG_VSTTRACE << "ChunkLength: " << vstChunkHeader._chunkLength << std::endl
+                      << "available length: " << length << std::endl;
   cursor += vstChunkHeader._chunkHeaderLength;
   length -= vstChunkHeader._chunkHeaderLength;
 
+  FUERTE_LOG_VSTTRACE << "ChunkHeaderLength: " << vstChunkHeader._chunkHeaderLength << std::endl;
+  FUERTE_LOG_VSTTRACE << "ChunkPayloadLength: " << vstChunkHeader._chunkPayloadLength << std::endl
+                      << "available length: " << length << std::endl;
 
-  FUERTE_LOG_VSTTRACE << "ChunkHeaderLenth: " << vstChunkHeader._chunkHeaderLength << std::endl;
+  //because we are in single chunk mode for now
+  //assert(length == vstChunkHeader._chunkPayloadLength);
 
   ::std::map<MessageID,std::shared_ptr<RequestItem>>::iterator found;
   {
@@ -347,7 +353,6 @@ std::tuple<bool,std::shared_ptr<RequestItem>,std::size_t> VstConnection::process
     }
   }
 
-
   RequestItemSP item = found->second;
 
   FUERTE_LOG_VSTTRACE << "appending to item with length: " << vstChunkHeader._chunkPayloadLength << std::endl;
@@ -357,11 +362,13 @@ std::tuple<bool,std::shared_ptr<RequestItem>,std::size_t> VstConnection::process
   cursor += vstChunkHeader._chunkPayloadLength;
   length -= vstChunkHeader._chunkPayloadLength;
 
-  FUERTE_LOG_VSTTRACE << "next chunk availalbe: " << std::boolalpha << nextChunkAvailable  << std::endl;
+  FUERTE_LOG_VSTTRACE << "next chunk available: " << std::boolalpha << nextChunkAvailable  << std::endl;
 
   if(vstChunkHeader._isSingle){ //we got a single chunk containing the complete message
     FUERTE_LOG_VSTTRACE << "adding single chunk " << std::endl;
+    FUERTE_LOG_VSTTRACE << "resetting buffer length to: " << vstChunkHeader._chunkPayloadLength << std::endl;
     item->_responseBuffer.resetTo(vstChunkHeader._chunkPayloadLength);
+    FUERTE_LOG_VSTTRACE << "setting buffer length - done" << vstChunkHeader._chunkPayloadLength << std::endl;
     return std::tuple<bool,RequestItemSP,std::size_t>(nextChunkAvailable, std::move(item), vstChunkHeader._chunkLength);
   } else if (!vstChunkHeader._isFirst){
     //there is chunk that continues a message
@@ -375,7 +382,7 @@ std::tuple<bool,std::shared_ptr<RequestItem>,std::size_t> VstConnection::process
       item->_responseBuffer.resetTo(item->_responseLength);
       return std::tuple<bool,RequestItemSP,std::size_t>(nextChunkAvailable, std::move(item),vstChunkHeader._chunkLength);
     }
-    FUERTE_LOG_VSTTRACE << "multi chunk incomplte" << std::endl;
+    FUERTE_LOG_VSTTRACE << "multi chunk incomplete" << std::endl;
   } else {
     //the chunk stats a multipart message
     item->_responseLength = vstChunkHeader._totalMessageLength;
@@ -439,7 +446,7 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
     return;
   }
 
-  //THIS WIL MAKE THE CODE FAIL WHEN RECONNECTING
+  //THIS WILL MAKE THE CODE FAIL WHEN RECONNECTING
   //if (!transferred) {
   // throw std::logic_error("handler called without receiving data");
   //}
@@ -447,7 +454,7 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
   boost::asio::const_buffer received = _receiveBuffer.data(); //no copy
   std::size_t size = boost::asio::buffer_size(received);
 
-  //assert(transferred == size); // could be longer because we do not take everyting form the buffer
+  //assert(transferred == size); // could be longer because we do not take everything form the buffer
   auto pair = bufferToPointerAndSize<uint8_t>(received); //get write access
   if (!vst::isChunkComplete(pair.first, pair.second)){
     FUERTE_LOG_DEBUG << "no complete chunk continue reading" << std::endl;
@@ -460,7 +467,7 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
   std::size_t consumed = 0;
   std::vector<std::shared_ptr<RequestItem>> items;
 
-  { // limit socpe of vars
+  { // limit scope of vars
     RequestItemSP item = nullptr; // id is given only when a chunk is complete
     bool processMoreChunks = true;
     std::size_t consume;
@@ -555,8 +562,8 @@ void VstConnection::handleWrite(BoostEC const& error, std::size_t transferred, R
   item->_requestBuffer.reset(); //request is written we no longer need the buffer
   //everything is ok
   // remove item when work is done;
-  // so the queue does not get empty in between wich could
-  // trigger another parallel wirte that is not allowed
+  // so the queue does not get empty in between which could
+  // trigger another parallel write that is not allowed
   // the caller of async_write has to make sure that there
   // are no parallel calls
   {
