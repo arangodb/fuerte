@@ -1,17 +1,20 @@
 {
-  "name": "async_arangodb_version",
-  "version": "0.1.0",
-  "description": "Node.js tests",
-  "main": "getVer.js",
+  "name": "fuerte",
+  "version": "0.1.1",
+  "description": "arangodb node.js driver",
+  "main": "index.js",
   "private": true,
   "dependencies": {
     "bindings": "^1.2.1",
     "cmake-js": "^3.4.0",
-    "nan": "^2.5.1"
+    "nan": "^2.5.1",
+    "node-velocypack": "git+https://git@github.com/arangodb/node-velocypack.git"
   },
   "scripts": {
     "test": "node example.js",
-    "install": "VERBOSE=1 cmake-js configure -D && cmake-js print-build"
+    "install": "cmake-js compile",
+    "install-debug": "VERBOSE=1 cmake-js configure -D && cmake-js print-build",
+    "install-debug-more": "VERBOSE=1 cmake-js configure -D && cmake-js print-build"
   },
   "gypfile": true
 }

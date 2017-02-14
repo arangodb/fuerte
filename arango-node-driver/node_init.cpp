@@ -53,4 +53,4 @@ NAN_MODULE_INIT(InitAll) {
 // Names the node and the function call to initialise
 // the functionality it will provide
 //
-NODE_MODULE(arango_node_driver, ::arangodb::fuerte::js::InitAll);
+NODE_MODULE(fuerte, ::arangodb::fuerte::js::InitAll);

@@ -1,4 +1,5 @@
-var fuerte = require('bindings')('arango-node-driver')
+var fuerte = require('./index.js')
+var vpack = require('node-velocypack')
 
 // create server
 var builder = new fuerte.ConnectionBuilder()
@@ -33,4 +34,14 @@ console.log("queue 3")
 connection.sendRequest(request, onError, onSuccess);
 fuerte.run();
 console.log("2,3 done")
+console.log("------------------------------------------")
+console.log("queue 4")
+var requestCursor = new fuerte.Request();
+var slice = vpack.encode({"query": "FOR x IN 1..5 RETURN x"});
+requestCursor.setRestVerb("post");
+requestCursor.setPath("/_api/cursor");
+request.addVPack(slice);
+connection.sendRequest(requestCursor, onError, onSuccess);
+fuerte.run();
+console.log("4 done")
 console.log("------------------------------------------")
