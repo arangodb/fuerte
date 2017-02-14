@@ -110,3 +110,21 @@ TEST_F(ConnectionBasicF, ApiVersionASync20){
   fu::run();
 }
 
+TEST_F(ConnectionBasicF, SimpleCursorSync){
+  auto request = fu::createRequest(fu::RestVerb::Post, "/_api/cursor");
+  fu::VBuilder builder;
+  builder.openObject();
+  builder.add("query", fu::VValue("FOR x IN 1..5 RETURN x"));
+  builder.close();
+  request->addVPack(builder.slice());
+  auto result = _connection->sendRequest(std::move(request));
+  auto slice = result->slices().front();
+
+
+  std::cout << slice.toJson();
+  //auto version = slice.get("version").copyString();
+  //auto server = slice.get("server").copyString();
+  //ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
+  //ASSERT_TRUE(version[0] == '3');
+}
+

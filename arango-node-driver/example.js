@@ -40,7 +40,7 @@ var requestCursor = new fuerte.Request();
 var slice = vpack.encode({"query": "FOR x IN 1..5 RETURN x"});
 requestCursor.setRestVerb("post");
 requestCursor.setPath("/_api/cursor");
-request.addVPack(slice);
+requestCursor.addVPack(slice);
 connection.sendRequest(requestCursor, onError, onSuccess);
 fuerte.run();
 console.log("4 done")

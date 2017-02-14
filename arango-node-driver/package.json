@@ -12,7 +12,7 @@
   },
   "scripts": {
     "test": "node example.js",
-    "install": "cmake-js compile",
+    "install": "cmake-js compile -D",
     "install-debug": "VERBOSE=1 cmake-js configure -D && cmake-js print-build",
     "install-debug-more": "VERBOSE=1 cmake-js configure -D && cmake-js print-build"
   },
