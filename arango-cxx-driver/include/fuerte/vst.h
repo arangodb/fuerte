@@ -31,6 +31,8 @@
 #include <unordered_map>
 
 #include <fuerte/message.h>
+#include "../../src/FuerteLogger.h"
+
 namespace std {
   class mutex;
 }
@@ -69,6 +71,10 @@ struct ChunkHeader {
     _chunkLength = _chunkHeaderLength + _chunkPayloadLength;
     //update chunk len in buffer
     std::memcpy(headerStartInBuffer, &_chunkLength, sizeof(_chunkLength)); //target, source, length
+    FUERTE_LOG_DEBUG << "chunk length set to: " << _chunkLength
+                     << " = "
+                     << _chunkHeaderLength << " + " << _chunkPayloadLength
+                     << std::endl;
     return _chunkLength;
   }
 
@@ -76,6 +82,9 @@ struct ChunkHeader {
     _totalMessageLength = messageLength;
     auto pos = headerStartInBuffer + sizeof(_chunkLength) + sizeof(_chunk) + sizeof(_messageID);
     std::memcpy(pos, &_totalMessageLength, sizeof(_totalMessageLength)); //target, source, length
+
+    FUERTE_LOG_DEBUG << "totalMessageLength set to: " << _totalMessageLength
+                     << std::endl;
     return _totalMessageLength;
   }
 };

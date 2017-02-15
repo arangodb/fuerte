@@ -45,7 +45,7 @@ std::string to_string(VSlice const& slice){
        << ", " << slice.byteSize()
        << ", " << json.length();
   } catch(std::exception& e) {
-    ss << e.what();
+    ss << "slice to string failed with: " <<e.what();
   }
   ss << std::endl;
 

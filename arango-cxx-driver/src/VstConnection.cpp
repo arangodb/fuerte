@@ -31,6 +31,7 @@
 #include <boost/asio/read.hpp>
 #include <boost/asio/write.hpp>
 #include <fuerte/vst.h>
+#include <fuerte/helper.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
@@ -419,7 +420,7 @@ void VstConnection::processCompleteItem(std::shared_ptr<RequestItem>&& itempoint
     buffer.append(itemCursor,itemLength); //we should avoid this copy FIXME
     buffer.resetTo(itemLength);
     auto slice = VSlice(itemCursor);
-    FUERTE_LOG_VSTTRACE << slice.toJson() << " , " << slice.byteSize() << std::endl;
+    FUERTE_LOG_VSTTRACE << to_string(slice)  << " , " << slice.byteSize() << std::endl;
     FUERTE_LOG_VSTTRACE << "buffer size" << " , " << buffer.size() << std::endl;
     response->addVPack(std::move(buffer)); //ASK jan
     FUERTE_LOG_VSTTRACE << "payload size" << " , " << response->payload().second << std::endl;

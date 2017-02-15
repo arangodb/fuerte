@@ -244,8 +244,9 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
     if(request.header.contentType == ContentType::VPack){
       for(auto const& slice : request.slices()){
         payloadLength += slice.byteSize();
-        FUERTE_LOG_DEBUG << slice.toJson() << " , " << slice.byteSize() << std::endl;
+        FUERTE_LOG_DEBUG << to_string(slice) << " , " << "adding: " << slice.byteSize() << " bytes to builder" << std::endl;
         builder.add(slice);
+        buffer->resetTo(chunkHeaderLength+payloadLength);
       }
     } else {
       uint8_t const * data;
@@ -253,6 +254,7 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
       std::tie(data,size) = request.payload();
       payloadLength += size;
       buffer->append(data,size);
+      buffer->resetTo(chunkHeaderLength+payloadLength);
     }
   }
 
@@ -264,15 +266,21 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
   if ((vstChunkHeader._isFirst && vstChunkHeader._numberOfChunks > 1) || (vstVersionID > 1)) {
     vstChunkHeader.updateTotalPayload(buffer->data(), payloadLength);
   }
+
   //std::cout << "updated header read back in" << std::endl;
   //auto readheader = readChunkHeaderV1_0(buffer.get()->data());
   //FUERTE_LOG_DEBUG << chunkHeaderToString(readheader) << std::endl;
 
-  //FUERTE_LOG_DEBUG << buffer->byteSize() << " = "
-  //                 << payloadLength << " + "
-  //                 << chunkHeaderLength
-  //                 << std::endl;
-  assert(vstChunkHeader._chunkLength == buffer->byteSize());
+  FUERTE_LOG_DEBUG << buffer->byteSize() << " = "
+                   << payloadLength << " + "
+                   << chunkHeaderLength
+                   << std::endl;
+  FUERTE_LOG_DEBUG << "asserting - buffersize: " << buffer->byteSize()
+                   << " == "
+                   << "chunkLength: "  << vstChunkHeader._chunkLength
+                   << std::endl;
+
+  assert(buffer->byteSize() == vstChunkHeader._chunkLength);
   return buffer;
 }
 

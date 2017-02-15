@@ -22,6 +22,8 @@
 #include "test_main.h"
 #include <fuerte/fuerte.h>
 #include <fuerte/loop.h>
+#include <fuerte/helper.h>
+
 
 namespace f = ::arangodb::fuerte;
 
@@ -128,3 +130,19 @@ TEST_F(ConnectionBasicF, SimpleCursorSync){
   //ASSERT_TRUE(version[0] == '3');
 }
 
+TEST_F(ConnectionBasicF, CreateDocumentSync){
+  auto request = fu::createRequest(fu::RestVerb::Post, "/_api/document/_users");
+  //fu::VBuilder builder;
+  //builder.openObject();
+  //builder.close();
+  request->addVPack(fu::VSlice::emptyObjectSlice());
+  auto result = _connection->sendRequest(std::move(request));
+  auto slice = result->slices().front();
+
+
+  std::cout << fu::to_string(slice) << std::endl;
+  //auto version = slice.get("version").copyString();
+  //auto server = slice.get("server").copyString();
+  //ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
+  //ASSERT_TRUE(version[0] == '3');
+}
