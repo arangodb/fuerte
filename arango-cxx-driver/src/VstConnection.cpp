@@ -74,6 +74,7 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
     // not to block until all writing is done
     if(_connected){
       FUERTE_LOG_VSTTRACE << "queue write" << std::endl;
+      FUERTE_LOG_VSTTRACE << "messageid: " << item->_request->messageid << " path: " << item->_request->header.path.get() << std::endl;
       auto self = shared_from_this();
       //_ioService->dispatch( [this,self](){ startWrite(); } );
       startWrite();
