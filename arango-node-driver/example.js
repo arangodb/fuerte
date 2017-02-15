@@ -45,3 +45,13 @@ connection.sendRequest(requestCursor, onError, onSuccess);
 fuerte.run();
 console.log("4 done")
 console.log("------------------------------------------")
+console.log("queue 5")
+var requestCursor = new fuerte.Request();
+var slice = vpack.encode({});
+requestCursor.setRestVerb("post");
+requestCursor.setPath("/_api/document/_users");
+requestCursor.addVPack(slice);
+connection.sendRequest(requestCursor, onError, onSuccess);
+fuerte.run();
+console.log("5 done")
+console.log("------------------------------------------")
