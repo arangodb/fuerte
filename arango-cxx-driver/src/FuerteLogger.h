@@ -33,11 +33,15 @@
 #endif
 
 #ifndef ENABLE_FUERTE_LOG_TRACE
-  #define ENABLE_FUERTE_LOG_TRACE 1
+  #define ENABLE_FUERTE_LOG_TRACE 0
 #endif
 
 #ifndef ENABLE_FUERTE_LOG_VSTTRACE
-  #define ENABLE_FUERTE_LOG_VSTTRACE 1
+  #define ENABLE_FUERTE_LOG_VSTTRACE 0
+#endif
+
+#ifndef ENABLE_FUERTE_LOG_CALLBACKS
+  #define ENABLE_FUERTE_LOG_CALLBACKS 0
 #endif
 
 #if defined(ENABLE_FUERTE_LOG_TRACE) || defined(ENABLE_FUERTE_LOG_DEBUG) || defined(ENABLE_FUERTE_LOG_ERROR)
@@ -67,6 +71,13 @@
 #else
   #define FUERTE_LOG_VSTTRACE if (0) std::cout
 #endif
+
+#if ENABLE_FUERTE_LOG_CALLBACKS > 0
+  #define FUERTE_LOG_CALLBACKS std::cout
+#else
+  #define FUERTE_LOG_CALLBACKS if (0) std::cout
+#endif
+
 
 #endif
 

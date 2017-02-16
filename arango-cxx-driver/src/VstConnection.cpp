@@ -67,7 +67,7 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
     Lock lockQueue(_sendQueueMutex);
     doWrite = _sendQueue.empty();
     _sendQueue.push_back(item);
-    FUERTE_LOG_DEBUG << "request queued" << std::endl;
+    FUERTE_LOG_CALLBACKS << "request queued" << std::endl;
   }
 
   if(doWrite){
@@ -153,7 +153,7 @@ VstConnection::VstConnection(ConnectionConfiguration const& configuration)
 // CONNECT RECONNECT //////////////////////////////////////////////////////////
 
 void VstConnection::initSocket(){
-  FUERTE_LOG_DEBUG << "begin init" << std::endl;
+  FUERTE_LOG_CALLBACKS << "begin init" << std::endl;
   _socket.reset(new bt::socket(*_ioService));
   _sslSocket.reset(new bs::stream<bt::socket&>(*_socket, _context));
   _pleaseStop = false;
@@ -166,7 +166,7 @@ void VstConnection::shutdownSocket(){
   std::unique_lock<std::mutex> mapLock(_mapMutex, std::defer_lock);
   std::lock(queueLock,mapLock);
 
-  FUERTE_LOG_DEBUG << "begin shutdown socket" << std::endl;
+  FUERTE_LOG_CALLBACKS << "begin shutdown socket" << std::endl;
 
   _deadline.cancel();
   BoostEC error;
@@ -185,7 +185,7 @@ void VstConnection::shutdownConnection(){
     return;
   }
 
-  FUERTE_LOG_DEBUG << "begin shutdown connection" << std::endl;
+  FUERTE_LOG_CALLBACKS << "begin shutdown connection" << std::endl;
   shutdownSocket();
 
   Lock mapLock(_mapMutex);
@@ -199,7 +199,7 @@ void VstConnection::shutdownConnection(){
 }
 
 void VstConnection::restartConnection(){
-  FUERTE_LOG_DEBUG << "restart" << std::endl;
+  FUERTE_LOG_CALLBACKS << "restart" << std::endl;
   shutdownConnection();
   initSocket();
 }
@@ -208,7 +208,7 @@ void VstConnection::restartConnection(){
 
 void VstConnection::startConnect(bt::resolver::iterator endpointItr){
   if (endpointItr != boost::asio::ip::tcp::resolver::iterator()){
-    FUERTE_LOG_DEBUG << "trying to connect to: " << endpointItr->endpoint() << "..." << std::endl;
+    FUERTE_LOG_CALLBACKS << "trying to connect to: " << endpointItr->endpoint() << "..." << std::endl;
 
     // Set a deadline for the connect operation.
     _deadline.expires_from_now(boost::posix_time::seconds(60));
@@ -226,14 +226,14 @@ void VstConnection::startConnect(bt::resolver::iterator endpointItr){
 
 void VstConnection::handleConnect(BoostEC const& error, bt::resolver::iterator endpointItr){
   if(!error){
-    FUERTE_LOG_DEBUG << "connected" << std::endl;
+    FUERTE_LOG_CALLBACKS << "connected" << std::endl;
     //if success - start async handshake
     if(_configuration._ssl){
-      FUERTE_LOG_DEBUG << "call start startHandshake" << std::endl;
+      FUERTE_LOG_CALLBACKS << "call start startHandshake" << std::endl;
       startHandshake();
       return;
     } else {
-      FUERTE_LOG_DEBUG << "call finish init" << std::endl;
+      FUERTE_LOG_CALLBACKS << "call finish init" << std::endl;
       finishInitialization();
       return;
     }
@@ -241,7 +241,7 @@ void VstConnection::handleConnect(BoostEC const& error, bt::resolver::iterator e
     FUERTE_LOG_ERROR << error.message() << std::endl;
     shutdownConnection();
     if(endpointItr == bt::resolver::iterator()){
-      FUERTE_LOG_DEBUG << "no further endpoint" << std::endl;
+      FUERTE_LOG_CALLBACKS << "no further endpoint" << std::endl;
     }
     throw std::runtime_error("unable to connect -- " + error.message() );
     return;
@@ -250,7 +250,7 @@ void VstConnection::handleConnect(BoostEC const& error, bt::resolver::iterator e
 }
 
 void VstConnection::finishInitialization(){
-  FUERTE_LOG_DEBUG << "finish initialization" << std::endl;
+  FUERTE_LOG_CALLBACKS << "finish initialization" << std::endl;
   {
     _connected = true;
   }
@@ -265,7 +265,7 @@ void VstConnection::startHandshake(){
   if(!_configuration._ssl){
     finishInitialization();
   }
-  FUERTE_LOG_DEBUG << "starting ssl handshake " << std::endl;
+  FUERTE_LOG_CALLBACKS << "starting ssl handshake " << std::endl;
   auto self = shared_from_this();
   _sslSocket->async_handshake(bs::stream_base::client
                              ,[this,self](BoostEC const& error){
@@ -274,7 +274,7 @@ void VstConnection::startHandshake(){
                                  FUERTE_LOG_ERROR << error.message() << std::endl;
                                  throw std::runtime_error("unable to perform ssl handshake");
                                }
-                               FUERTE_LOG_DEBUG << "ssl handshake done" << std::endl ;
+                               FUERTE_LOG_CALLBACKS << "ssl handshake done" << std::endl ;
                                finishInitialization();
                               }
                             );
@@ -284,7 +284,7 @@ void VstConnection::startHandshake(){
 // READING WRITING / NORMAL OPERATIONS  ///////////////////////////////////////
 
 void VstConnection::startRead(){
-  FUERTE_LOG_DEBUG << "-";
+  FUERTE_LOG_CALLBACKS << "-";
   if (_pleaseStop) {
     return;
   }
@@ -296,14 +296,14 @@ void VstConnection::startRead(){
     if(_messageMap.empty() && _sendQueue.empty()){
       _reading = false;
       FUERTE_LOG_VSTTRACE << "returning from read loop";
-      FUERTE_LOG_DEBUG <<  std::endl;
+      FUERTE_LOG_CALLBACKS <<  std::endl;
       return;
     }
   }
 
   // gets data from network and fill
   _deadline.expires_from_now(boost::posix_time::seconds(30));
-  FUERTE_LOG_DEBUG << "r";
+  FUERTE_LOG_CALLBACKS << "r";
   auto self = shared_from_this();
   ba::async_read(*_socket
                 ,_receiveBuffer
@@ -437,12 +437,12 @@ void VstConnection::processCompleteItem(std::shared_ptr<RequestItem>&& itempoint
 
 void VstConnection::handleRead(const boost::system::error_code& error, std::size_t transferred){
   if (error){
-    FUERTE_LOG_DEBUG << "Error while reading form socket";
+    FUERTE_LOG_CALLBACKS << "Error while reading form socket";
     FUERTE_LOG_ERROR << error.message() << std::endl;
     restartConnection();
   }
 
-  FUERTE_LOG_DEBUG << "R(" << transferred << ")" ;
+  FUERTE_LOG_CALLBACKS << "R(" << transferred << ")" ;
 
   if(_pleaseStop) {
     return;
@@ -459,7 +459,7 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
   //assert(transferred == size); // could be longer because we do not take everything form the buffer
   auto pair = bufferToPointerAndSize<uint8_t>(received); //get write access
   if (!vst::isChunkComplete(pair.first, pair.second)){
-    FUERTE_LOG_DEBUG << "no complete chunk continue reading" << std::endl;
+    FUERTE_LOG_CALLBACKS << "no complete chunk continue reading" << std::endl;
     startRead();
     return;
   }
@@ -525,12 +525,12 @@ void VstConnection::startWrite(bool possiblyEmpty){
     _messageMap.emplace(next->_messageId,next);
   }
 
-  FUERTE_LOG_DEBUG << "s";
+  FUERTE_LOG_CALLBACKS << "s";
 
   // make sure we are connected and handshake has been done
   auto self = shared_from_this();
   auto data = *next->_requestBuffer;
-  FUERTE_LOG_DEBUG << data.byteSize();
+  FUERTE_LOG_CALLBACKS << data.byteSize();
   ba::async_write(*_socket
                  ,ba::buffer(data.data(),data.byteSize())
                  ,[this,self,next,data](BoostEC const& error, std::size_t transferred){
@@ -540,7 +540,7 @@ void VstConnection::startWrite(bool possiblyEmpty){
 }
 
 void VstConnection::handleWrite(BoostEC const& error, std::size_t transferred, RequestItemSP item){
-  FUERTE_LOG_DEBUG << "S";
+  FUERTE_LOG_CALLBACKS << "S";
 
   if (error){
     FUERTE_LOG_ERROR << error.message() << std::endl;
