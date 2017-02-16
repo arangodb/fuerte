@@ -127,13 +127,13 @@ NAN_METHOD(NRequest::setRestVerb){
     else if(restString == "post"){
       verb = fu::RestVerb::Post;
     }
-    else if(restString == "put"){
-      verb = fu::RestVerb::Put;
+    else if(restString == "patch"){
+      verb = fu::RestVerb::Patch;
     }
     else if(restString == "delete"){
       verb = fu::RestVerb::Delete;
     } else {
-      Nan::ThrowTypeError("invalid rest parameter get/put/post/put/delete are supported");
+      Nan::ThrowTypeError("invalid rest parameter get/put/post/patch/delete are supported");
     }
 
     unwrapSelf<NRequest>(info)->_cppClass->header.restVerb = verb;
