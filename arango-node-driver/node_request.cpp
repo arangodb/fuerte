@@ -42,113 +42,153 @@ NAN_METHOD(NRequest::New) {
 }
 
 NAN_METHOD(NRequest::notNull) {
-  if(unwrapSelf<NRequest>(info)->_cppClass){
-    info.GetReturnValue().Set(Nan::True());
-  } else {
-    info.GetReturnValue().Set(Nan::False());
+  try {
+    if(unwrapSelf<NRequest>(info)->_cppClass){
+      info.GetReturnValue().Set(Nan::True());
+    } else {
+      info.GetReturnValue().Set(Nan::False());
+    }
+  } catch(std::exception const& e){
+    Nan::ThrowError("Request.notNull binding failed with exception");
   }
 }
 
 NAN_METHOD(NRequest::addVPack){ //slice
-  if (info.Length() != 1 ) {
-    Nan::ThrowTypeError("Wrong number of Arguments");
-  }
-  // check type TODO
-  uint8_t* data = reinterpret_cast<uint8_t*>(::node::Buffer::Data(info[0])); /// aaaaijajaiai
-  std::size_t length = ::node::Buffer::Length(info[0]);
+  try {
+    if (info.Length() != 1 ) {
+      Nan::ThrowTypeError("Wrong number of Arguments");
+    }
+    // check type TODO
+    uint8_t* data = reinterpret_cast<uint8_t*>(::node::Buffer::Data(info[0])); /// aaaaijajaiai
+    std::size_t length = ::node::Buffer::Length(info[0]);
 
-  unwrapSelf<NRequest>(info)->_cppClass->addVPack(fu::VSlice(data));
-  info.GetReturnValue().Set(info.This());
+    unwrapSelf<NRequest>(info)->_cppClass->addVPack(fu::VSlice(data));
+    info.GetReturnValue().Set(info.This());
+  } catch(std::exception const& e){
+    Nan::ThrowError("Request.addVPack binding failed with exception");
+  }
 }
 
 NAN_METHOD(NRequest::addBinary){
-  if (info.Length() != 1 ) {
-    Nan::ThrowTypeError("Wrong number of Arguments");
-  }
-  // check type TODO
-  uint8_t* data = reinterpret_cast<uint8_t*>(::node::Buffer::Data(info[0])); /// aaaaijajaiai
-  std::size_t length = ::node::Buffer::Length(info[0]);
+  try {
+    if (info.Length() != 1 ) {
+      Nan::ThrowTypeError("Wrong number of Arguments");
+    }
+    // check type TODO
+    uint8_t* data = reinterpret_cast<uint8_t*>(::node::Buffer::Data(info[0])); /// aaaaijajaiai
+    std::size_t length = ::node::Buffer::Length(info[0]);
 
-  unwrapSelf<NRequest>(info)->_cppClass->addBinary(data,length);
-  info.GetReturnValue().Set(info.This());
+    unwrapSelf<NRequest>(info)->_cppClass->addBinary(data,length);
+    info.GetReturnValue().Set(info.This());
+  } catch(std::exception const& e){
+    Nan::ThrowError("Request.addBinary binding failed with exception");
+  }
 }
 
 NAN_METHOD(NRequest::setPath){
-  if (info.Length() != 1 ) {
-    Nan::ThrowTypeError("Wrong number of Arguments");
+  try {
+    if (info.Length() != 1 ) {
+      Nan::ThrowTypeError("Wrong number of Arguments");
+    }
+    unwrapSelf<NRequest>(info)->_cppClass->header.path = to<std::string>(info[0]);
+    info.GetReturnValue().Set(info.This());
+  } catch(std::exception const& e){
+    Nan::ThrowError("Request.setPath binding failed with exception");
   }
-  unwrapSelf<NRequest>(info)->_cppClass->header.path = to<std::string>(info[0]);
-  info.GetReturnValue().Set(info.This());
 }
 
 NAN_METHOD(NRequest::setDatabase){
-  if (info.Length() != 1 ) {
-    Nan::ThrowTypeError("Wrong number of Arguments");
+  try {
+    if (info.Length() != 1 ) {
+      Nan::ThrowTypeError("Wrong number of Arguments");
+    }
+    unwrapSelf<NRequest>(info)->_cppClass->header.database = to<std::string>(info[0]);
+    info.GetReturnValue().Set(info.This());
+  } catch(std::exception const& e){
+    Nan::ThrowError("Request.setDatabase binding failed with exception");
   }
-  unwrapSelf<NRequest>(info)->_cppClass->header.database = to<std::string>(info[0]);
-  info.GetReturnValue().Set(info.This());
 }
 
 NAN_METHOD(NRequest::setRestVerb){
-  if (info.Length() != 1 ) {
-    Nan::ThrowTypeError("Wrong number of Arguments");
-  }
-  std::string restString = to<std::string>(info[0]);
+  try {
+    if (info.Length() != 1 ) {
+      Nan::ThrowTypeError("Wrong number of Arguments");
+    }
+    std::string restString = to<std::string>(info[0]);
 
-  fu::RestVerb verb = fu::RestVerb::Illegal;
+    fu::RestVerb verb = fu::RestVerb::Illegal;
 
-  if(restString == "get"){
-    verb = fu::RestVerb::Get;
-  }
-  else if(restString == "put"){
-    verb = fu::RestVerb::Put;
-  }
-  else if(restString == "post"){
-    verb = fu::RestVerb::Post;
-  }
-  else if(restString == "put"){
-    verb = fu::RestVerb::Put;
-  }
-  else if(restString == "delete"){
-    verb = fu::RestVerb::Delete;
-  } else {
-    Nan::ThrowTypeError("invalid rest parameter get/put/post/put/delete are supported");
-  }
+    if(restString == "get"){
+      verb = fu::RestVerb::Get;
+    }
+    else if(restString == "put"){
+      verb = fu::RestVerb::Put;
+    }
+    else if(restString == "post"){
+      verb = fu::RestVerb::Post;
+    }
+    else if(restString == "put"){
+      verb = fu::RestVerb::Put;
+    }
+    else if(restString == "delete"){
+      verb = fu::RestVerb::Delete;
+    } else {
+      Nan::ThrowTypeError("invalid rest parameter get/put/post/put/delete are supported");
+    }
 
-  unwrapSelf<NRequest>(info)->_cppClass->header.restVerb = verb;
-  info.GetReturnValue().Set(info.This());
+    unwrapSelf<NRequest>(info)->_cppClass->header.restVerb = verb;
+    info.GetReturnValue().Set(info.This());
+  } catch(std::exception const& e){
+    Nan::ThrowError("Request.setRestVerb binding failed with exception");
+  }
 }
 
 NAN_METHOD(NRequest::setPassword){
-  if (info.Length() != 1 ) {
-    Nan::ThrowTypeError("Wrong number of Arguments");
+  try {
+    if (info.Length() != 1 ) {
+      Nan::ThrowTypeError("Wrong number of Arguments");
+    }
+    unwrapSelf<NRequest>(info)->_cppClass->header.password = to<std::string>(info[0]);
+    info.GetReturnValue().Set(info.This());
+  } catch(std::exception const& e){
+    Nan::ThrowError("Request.setPassword binding failed with exception");
   }
-  unwrapSelf<NRequest>(info)->_cppClass->header.password = to<std::string>(info[0]);
-  info.GetReturnValue().Set(info.This());
 }
 
 NAN_METHOD(NRequest::setUser){
-  if (info.Length() != 1 ) {
-    Nan::ThrowTypeError("Wrong number of Arguments");
+  try {
+    if (info.Length() != 1 ) {
+      Nan::ThrowTypeError("Wrong number of Arguments");
+    }
+    unwrapSelf<NRequest>(info)->_cppClass->header.user = to<std::string>(info[0]);
+    info.GetReturnValue().Set(info.This());
+  } catch(std::exception const& e){
+    Nan::ThrowError("Request.setUser binding failed with exception");
   }
-  unwrapSelf<NRequest>(info)->_cppClass->header.user = to<std::string>(info[0]);
-  info.GetReturnValue().Set(info.This());
 }
 
 NAN_METHOD(NRequest::setContentType){
-  throw std::logic_error("implement me");
+  try {
+    throw std::logic_error("implement me");
+  } catch(std::exception const& e){
+    Nan::ThrowError("Request.setContentType binding failed with exception");
+  }
 }
 
 NAN_METHOD(NRequest::addParameter){
-  if (info.Length() != 2 ) {
-    Nan::ThrowTypeError("Wrong number of Arguments");
+  try {
+    if (info.Length() != 2 ) {
+      Nan::ThrowTypeError("Wrong number of Arguments");
+    }
+    boost::optional<fu::mapss>& params = unwrapSelf<NRequest>(info)->_cppClass->header.parameter;
+    if(!params){
+      params = fu::mapss();
+    }
+    params.get().insert({to<std::string>(info[0]),to<std::string>(info[1])});
+    info.GetReturnValue().Set(info.This());
+  } catch(std::exception const& e){
+    Nan::ThrowError("Request.addParameter binding failed with exception");
   }
-  boost::optional<fu::mapss>& params = unwrapSelf<NRequest>(info)->_cppClass->header.parameter;
-  if(!params){
-    params = fu::mapss();
-  }
-  params.get().insert({to<std::string>(info[0]),to<std::string>(info[1])});
-  info.GetReturnValue().Set(info.This());
 }
 
 NAN_METHOD(NRequest::addMeta){
@@ -178,75 +218,101 @@ NAN_METHOD(NResponse::New) {
 }
 
 NAN_METHOD(NResponse::notNull) {
-  if(unwrapSelf<NResponse>(info)->_cppClass){
-    info.GetReturnValue().Set(Nan::True());
-  } else {
-    info.GetReturnValue().Set(Nan::False());
+  try {
+    if(unwrapSelf<NResponse>(info)->_cppClass){
+      info.GetReturnValue().Set(Nan::True());
+    } else {
+      info.GetReturnValue().Set(Nan::False());
+    }
+  } catch(std::exception const& e){
+    Nan::ThrowError("Response.notNull binding failed with exception");
   }
 }
 
 NAN_METHOD(NResponse::buffers){ //slice
-  v8::Local<v8::Array> array;
-  if (unwrapSelf<NResponse>(info)->_cppClass) {
-    fu::Response& res = *unwrapSelf<NResponse>(info)->_cppClass;
-    for(auto const& slice : res.slices()){
-      Nan::MaybeLocal<v8::Object> buf = Nan::CopyBuffer(
-          slice.startAs<char>(), slice.byteSize());
-      array->Set(0,buf.ToLocalChecked());
+  try {
+    v8::Local<v8::Array> array;
+    if (unwrapSelf<NResponse>(info)->_cppClass) {
+      fu::Response& res = *unwrapSelf<NResponse>(info)->_cppClass;
+      for(auto const& slice : res.slices()){
+        Nan::MaybeLocal<v8::Object> buf = Nan::CopyBuffer(
+            slice.startAs<char>(), slice.byteSize());
+        array->Set(0,buf.ToLocalChecked());
+      }
     }
+    info.GetReturnValue().Set(array);
+  } catch(std::exception const& e){
+    Nan::ThrowError("Response.buffers binding failed with exception");
   }
-  info.GetReturnValue().Set(array);
 }
 
 NAN_METHOD(NResponse::payload){
-  if (unwrapSelf<NResponse>(info)->_cppClass) {
-    fu::Response& res = *unwrapSelf<NResponse>(info)->_cppClass;
-    auto payload = res.payload();
-    Nan::MaybeLocal<v8::Object> buf = Nan::CopyBuffer(
-        reinterpret_cast<char const *>(payload.first), payload.second);
-    info.GetReturnValue().Set(buf.ToLocalChecked());
+  try {
+    if (unwrapSelf<NResponse>(info)->_cppClass) {
+      fu::Response& res = *unwrapSelf<NResponse>(info)->_cppClass;
+      auto payload = res.payload();
+      Nan::MaybeLocal<v8::Object> buf = Nan::CopyBuffer(
+          reinterpret_cast<char const *>(payload.first), payload.second);
+      info.GetReturnValue().Set(buf.ToLocalChecked());
+    }
+  } catch(std::exception const& e){
+    Nan::ThrowError("Response.payload binding failed with exception");
   }
 }
 
 NAN_METHOD(NResponse::getResponseCode){
-  if (unwrapSelf<NResponse>(info)->_cppClass) {
-    uint32_t rv = unwrapSelf<NResponse>(info)->_cppClass->header.responseCode.get();
-    info.GetReturnValue().Set(Nan::New<v8::Uint32>(rv));
+  try {
+    if (unwrapSelf<NResponse>(info)->_cppClass) {
+      uint32_t rv = unwrapSelf<NResponse>(info)->_cppClass->header.responseCode.get();
+      info.GetReturnValue().Set(Nan::New<v8::Uint32>(rv));
+    }
+  } catch(std::exception const& e){
+    Nan::ThrowError("Response.getResponseCode binding failed with exception");
   }
 }
 
 NAN_METHOD(NResponse::getMeta){
-  if (unwrapSelf<NResponse>(info)->_cppClass) {
-    auto maybe = unwrapSelf<NResponse>(info)->_cppClass->header.meta;
-
-    if(!maybe){
-        Nan::ThrowError("C++ Response Object ist missing meta in header");
-    }
-
-    fu::mapss meta = maybe.get();
-    auto headers = Nan::New<v8::Object>();
-    for(auto& pair : meta){
-      std::string const& key = pair.first;
-      std::string const& val = pair.second;
-      auto k = Nan::New(key);
-      auto v = Nan::New(val);
-      auto done = headers->Set(info.GetIsolate()->GetCurrentContext(),k.ToLocalChecked(),v.ToLocalChecked());
-      if(!done.FromJust()){
-        Nan::ThrowError("Unable to write meta value to v8 object.");
+  try{
+    fu::Response* cResponse= unwrapSelf<NResponse>(info)->_cppClass.get();
+    if (cResponse) {
+      auto& header = cResponse->header;
+      auto headers = Nan::New<v8::Object>();
+      if(header.meta == boost::none){
+          //Nan::ThrowError("C++ Response Object ist missing meta in header");
+          info.GetReturnValue().Set(headers);
+          return;
       }
+
+      fu::mapss meta = header.meta.value();
+      for(auto& pair : meta){
+        std::string const& key = pair.first;
+        std::string const& val = pair.second;
+        auto k = Nan::New(key);
+        auto v = Nan::New(val);
+        auto done = headers->Set(info.GetIsolate()->GetCurrentContext(),k.ToLocalChecked(),v.ToLocalChecked());
+        if(!done.FromJust()){
+          Nan::ThrowError("Unable to write meta value to v8 object.");
+        }
+      }
+      info.GetReturnValue().Set(headers);
+    } else {
+      Nan::ThrowError("C++ Response Object is a nullptr");
     }
-    info.GetReturnValue().Set(headers);
-  } else {
-    Nan::ThrowError("C++ Response Object is a nullptr");
+  } catch(std::exception const& e){
+    Nan::ThrowError("Reponse.getMeta binding failed with exception");
   }
 }
 
 NAN_METHOD(NResponse::getContentType){
-  auto rv = unwrapSelf<NResponse>(info)->_cppClass->header.contentType;
-  if(rv){
-    info.GetReturnValue().Set(Nan::New(fu::to_string(rv.get())).ToLocalChecked());
-  } else {
-    info.GetReturnValue().Set(Nan::New(std::string("vpack")).ToLocalChecked());
+  try{
+    auto rv = unwrapSelf<NResponse>(info)->_cppClass->header.contentType;
+    if(rv){
+      info.GetReturnValue().Set(Nan::New(fu::to_string(rv.get())).ToLocalChecked());
+    } else {
+      info.GetReturnValue().Set(Nan::New(std::string("vpack")).ToLocalChecked());
+    }
+  } catch(std::exception const& e){
+    Nan::ThrowError("Response.getConentType binding failed with exception");
   }
 }
 
