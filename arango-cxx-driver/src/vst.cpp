@@ -220,7 +220,7 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
   // add chunk header
   auto vstChunkHeader = createSingleChunkHeader(vstVersionID, request.messageid, 0); //size is unfortunatly unknown
   auto chunkHeaderLength = addVstChunkHeader(std::size_t(1), *buffer, vstChunkHeader);
-  FUERTE_LOG_DEBUG << "ChunkHeaderLength:"
+  FUERTE_LOG_VSTTRACE << "ChunkHeaderLength:"
                    << chunkHeaderLength << " = " << buffer->byteSize()
                    << std::endl;
   VBuilder builder(*buffer);
@@ -233,7 +233,7 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
   auto slice = VSlice(buffer->data()+chunkHeaderLength);
   auto headerLength = slice.byteSize();
   buffer->resetTo(chunkHeaderLength+headerLength);
-  FUERTE_LOG_DEBUG << "Message Header:\n" << slice.toJson() << " , "
+  FUERTE_LOG_VSTTRACE << "Message Header:\n" << slice.toJson() << " , "
                                           << chunkHeaderLength << " + " << headerLength
                                           << " = " << buffer->byteSize()
                                           << std::endl;
@@ -244,7 +244,7 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
     if(request.header.contentType == ContentType::VPack){
       for(auto const& slice : request.slices()){
         payloadLength += slice.byteSize();
-        FUERTE_LOG_DEBUG << to_string(slice) << " , " << "adding: " << slice.byteSize() << " bytes to builder" << std::endl;
+        FUERTE_LOG_VSTTRACE << to_string(slice) << " , " << "adding: " << slice.byteSize() << " bytes to builder" << std::endl;
         builder.add(slice);
         buffer->resetTo(chunkHeaderLength+payloadLength);
       }
@@ -271,14 +271,14 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
   //auto readheader = readChunkHeaderV1_0(buffer.get()->data());
   //FUERTE_LOG_DEBUG << chunkHeaderToString(readheader) << std::endl;
 
-  FUERTE_LOG_DEBUG << buffer->byteSize() << " = "
-                   << payloadLength << " + "
-                   << chunkHeaderLength
-                   << std::endl;
-  FUERTE_LOG_DEBUG << "asserting - buffersize: " << buffer->byteSize()
-                   << " == "
-                   << "chunkLength: "  << vstChunkHeader._chunkLength
-                   << std::endl;
+  FUERTE_LOG_VSTTRACE << buffer->byteSize() << " = "
+                      << payloadLength << " + "
+                      << chunkHeaderLength
+                      << std::endl;
+  FUERTE_LOG_VSTTRACE << "asserting - buffersize: " << buffer->byteSize()
+                      << " == "
+                      << "chunkLength: "  << vstChunkHeader._chunkLength
+                      << std::endl;
 
   assert(buffer->byteSize() == vstChunkHeader._chunkLength);
   return buffer;

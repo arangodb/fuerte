@@ -71,10 +71,10 @@ struct ChunkHeader {
     _chunkLength = _chunkHeaderLength + _chunkPayloadLength;
     //update chunk len in buffer
     std::memcpy(headerStartInBuffer, &_chunkLength, sizeof(_chunkLength)); //target, source, length
-    FUERTE_LOG_DEBUG << "chunk length set to: " << _chunkLength
-                     << " = "
-                     << _chunkHeaderLength << " + " << _chunkPayloadLength
-                     << std::endl;
+    FUERTE_LOG_VSTTRACE << "chunk length set to: " << _chunkLength
+                        << " = "
+                        << _chunkHeaderLength << " + " << _chunkPayloadLength
+                        << std::endl;
     return _chunkLength;
   }
 
