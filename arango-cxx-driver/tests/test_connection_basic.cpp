@@ -35,9 +35,14 @@ class ConnectionBasicF : public ::testing::Test {
   virtual ~ConnectionBasicF() noexcept {}
 
   virtual void SetUp() override {
-    f::ConnectionBuilder cbuilder;
-    cbuilder.host(_server);
-    _connection = cbuilder.connect();
+    try {
+      f::ConnectionBuilder cbuilder;
+      cbuilder.host(_server);
+      _connection = cbuilder.connect();
+    } catch(std::exception const& ex) {
+      std::cout << "SETUP OF FIXTURE FAILED" << std::endl;
+      throw ex;
+    }
   }
 
   virtual void TearDown() override {

@@ -29,11 +29,24 @@
 namespace arangodb { namespace fuerte { namespace js {
 
 NAN_METHOD(poll){
-  ::fu::poll();
+  try{
+    ::fu::poll();
+  } catch (std::exception const& ex){
+    // LoopProvider::getProvider().resetIoService(); // reset after poll?
+    // TODO - restart connection - c++ concept first!!
+    auto errorMessage = Nan::New<v8::String>(std::string("error in asio loop") + ex.what()).ToLocalChecked();
+    Nan::ThrowError(errorMessage);
+  }
 }
 
 NAN_METHOD(run){
-  ::fu::run();
+  try{
+    ::fu::run();
+  } catch (std::exception const& ex){
+    LoopProvider::getProvider().resetIoService();
+    auto errorMessage = Nan::New<v8::String>(std::string("error in asio loop") + ex.what()).ToLocalChecked();
+    Nan::ThrowError(errorMessage);
+  }
 }
 
 NAN_MODULE_INIT(InitAll) {

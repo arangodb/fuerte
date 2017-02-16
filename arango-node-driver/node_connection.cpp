@@ -45,11 +45,20 @@ NAN_METHOD(NConnectionBuilder::New) {
 }
 
 NAN_METHOD(NConnectionBuilder::connect){
-  v8::Local<v8::Function> connFunction = Nan::New(NConnection::constructor());
-  const int argc = 1;
-  v8::Local<v8::Value> argv[argc] = {info.This()};
-  auto connInstance = Nan::NewInstance(connFunction, argc, argv).ToLocalChecked();
-  info.GetReturnValue().Set(connInstance);
+  try {
+    v8::Local<v8::Function> connFunction = Nan::New(NConnection::constructor());
+    const int argc = 1;
+    v8::Local<v8::Value> argv[argc] = {info.This()};
+    auto connInstance = Nan::NewInstance(connFunction, argc, argv).ToLocalChecked();
+    info.GetReturnValue().Set(connInstance);
+  } catch(std::exception const& e){
+    Nan::ThrowError("ConnectionBuilder.connect binding failed with exception"
+                    " - Make sure the server is up and running");
+    std::cerr << "## DRIVER LEVEL EXCEPTION - START ##" << std::endl;
+    std::cerr << e.what() << std::endl;
+    std::cerr << "## DRIVER LEVEL EXCEPTION - END   ##" << std::endl;
+
+  }
 }
 
 NAN_METHOD(NConnectionBuilder::host){
