@@ -151,3 +151,38 @@ TEST_F(ConnectionBasicF, CreateDocumentSync){
   //ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
   //ASSERT_TRUE(version[0] == '3');
 }
+
+TEST_F(ConnectionBasicF, ShortAndLongASync){
+  fu::OnErrorCallback onError = [](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
+    ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
+  };
+
+  fu::OnSuccessCallback onSuccess = [](std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
+    auto slice = res->slices().front();
+    std::cout << "messageID: " << req->messageid << " " << slice.toJson() << std::endl;
+  };
+
+  auto requestShort = fu::createRequest(fu::RestVerb::Post, "/_api/cursor");
+  {
+    fu::VBuilder builder;
+    builder.openObject();
+    builder.add("query", fu::VValue("RETURN SLEEP(1)"));
+    builder.close();
+    requestShort->addVPack(builder.slice());
+  }
+
+  auto requestLong = fu::createRequest(fu::RestVerb::Post, "/_api/cursor");
+  {
+    fu::VBuilder builder;
+    builder.openObject();
+    builder.add("query", fu::VValue("RETURN SLEEP(10)"));
+    builder.close();
+    requestLong->addVPack(builder.slice());
+  }
+
+
+  _connection->sendRequest(std::move(requestLong),onError,onSuccess);
+  _connection->sendRequest(std::move(requestShort),onError,onSuccess);
+
+  fu::run();
+}
