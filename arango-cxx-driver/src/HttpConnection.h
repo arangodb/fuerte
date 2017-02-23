@@ -26,6 +26,7 @@
 #define ARANGO_CXX_DRIVER_HTTP_CONNECTION_H 1
 
 #include <fuerte/connection_interface.h>
+#include <stdexcept>
 
 #include "HttpCommunicator.h"
 
@@ -42,6 +43,7 @@ class HttpConnection : public ConnectionInterface {
                    OnSuccessCallback) override;
 
   std::unique_ptr<Response> sendRequest(std::unique_ptr<Request>) override {
+    throw std::runtime_error("not implemented");
     return std::unique_ptr<Response>(nullptr);
   }
 
