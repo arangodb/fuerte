@@ -363,6 +363,7 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
   CURL* handle = handleInProgress->_handle;
   struct curl_slist* requestHeaders = nullptr;
 
+  if (request->contentType()){
   switch (request->contentType()) {
     case ContentType::Unset:
     case ContentType::Custom:
@@ -384,6 +385,7 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
       requestHeaders =
           curl_slist_append(requestHeaders, "Content-Type: text/plain");
       break;
+  }
   }
 
   if(request->header.meta){
