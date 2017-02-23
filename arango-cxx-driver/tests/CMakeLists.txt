@@ -1,7 +1,8 @@
 add_executable(test_main
     test_main.cpp
     test_vst.cpp
-    test_connection_basic.cpp
+    test_connection_basic_http.cpp
+    test_connection_basic_vst.cpp
 )
 
 target_link_libraries(test_main fuerte velocypack gtest)
