@@ -413,7 +413,7 @@ void VstConnection::processCompleteItem(std::shared_ptr<RequestItem>&& itempoint
   // if feels like Velocypack could gain some options like
   // adding some offset for a buffer that way the already
   // allocated memory could be reused.
-  if(messageHeader.contentType == ContentType::VPack){
+  if(messageHeader.contentType() == ContentType::VPack){
     auto numPayloads = vst::validateAndCount(itemCursor,itemLength);
     FUERTE_LOG_VSTTRACE << "number of slices: " << numPayloads << std::endl;
     VBuffer buffer;

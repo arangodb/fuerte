@@ -271,7 +271,7 @@ void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
   std::cout << "header END" << std::endl;
 
   // no available - response->header.requestType
-  response->header.contentType = to_ContentType(responseHeaders["content-type"]);
+  response->header.contentType(responseHeaders[fu_content_type_key]);
 
   if(responseBody.length()){
     switch (response->contentType()){
@@ -363,7 +363,6 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
   CURL* handle = handleInProgress->_handle;
   struct curl_slist* requestHeaders = nullptr;
 
-  if (request->contentType()){
   switch (request->contentType()) {
     case ContentType::Unset:
     case ContentType::Custom:
@@ -385,7 +384,6 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
       requestHeaders =
           curl_slist_append(requestHeaders, "Content-Type: text/plain");
       break;
-  }
   }
 
   if(request->header.meta){

@@ -241,7 +241,7 @@ std::shared_ptr<VBuffer> toNetwork(Request& request){
   // add playload (header + data - uncompressed)
   std::size_t payloadLength = headerLength;
   {
-    if(request.header.contentType == ContentType::VPack){
+    if(request.header.contentType() == ContentType::VPack){
       for(auto const& slice : request.slices()){
         payloadLength += slice.byteSize();
         FUERTE_LOG_VSTTRACE << to_string(slice) << " , " << "adding: " << slice.byteSize() << " bytes to builder" << std::endl;
@@ -344,10 +344,10 @@ MessageHeader messageHeaderFromSlice(int vstVersionID, VSlice const& headerSlice
   header.byteSize = headerSlice.byteSize(); //for debugging
 
   if(vstVersionID == 1){
-    header.contentType = ContentType::VPack;
+    header.contentType(ContentType::VPack);
   } else {
     // found in params
-    header.contentType = ContentType::Unset;
+    header.contentType(ContentType::Unset);
   }
 
   header.version = headerSlice.at(0).getNumber<int>();                              //version
@@ -370,7 +370,7 @@ MessageHeader messageHeaderFromSlice(int vstVersionID, VSlice const& headerSlice
     //resoponse should get content type
     case MessageType::Response:
       header.responseCode = headerSlice.at(2).getUInt(); // TODO fix me
-      header.contentType = ContentType::VPack;
+      header.contentType(ContentType::VPack);
       if (headerSlice.length() >= 4) {
         header.meta = sliceToStringMap(headerSlice.at(3));                          // meta
       }

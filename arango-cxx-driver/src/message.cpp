@@ -27,7 +27,6 @@
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
-
 std::string to_string(MessageHeader const& header){
   ::boost::optional<int> version;
   ::boost::optional<MessageType> type;
@@ -39,7 +38,6 @@ std::string to_string(MessageHeader const& header){
   ::boost::optional<mapss> meta;                  // equivalent of http headers
   ::boost::optional<std::string> user;
   ::boost::optional<std::string> password;
-  ::boost::optional<ContentType> contentType;     // remove?! -- data should be found in meta
   std::stringstream ss;
 
   if(header.byteSize){
@@ -94,9 +92,7 @@ std::string to_string(MessageHeader const& header){
     ss << "password: " << header.password.get() << std::endl;
   }
 
-  if(header.contentType){
-    ss << "contentType: " << to_string(header.contentType.get()) << std::endl;
-  }
+  ss << "contentType: " << to_string(header.contentType()) << std::endl;
 
   return ss.str();
 }

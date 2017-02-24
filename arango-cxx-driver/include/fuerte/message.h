@@ -36,6 +36,8 @@ namespace vst {
   class VstConnection;
 }
 
+const std::string fu_content_type_key("content-type");
+
 // mabye get rid of optional
 struct MessageHeader {
   MessageHeader(MessageHeader const&) = default;
@@ -52,8 +54,34 @@ struct MessageHeader {
   ::boost::optional<mapss> meta;
   ::boost::optional<std::string> user;
   ::boost::optional<std::string> password;
-  ::boost::optional<ContentType> contentType;
   ::boost::optional<std::size_t> byteSize; //for debugging
+
+  //get set content type
+  ContentType contentType() const {
+    if(!meta){
+      return ContentType::Unset;
+    }
+
+    auto& hmap = meta.get();
+    auto found =  hmap.find(fu_content_type_key);
+    if(found == hmap.end()){
+      return ContentType::Unset;
+    }
+
+    return to_ContentType(found->second);
+  }
+
+  void contentType(std::string const& type){
+    if(!meta){
+      meta = mapss();
+    }
+
+    meta.get()[fu_content_type_key] = type;
+  }
+
+  void contentType(ContentType type){
+    contentType(to_string(type));
+  }
 };
 
 std::string to_string(MessageHeader const&);
@@ -113,7 +141,15 @@ public:
   std::vector<VSlice>const & slices();
   std::pair<uint8_t const *, std::size_t> payload(); //as binary
 
-  ContentType contentType(){ return header.contentType.get(); }
+  ContentType contentType() const {
+    return header.contentType();
+  }
+  void contentType(std::string const& type){
+    header.contentType(type);
+  }
+  void contentType(ContentType type){
+    header.contentType(type);
+  }
 
 private:
   VBuffer _payload;

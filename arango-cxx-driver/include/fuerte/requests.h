@@ -52,8 +52,8 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
       request->header.type = MessageType::Request;
     }
 
-    if (!request->header.contentType){
-      request->header.contentType = ContentType::VPack;
+    if (request->header.contentType() == ContentType::Unset){
+      request->header.contentType(ContentType::VPack);
     }
 
     return request;
