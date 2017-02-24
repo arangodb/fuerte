@@ -3,20 +3,18 @@ var vpack = require('node-velocypack')
 
 // create server
 var builder = new fuerte.ConnectionBuilder()
+
+console.log("creating connections")
 var connection_vst = builder.host("vst://127.0.0.1:8530").connect();
 var connection_http = builder.host("http://127.0.0.1:8529").connect();
 
+
+console.log("creating request")
 var request = new fuerte.Request();
 request.setRestVerb("get");
 request.setPath("/_api/version");
 
-function bufferToString(buffer) {
-  var encodedString = String.fromCharCode.apply(null, buffer),
-      decodedString = decodeURIComponent(escape(encodedString));
-  return decodedString;
-}
-
-
+console.log("creating callbacks")
 var onError = function(code, req, res){
   console.log("\n#### error ####\n")
   console.log("error code: " + code)
@@ -81,5 +79,7 @@ function run_example(connection){
   console.log("------------------------------------------")
 }
 
+console.log("run examples with velocystream")
 run_example(connection_vst);
+console.log("run examples with http")
 run_example(connection_http);

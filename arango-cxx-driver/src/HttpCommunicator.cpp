@@ -377,7 +377,7 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
     case ContentType::VPack:
       requestHeaders = curl_slist_append(
           requestHeaders, (std::string("Content-Type: ") +
-                           to_string(ContentType::Json)).c_str());
+                           to_string(ContentType::VPack)).c_str());
     break;
 
     case ContentType::Json:
@@ -481,25 +481,35 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
   //
   // - append?
   // - multipart body?
-  if(!request->slices().empty()){
-    try{
-      //multipart ?!
-      std::stringstream ss;
-      for (auto const& slice : request->slices()){
-        std::cout << "appending to http body: " +  slice.toJson() << std::endl;
-        ss << slice.toJson();
-      }
-      body = ss.str();
-    } catch (std::exception const&e) {
-      body = e.what();
-    }
-  }
 
-  if (body.size() > 0) {
+  auto pay = request->payload();
+
+  // if(!request->slices().empty()){
+  //   try{
+  //     //multipart ?!
+  //     std::stringstream ss;
+  //     for (auto const& slice : request->slices()){
+  //       std::cout << "appending to http body: " +  slice.toJson() << std::endl;
+  //       ss << slice.toJson();
+  //     }
+  //     body = ss.str();
+  //   } catch (std::exception const&e) {
+  //     body = e.what();
+  //   }
+  // }
+
+  // if (body.size() > 0) {
+  //   // https://curl.haxx.se/libcurl/c/CURLOPT_COPYPOSTFIELDS.html
+  //   // DO NOT CHANGE BODY SIZE LATER!!
+  //   curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, body.size());
+  //   curl_easy_setopt(handle, CURLOPT_COPYPOSTFIELDS, body.c_str());
+  // }
+
+  if (pay.second > 0) {
     // https://curl.haxx.se/libcurl/c/CURLOPT_COPYPOSTFIELDS.html
     // DO NOT CHANGE BODY SIZE LATER!!
-    curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, body.size());
-    curl_easy_setopt(handle, CURLOPT_COPYPOSTFIELDS, body.c_str());
+    curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, pay.second);
+    curl_easy_setopt(handle, CURLOPT_COPYPOSTFIELDS, pay.first);
   }
 
   handleInProgress->_rip->_startTime = std::chrono::steady_clock::now();
