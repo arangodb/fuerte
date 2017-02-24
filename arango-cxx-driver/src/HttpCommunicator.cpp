@@ -550,22 +550,14 @@ void HttpCommunicator::handleResult(CURL* handle, CURLcode rc) {
         curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &httpStatusCode);
 
         std::unique_ptr<Response> response(new Response());
-            //new Response(static_cast<unsigned int>(httpStatusCode)));
         response->header.responseCode = static_cast<unsigned>(httpStatusCode);
 
         transformResult(handle, std::move(rip->_responseHeaders),
                         std::move(rip->_responseBody),
                         dynamic_cast<Response*>(response.get()));
 
-        if (httpStatusCode < 400) {
           rip->_request._callbacks._onSuccess(std::move(rip->_request._request),
                                               std::move(response));
-        } else {
-          rip->_request._callbacks._onError(httpStatusCode,
-                                            std::move(rip->_request._request),
-                                            std::move(response));
-        }
-
         break;
       }
 
