@@ -5,7 +5,7 @@ over the http and velocystream (optionally ssl encrypted) protocols.
 
 ## design
 
-Fuete is a communication library only. You will get what the other side is
+Fuerte is a communication library only. You will get what the other side is
 sending you. No conversion is done! When receiving a message fuerte provides
 content type and payload. In case the payload is velocypack you can access the
 slices with slices() when using the c++ driver. The node driver will always

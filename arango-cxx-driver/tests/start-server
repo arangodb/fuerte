@@ -1,16 +1,42 @@
 #!/bin/bash
 
-source_dir="$1"
+conf="$1"
+source_dir="$2"
 
 (
 
 cd $source_dir || { echo "failed to cd into source"; exit 1; }
 
-./build/bin/arangod \
-    --server.authentication false \
-    --server.endpoint vst+tcp://127.0.0.1:8530 \
-    --server.endpoint http+tcp://127.0.0.1:8529 \
-    --log.level communication=trace \
-    --log.level requests=trace \
-    ../arangodb-data/
+case $conf in
+    default)
+        ./build/bin/arangod \
+            --server.authentication false \
+            --server.endpoint vst+tcp://127.0.0.1:8530 \
+            --server.endpoint http+tcp://127.0.0.1:8529 \
+            --log.level communication=trace \
+            --log.level requests=trace \
+            ../arangodb-data/
+
+    ;;
+
+    nospam)
+        ./build/bin/arangod \
+            --server.authentication false \
+            --server.endpoint vst+tcp://127.0.0.1:8530 \
+            --server.endpoint http+tcp://127.0.0.1:8529 \
+            ../arangodb-data/
+    ;;
+
+    vstonly)
+        ./build/bin/arangod \
+            --server.authentication false \
+            --server.endpoint vst+tcp://127.0.0.1:8529 \
+            ../arangodb-data/
+    ;;
+
+    *)
+        echo "no valid configuration (default, nospam, vstonly)"
+    ;;
+
+esac
 )
