@@ -144,8 +144,8 @@ const std::string fu_content_type_unset("unset");
 const std::string fu_content_type_vpack("application/x-velocypack");
 const std::string fu_content_type_json("application/json");
 const std::string fu_content_type_html("text/html");
-const std::string fu_content_type_text("text");
-const std::string fu_content_type_dump("text/html");
+const std::string fu_content_type_text("text/plain");
+const std::string fu_content_type_dump("application/x-arango-dump");
 
 ContentType to_ContentType(std::string const& val) {
   auto p = val.c_str();
@@ -202,7 +202,8 @@ std::string to_string(ContentType type) {
       return fu_content_type_dump;
 
     case ContentType::Custom:
-      throw std::logic_error("custom content type must be written directly");
+      throw std::logic_error("custom content type could take different "
+                             "values and is therefor not convertible to string");
   }
 
   throw std::logic_error("unknown content type");

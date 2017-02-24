@@ -67,5 +67,5 @@ function run_example(connection){
   console.log("------------------------------------------")
 }
 
-run_example(connection_vst);
+//run_example(connection_vst);
 run_example(connection_http);
