@@ -279,39 +279,6 @@ void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
   if(responseBody.length()){
     switch (response->contentType()){
 
-      // case ContentType::Text: {
-      //   VBuffer buffer;
-      //   VBuilder builder(buffer);
-      //   builder.add(VValue(responseBody));
-      //   response->addBinarySingle(std::move(buffer));
-      //   break;
-      // }
-
-      //case ContentType::Json: {
-      //  //parses only one json
-      //  VBuffer buffer;
-      //  auto builder = std::make_shared<VBuilder>(buffer);
-      //  ::arangodb::velocypack::Parser parser(builder);
-      //  std::size_t sliceLength = 0;
-
-      //  auto currentOffset = responseBody.data();
-      //  auto length = responseBody.size();
-      //  /*while(length)*/{
-
-      //    // the following function return unfortunatly the number of slices
-      //    // which is 1 when multi is not set, it would be nice to know how
-      //    // much of the body has been consumed
-      //    auto consumed = parser.parse(responseBody);
-
-      //    sliceLength += builder->slice().byteSize();
-      //    buffer.resetTo(sliceLength);
-      //    response->addVPack(std::move(buffer));
-      //    assert(length >= consumed);
-      //    length -=consumed;
-      //  }
-      //  break;
-      //}
-
       case ContentType::VPack: {
         auto slice = VSlice(responseBody.c_str());
         VBuffer buffer;
@@ -475,35 +442,7 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
   std::string empty("");
   std::string& body = empty;
 
-  // TODO how to hanle multiple buffers
-  // We need to define what the default data
-  // format should be.
-  //
-  // - append?
-  // - multipart body?
-
   auto pay = request->payload();
-
-  // if(!request->slices().empty()){
-  //   try{
-  //     //multipart ?!
-  //     std::stringstream ss;
-  //     for (auto const& slice : request->slices()){
-  //       std::cout << "appending to http body: " +  slice.toJson() << std::endl;
-  //       ss << slice.toJson();
-  //     }
-  //     body = ss.str();
-  //   } catch (std::exception const&e) {
-  //     body = e.what();
-  //   }
-  // }
-
-  // if (body.size() > 0) {
-  //   // https://curl.haxx.se/libcurl/c/CURLOPT_COPYPOSTFIELDS.html
-  //   // DO NOT CHANGE BODY SIZE LATER!!
-  //   curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, body.size());
-  //   curl_easy_setopt(handle, CURLOPT_COPYPOSTFIELDS, body.c_str());
-  // }
 
   if (pay.second > 0) {
     // https://curl.haxx.se/libcurl/c/CURLOPT_COPYPOSTFIELDS.html

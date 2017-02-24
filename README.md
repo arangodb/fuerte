@@ -37,7 +37,17 @@ Install node and npm and execute
 
 Basic functionality of the c++ and node driver are implemented:
 
+Things that are missing:
 
+- vst: only the first slice is available via slices()
+- http: only fist slice is added as payload
+- vst: sending only single chunk messages
+- vst: no compression
+- both: no authentication
+- incomplete handling of broken connections - need to find out what is missing (worse in node)
+- not handling all versions - velocystream version unknown (it works with the server)
+- no good node integration (libuv)
+- no real asynchronous work work because of the above
 ## License
 
 Fuerte is published under the Apache 2 License. Please see
