@@ -279,6 +279,8 @@ void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
   if(responseBody.length()){
     switch (response->contentType()){
 
+      // At the moment we can hadle only one slice
+      // in the response
       case ContentType::VPack: {
         auto slice = VSlice(responseBody.c_str());
         VBuffer buffer;

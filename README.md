@@ -39,16 +39,18 @@ Basic functionality of the c++ and node driver are implemented:
 
 Things that are missing:
 
-- vst: only the first slice is available via slices()
+- c++/node: incomplete handling of broken connections - need to find out what is missing (worse in node)
+- c++: missing handling of endianess
+- http/vst: no authentication
+- http/vst: content type handling needs testing
 - http: only fist slice is added as payload
 - vst: sending only single chunk messages
+- vst: only the first slice is available via slices()
 - vst: no compression
-- both: no authentication
-- incomplete handling of broken connections - need to find out what is missing (worse in node)
-- not handling all versions - velocystream version unknown (it works with the server)
-- no good node integration (libuv)
-- no real asynchronous work work because of the above
-- missing handling of endianess
+- vst: not handling all versions - velocystream version unknown (it works with the server)
+- node: no good node integration (libuv)
+- node: no real asynchronous work work because of the above
+- node: not building on different systems (locating of headers)
 
 ## License
 
