@@ -271,7 +271,8 @@ void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
   std::cout << "header END" << std::endl;
 
   // no available - response->header.requestType
-  response->header.contentType(responseHeaders[fu_content_type_key]);
+  auto const& ctype = responseHeaders[fu_content_type_key];
+  response->header.contentType(ctype);
 
   if(responseBody.length()){
     switch (response->contentType()){
@@ -319,7 +320,7 @@ void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
       }
 
       default: {
-        throw std::logic_error("unsuported content type given");
+        throw std::logic_error(std::string("unsuported content type given: ") + ctype);
       }
 
     }

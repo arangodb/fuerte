@@ -57,19 +57,24 @@ struct MessageHeader {
   ::boost::optional<std::size_t> byteSize; //for debugging
 
   //get set content type
-  ContentType contentType() const {
+  std::string contentTypeString() const {
     if(!meta){
-      return ContentType::Unset;
+      return "";
     }
 
     auto& hmap = meta.get();
     auto found =  hmap.find(fu_content_type_key);
     if(found == hmap.end()){
-      return ContentType::Unset;
+      return "";
     }
 
-    return to_ContentType(found->second);
+    return found->second;
   }
+
+  ContentType contentType() const {
+    return to_ContentType(contentTypeString());
+  }
+
 
   void contentType(std::string const& type){
     if(!meta){
@@ -141,12 +146,18 @@ public:
   std::vector<VSlice>const & slices();
   std::pair<uint8_t const *, std::size_t> payload(); //as binary
 
+  std::string contentTypeString() const {
+    return header.contentTypeString();
+  }
+
   ContentType contentType() const {
     return header.contentType();
   }
+
   void contentType(std::string const& type){
     header.contentType(type);
   }
+
   void contentType(ContentType type){
     header.contentType(type);
   }

@@ -92,7 +92,7 @@ std::string to_string(MessageHeader const& header){
     ss << "password: " << header.password.get() << std::endl;
   }
 
-  ss << "contentType: " << to_string(header.contentType()) << std::endl;
+  ss << "contentType: " << header.contentTypeString() << std::endl;
 
   return ss.str();
 }

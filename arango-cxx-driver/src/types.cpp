@@ -139,19 +139,43 @@ std::string to_string(TransportType type) {
   return "undefined";
 }
 
+
+const std::string fu_content_type_unset("unset");
+const std::string fu_content_type_vpack("application/x-velocypack");
+const std::string fu_content_type_json("application/json");
+const std::string fu_content_type_html("text/html");
+const std::string fu_content_type_text("text");
+const std::string fu_content_type_dump("text/html");
+
 ContentType to_ContentType(std::string const& val) {
   auto p = val.c_str();
 
   if (strcasecmp(p, "") == 0) {
     return ContentType::Unset;
   }
+  if (val.find(fu_content_type_unset) != std::string::npos) {
+    return ContentType::Unset;
+  }
 
-  if (val.find("application/json") != std::string::npos) {
+  if (val.find(fu_content_type_vpack) != std::string::npos) {
+    return ContentType::VPack;
+  }
+
+  if (val.find(fu_content_type_json) != std::string::npos) {
     return ContentType::Json;
   }
 
-  //TODO add missing!!!!
+  if (val.find(fu_content_type_html) != std::string::npos) {
+    return ContentType::Html;
+  }
 
+  if (val.find(fu_content_type_text) != std::string::npos) {
+    return ContentType::Text;
+  }
+
+  if (val.find(fu_content_type_dump) != std::string::npos) {
+    return ContentType::Dump;
+  }
 
   return ContentType::Custom;
 }
@@ -160,28 +184,28 @@ ContentType to_ContentType(std::string const& val) {
 std::string to_string(ContentType type) {
   switch (type) {
     case ContentType::Unset:
-      return "unset";
-
-    case ContentType::Custom:
-      return "custom";
+      return fu_content_type_unset;
 
     case ContentType::VPack:
-      return "vpack";
-
-    case ContentType::Dump:
-      return "dump";
+      return fu_content_type_vpack;
 
     case ContentType::Json:
-      return "json";
+      return fu_content_type_json;
 
     case ContentType::Html:
-      return "html";
+      return fu_content_type_html;
 
     case ContentType::Text:
-      return "text";
+      return fu_content_type_text;
+
+    case ContentType::Dump:
+      return fu_content_type_dump;
+
+    case ContentType::Custom:
+      throw std::logic_error("custom content type must be written directly");
   }
 
-  return "undefined";
+  throw std::logic_error("unknown content type");
 }
 
 ErrorCondition intToError(Error integral){

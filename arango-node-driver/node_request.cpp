@@ -305,11 +305,11 @@ NAN_METHOD(NResponse::getMeta){
 
 NAN_METHOD(NResponse::getContentType){
   try{
-    auto rv = unwrapSelf<NResponse>(info)->_cppClass->header.contentType;
-    if(rv){
-      info.GetReturnValue().Set(Nan::New(fu::to_string(rv.get())).ToLocalChecked());
+    auto cppClass = unwrapSelf<NResponse>(info)->_cppClass.get();
+    if(cppClass->contentType() != fu::ContentType::Unset){
+      info.GetReturnValue().Set(Nan::New(cppClass->contentTypeString()).ToLocalChecked());
     } else {
-      info.GetReturnValue().Set(Nan::New(std::string("vpack")).ToLocalChecked());
+      info.GetReturnValue().Set(Nan::New(fu::to_string(fu::ContentType::VPack)).ToLocalChecked());
     }
   } catch(std::exception const& e){
     Nan::ThrowError("Response.getConentType binding failed with exception");
