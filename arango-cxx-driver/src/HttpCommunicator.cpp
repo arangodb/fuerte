@@ -19,12 +19,14 @@
 ///
 /// @author Andreas Streichardt
 /// @author Frank Celler
+/// @author Jan Christoph Uhde
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "HttpCommunicator.h"
 #include <fcntl.h>
 #include <velocypack/Parser.h>
 #include <cassert>
+#include <sstream>
 
 namespace arangodb {
 namespace fuerte {
@@ -359,32 +361,29 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
   // ownership for rip
   auto rip = new RequestInProgress(std::move(newRequest));
   std::unique_ptr<CurlHandle> handleInProgress(new CurlHandle(rip));
-  auto request = rip->_request._request.get();
+  fuerte::Request* request = rip->_request._request.get();
 
   CURL* handle = handleInProgress->_handle;
   struct curl_slist* requestHeaders = nullptr;
 
   switch (request->contentType()) {
+
+    //the code below defaults to json - vpack slices are converted to json!
     case ContentType::Unset:
-    case ContentType::Custom:
     case ContentType::VPack:
-    case ContentType::Dump:
-      break;
+      requestHeaders = curl_slist_append(
+          requestHeaders, (std::string("Content-Type: ") +
+                           to_string(ContentType::Json)).c_str());
+    break;
 
     case ContentType::Json:
-      requestHeaders =
-          curl_slist_append(requestHeaders, "Content-Type: application/json");
-      break;
-
+    case ContentType::Custom:
     case ContentType::Html:
-      requestHeaders =
-          curl_slist_append(requestHeaders, "Content-Type: text/html");
-      break;
-
     case ContentType::Text:
-      requestHeaders =
-          curl_slist_append(requestHeaders, "Content-Type: text/plain");
-      break;
+    case ContentType::Dump:
+      requestHeaders = curl_slist_append(
+          requestHeaders, (std::string("Content-Type: ") +
+                           request->contentTypeString()).c_str());
   }
 
   if(request->header.meta){
@@ -471,15 +470,22 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
 
   std::string empty("");
   std::string& body = empty;
+
   // TODO how to hanle multiple buffers
+  // We need to define what the default data
+  // format should be.
+  //
   // - append?
   // - multipart body?
   if(!request->slices().empty()){
     try{
       //multipart ?!
+      std::stringstream ss;
       for (auto const& slice : request->slices()){
-        std::cout << slice.toJson() << std::endl;
+        std::cout << "appending to http body: " +  slice.toJson() << std::endl;
+        ss << slice.toJson();
       }
+      body = ss.str();
     } catch (std::exception const&e) {
       body = e.what();
     }
