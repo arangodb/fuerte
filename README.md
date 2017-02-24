@@ -48,6 +48,8 @@ Things that are missing:
 - not handling all versions - velocystream version unknown (it works with the server)
 - no good node integration (libuv)
 - no real asynchronous work work because of the above
+- missing handling of endianess
+
 ## License
 
 Fuerte is published under the Apache 2 License. Please see
