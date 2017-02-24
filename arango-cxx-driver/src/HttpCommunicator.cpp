@@ -279,38 +279,38 @@ void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
   if(responseBody.length()){
     switch (response->contentType()){
 
-      case ContentType::Text: {
-        VBuffer buffer;
-        VBuilder builder(buffer);
-        builder.add(VValue(responseBody));
-        response->addBinarySingle(std::move(buffer));
-        break;
-      }
+      // case ContentType::Text: {
+      //   VBuffer buffer;
+      //   VBuilder builder(buffer);
+      //   builder.add(VValue(responseBody));
+      //   response->addBinarySingle(std::move(buffer));
+      //   break;
+      // }
 
-      case ContentType::Json: {
-        //parses only one json
-        VBuffer buffer;
-        auto builder = std::make_shared<VBuilder>(buffer);
-        ::arangodb::velocypack::Parser parser(builder);
-        std::size_t sliceLength = 0;
+      //case ContentType::Json: {
+      //  //parses only one json
+      //  VBuffer buffer;
+      //  auto builder = std::make_shared<VBuilder>(buffer);
+      //  ::arangodb::velocypack::Parser parser(builder);
+      //  std::size_t sliceLength = 0;
 
-        auto currentOffset = responseBody.data();
-        auto length = responseBody.size();
-        /*while(length)*/{
+      //  auto currentOffset = responseBody.data();
+      //  auto length = responseBody.size();
+      //  /*while(length)*/{
 
-          // the following function return unfortunatly the number of slices
-          // which is 1 when multi is not set, it would be nice to know how
-          // much of the body has been consumed
-          auto consumed = parser.parse(responseBody);
+      //    // the following function return unfortunatly the number of slices
+      //    // which is 1 when multi is not set, it would be nice to know how
+      //    // much of the body has been consumed
+      //    auto consumed = parser.parse(responseBody);
 
-          sliceLength += builder->slice().byteSize();
-          buffer.resetTo(sliceLength);
-          response->addVPack(std::move(buffer));
-          assert(length >= consumed);
-          length -=consumed;
-        }
-        break;
-      }
+      //    sliceLength += builder->slice().byteSize();
+      //    buffer.resetTo(sliceLength);
+      //    response->addVPack(std::move(buffer));
+      //    assert(length >= consumed);
+      //    length -=consumed;
+      //  }
+      //  break;
+      //}
 
       case ContentType::VPack: {
         auto slice = VSlice(responseBody.c_str());
@@ -322,7 +322,11 @@ void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
       }
 
       default: {
-        throw std::logic_error(std::string("unsuported content type given: ") + ctype);
+        VBuffer buffer;
+        VBuilder builder(buffer);
+        builder.add(VValue(responseBody));
+        response->addBinarySingle(std::move(buffer));
+        break;
       }
 
     }

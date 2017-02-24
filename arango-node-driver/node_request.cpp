@@ -251,6 +251,7 @@ NAN_METHOD(NResponse::payload){
     if (unwrapSelf<NResponse>(info)->_cppClass) {
       fu::Response& res = *unwrapSelf<NResponse>(info)->_cppClass;
       auto payload = res.payload();
+      // std::cout << std::string(reinterpret_cast<char const*>(payload.first), payload.second) << std::endl;
       Nan::MaybeLocal<v8::Object> buf = Nan::CopyBuffer(
           reinterpret_cast<char const *>(payload.first), payload.second);
       info.GetReturnValue().Set(buf.ToLocalChecked());

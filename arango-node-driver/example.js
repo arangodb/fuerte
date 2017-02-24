@@ -10,12 +10,20 @@ var request = new fuerte.Request();
 request.setRestVerb("get");
 request.setPath("/_api/version");
 
+function bufferToString(buffer) {
+  var encodedString = String.fromCharCode.apply(null, buffer),
+      decodedString = decodeURIComponent(escape(encodedString));
+  return decodedString;
+}
+
+
 var onError = function(code, req, res){
   console.log("\n#### error ####\n")
   console.log("error code: " + code)
   if(res.notNull()){
     console.log("response code: " + res.getResponseCode())
-    console.log("payload raw vpack: " + res.payload())
+    console.log("content type: " + res.getConentType())
+    console.log("raw payload: " + res.payload())
   }
 }
 
@@ -24,10 +32,16 @@ var onSuccess = function(req, res){
   // we maybe return a pure js objects (req/res)
   if(res.notNull()){
     console.log("response code: " + res.getResponseCode())
-    console.log("payload raw vpack: " + res.payload())
+    var contentType = res.getContentType();
+    var payload = res.payload();
+    console.log("content type: " + contentType)
+    if(contentType.indexOf("application/json") !== -1){
+      console.log(payload.toString());
+    } else {
+      console.log("raw payload: " + payload)
+    }
   }
 }
-
 
 function run_example(connection){
   console.log("queue 1")
@@ -67,5 +81,5 @@ function run_example(connection){
   console.log("------------------------------------------")
 }
 
-//run_example(connection_vst);
+run_example(connection_vst);
 run_example(connection_http);
