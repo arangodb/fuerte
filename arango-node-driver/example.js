@@ -12,6 +12,11 @@ request.setPath("/_api/version");
 
 var onError = function(code, req, res){
   console.log("\n#### error ####\n")
+  console.log("error code: " + code)
+  if(res.notNull()){
+    console.log("response code: " + res.getResponseCode())
+    console.log("payload raw vpack: " + res.payload())
+  }
 }
 
 var onSuccess = function(req, res){
@@ -23,41 +28,44 @@ var onSuccess = function(req, res){
   }
 }
 
-console.log("queue 1")
-connection_vst.sendRequest(request, onError, onSuccess);
-connection_http.sendRequest(request, onError, onSuccess);
-fuerte.run();
-console.log("1 done")
-console.log("------------------------------------------")
 
-console.log("queue 2")
-connection_vst.sendRequest(request, onError, onSuccess);
-connection_vst.sendRequest(request, onError, onSuccess);
-console.log("queue 3")
-connection_vst.sendRequest(request, onError, onSuccess);
-connection_http.sendRequest(request, onError, onSuccess);
-fuerte.run();
-console.log("2,3 done")
-console.log("------------------------------------------")
-console.log("queue 4")
-var requestCursor = new fuerte.Request();
-var slice = vpack.encode({"query": "FOR x IN 1..5 RETURN x"});
-requestCursor.setRestVerb("post");
-requestCursor.setPath("/_api/cursor");
-requestCursor.addVPack(slice);
-connection_vst.sendRequest(requestCursor, onError, onSuccess);
-connection_http.sendRequest(requestCursor, onError, onSuccess);
-fuerte.run();
-console.log("4 done")
-console.log("------------------------------------------")
-console.log("queue 5")
-var requestCursor = new fuerte.Request();
-var slice = vpack.encode({});
-requestCursor.setRestVerb("post");
-requestCursor.setPath("/_api/document/_users");
-requestCursor.addVPack(slice);
-connection_vst.sendRequest(requestCursor, onError, onSuccess);
-connection_http.sendRequest(requestCursor, onError, onSuccess);
-fuerte.run();
-console.log("5 done")
-console.log("------------------------------------------")
+function run_example(connection){
+  console.log("queue 1")
+  connection.sendRequest(request, onError, onSuccess);
+  fuerte.run();
+  console.log("1 done")
+  console.log("------------------------------------------")
+
+  console.log("queue 2")
+  connection.sendRequest(request, onError, onSuccess);
+  console.log("queue 3")
+  connection.sendRequest(request, onError, onSuccess);
+  fuerte.run();
+  console.log("2,3 done")
+  console.log("------------------------------------------")
+
+  console.log("queue 4")
+  var requestCursor = new fuerte.Request();
+  var slice = vpack.encode({"query": "FOR x IN 1..5 RETURN x"});
+  requestCursor.setRestVerb("post");
+  requestCursor.setPath("/_api/cursor");
+  requestCursor.addVPack(slice);
+  connection.sendRequest(requestCursor, onError, onSuccess);
+  fuerte.run();
+  console.log("4 done")
+  console.log("------------------------------------------")
+
+  console.log("queue 5")
+  var requestCursor = new fuerte.Request();
+  var slice = vpack.encode({});
+  requestCursor.setRestVerb("post");
+  requestCursor.setPath("/_api/document/_users");
+  requestCursor.addVPack(slice);
+  connection.sendRequest(requestCursor, onError, onSuccess);
+  fuerte.run();
+  console.log("5 done")
+  console.log("------------------------------------------")
+}
+
+run_example(connection_vst);
+run_example(connection_http);
