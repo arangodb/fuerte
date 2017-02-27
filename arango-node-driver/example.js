@@ -41,22 +41,22 @@ var onSuccess = function(req, res){
   }
 }
 
-function run_example(connection){
-  console.log("queue 1")
+function run_example(connection, proto){
+  console.log("queue 1 " + proto)
   connection.sendRequest(request, onError, onSuccess);
   fuerte.run();
-  console.log("1 done")
+  console.log("1 done " + proto)
   console.log("------------------------------------------")
 
-  console.log("queue 2")
+  console.log("queue 2 " + proto)
   connection.sendRequest(request, onError, onSuccess);
-  console.log("queue 3")
+  console.log("queue 3 " + proto)
   connection.sendRequest(request, onError, onSuccess);
   fuerte.run();
-  console.log("2,3 done")
+  console.log("2,3 done " + proto)
   console.log("------------------------------------------")
 
-  console.log("queue 4")
+  console.log("queue 4 " + proto)
   var requestCursor = new fuerte.Request();
   var slice = vpack.encode({"query": "FOR x IN 1..5 RETURN x"});
   requestCursor.setRestVerb("post");
@@ -64,10 +64,10 @@ function run_example(connection){
   requestCursor.addVPack(slice);
   connection.sendRequest(requestCursor, onError, onSuccess);
   fuerte.run();
-  console.log("4 done")
+  console.log("4 done " + proto)
   console.log("------------------------------------------")
 
-  console.log("queue 5")
+  console.log("queue 5 " + proto)
   var requestCursor = new fuerte.Request();
   var slice = vpack.encode({});
   requestCursor.setRestVerb("post");
@@ -75,11 +75,23 @@ function run_example(connection){
   requestCursor.addVPack(slice);
   connection.sendRequest(requestCursor, onError, onSuccess);
   fuerte.run();
-  console.log("5 done")
+  console.log("5 done " + proto)
+  console.log("------------------------------------------")
+
+  console.log("queue 6 " + proto)
+  var requestCursor = new fuerte.Request();
+  var slice = vpack.encode({});
+  requestCursor.setRestVerb("post");
+  requestCursor.setPath("/_api/document/_users");
+  requestCursor.addVPack(slice);
+  requestCursor.setAcceptType("application/json")
+  connection.sendRequest(requestCursor, onError, onSuccess);
+  fuerte.run();
+  console.log("6 done " + proto)
   console.log("------------------------------------------")
 }
 
 console.log("run examples with velocystream")
-run_example(connection_vst);
+run_example(connection_vst, "vst");
 console.log("run examples with http")
-run_example(connection_http);
+run_example(connection_http, "http");
