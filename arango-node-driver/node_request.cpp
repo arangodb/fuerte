@@ -169,9 +169,10 @@ NAN_METHOD(NRequest::setUser){
 
 NAN_METHOD(NRequest::setContentType){
   try {
-    throw std::logic_error("implement me");
+    unwrapSelf<NRequest>(info)->_cppClass->contentType(to<std::string>(info[0]));
+    info.GetReturnValue().Set(info.This());
   } catch(std::exception const& e){
-    Nan::ThrowError("Request.setContentType binding failed with exception");
+    Nan::ThrowError("Request.setUser binding failed with exception");
   }
 }
 
