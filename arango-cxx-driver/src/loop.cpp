@@ -113,29 +113,34 @@ std::shared_ptr<Loop> LoopProvider::getAsioLoop(){
 }
 
 void LoopProvider::run(){
+  static std::mutex mutex;
+
   if(_asioLoop){
     _asioLoop->run_ready();  //runs unitl all work is done
   }
 
   //poll http -- spins busy for http
-  if(_httpLoop){
+  if(_httpLoop && mutex.try_lock()){
     while (true) {
       int left = _httpLoop->workOnce(); // check if there is still somehting to do
       if (left == 0) { break; }
       _httpLoop->wait(); // work happens here
     }
+    mutex.unlock();
   }
 }
 
 void LoopProvider::poll(){
+  static std::mutex mutex;
   //poll asio
   if(_asioLoop){
     _asioLoop->poll();  //polls until io_service has no further tasks
   }
 
   //poll http
-  if(_httpLoop){
+  if(_httpLoop && mutex.try_lock()){
     int left = _httpLoop->workOnce();
+    mutex.unlock();
   }
 }
 
