@@ -112,6 +112,7 @@ void Message::addVPack(VSlice const& slice){
     _builder = std::make_shared<VBuilder>(_payload);
   }
 
+  contentType(ContentType::VPack);
   _isVpack=true;
   _modified = true;
   _builder->add(slice);
@@ -124,6 +125,8 @@ void Message::addVPack(VBuffer const& buffer){
     throw std::logic_error("Message is sealed or of wrong type (vst/binary)");
   };
   _isVpack = true;
+  contentType(ContentType::VPack);
+  _modified = true;
   _modified = true;
   auto length = buffer.byteSize();
   auto cursor = buffer.data();
@@ -150,6 +153,7 @@ void Message::addVPack(VBuffer&& buffer){
   if(_sealed || _isVpack){
     throw std::logic_error("Message is sealed or of wrong type (vst/binary)");
   };
+  contentType(ContentType::VPack);
   _isVpack = true;
   _sealed = true;
   _modified = true;

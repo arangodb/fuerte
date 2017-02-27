@@ -173,7 +173,7 @@ int HttpCommunicator::curlDebug(CURL* handle, curl_infotype type, char* data,
 
   switch (type) {
     case CURLINFO_TEXT:
-      FUERTE_LOG_DEBUG << prefix << "Text: " << dataStr;
+      FUERTE_LOG_HTTPTRACE << prefix << "Text: " << dataStr;
       break;
 
     case CURLINFO_HEADER_OUT:
@@ -206,7 +206,7 @@ void HttpCommunicator::logHttpBody(std::string const& prefix,
   std::string::size_type n = 0;
 
   while (n < data.length()) {
-    FUERTE_LOG_DEBUG << prefix << " " << data.substr(n, 80) << "\n";
+    FUERTE_LOG_HTTPTRACE << prefix << " " << data.substr(n, 80) << "\n";
     n += 80;
   }
 }
@@ -223,7 +223,7 @@ void HttpCommunicator::logHttpHeaders(std::string const& prefix,
       break;
     }
 
-    FUERTE_LOG_DEBUG << prefix << " " << headerData.substr(last, n - last)
+    FUERTE_LOG_HTTPTRACE << prefix << " " << headerData.substr(last, n - last)
                      << "\n";
     last = n + 2;
   }
@@ -480,7 +480,7 @@ void HttpCommunicator::handleResult(CURL* handle, CURLcode rc) {
                    << " s\n";
 
   if (strlen(rip->_errorBuffer) != 0) {
-    FUERTE_LOG_TRACE << prefix << "curl error details: " << rip->_errorBuffer
+    FUERTE_LOG_HTTPTRACE << prefix << "curl error details: " << rip->_errorBuffer
                      << "\n";
   }
 

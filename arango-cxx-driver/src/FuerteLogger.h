@@ -40,6 +40,10 @@
   #define ENABLE_FUERTE_LOG_VSTTRACE 0
 #endif
 
+#ifndef ENABLE_FUERTE_LOG_HTTPTRACE
+  #define ENABLE_FUERTE_LOG_HTTPTRACE 0
+#endif
+
 #ifndef ENABLE_FUERTE_LOG_CALLBACKS
   #define ENABLE_FUERTE_LOG_CALLBACKS 0
 #endif
@@ -70,6 +74,12 @@
   #define FUERTE_LOG_VSTTRACE std::cout
 #else
   #define FUERTE_LOG_VSTTRACE if (0) std::cout
+#endif
+
+#if ENABLE_FUERTE_LOG_HTTPTRACE > 0
+  #define FUERTE_LOG_HTTPTRACE std::cout
+#else
+  #define FUERTE_LOG_HTTPTRACE if (0) std::cout
 #endif
 
 #if ENABLE_FUERTE_LOG_CALLBACKS > 0
