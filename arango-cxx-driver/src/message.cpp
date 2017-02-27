@@ -150,6 +150,7 @@ void MessageHeader::acceptType(std::string const& type){
   if(!meta){
     meta = mapss();
   }
+  FUERTE_LOG_DEBUG << "setting Accept to: " << type << std::endl;
   meta.get()[fu_accept_key] = type;
 }
 
