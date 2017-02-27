@@ -52,12 +52,11 @@ NAN_METHOD(NConnectionBuilder::connect){
     auto connInstance = Nan::NewInstance(connFunction, argc, argv).ToLocalChecked();
     info.GetReturnValue().Set(connInstance);
   } catch(std::exception const& e){
-    Nan::ThrowError("ConnectionBuilder.connect binding failed with exception"
-                    " - Make sure the server is up and running");
     std::cerr << "## DRIVER LEVEL EXCEPTION - START ##" << std::endl;
     std::cerr << e.what() << std::endl;
     std::cerr << "## DRIVER LEVEL EXCEPTION - END   ##" << std::endl;
-
+    Nan::ThrowError("ConnectionBuilder.connect binding failed with exception"
+                    " - Make sure the server is up and running");
   }
 }
 
@@ -69,7 +68,11 @@ NAN_METHOD(NConnectionBuilder::host){
     unwrapSelf<NConnectionBuilder>(info)->_cppClass.host(to<std::string>(info[0]));
     info.GetReturnValue().Set(info.This());
   } catch(std::exception const& e){
-    Nan::ThrowError("ConnectionBuilder.host binding failed with exception");
+    std::cerr << "## DRIVER LEVEL EXCEPTION - START ##" << std::endl;
+    std::cerr << e.what() << std::endl;
+    std::cerr << "## DRIVER LEVEL EXCEPTION - END   ##" << std::endl;
+    std::string errorMesasge = std::string("ConnectionBuilder.host binding failed with exception: ") + e.what();
+    Nan::ThrowError(errorMesasge.c_str());
   }
 }
 

@@ -68,7 +68,7 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
       _conf._ssl = true;
     }
     else {
-      throw "invalid protocol";
+      throw std::runtime_error(std::string("invalid protocol: ") + proto);
     }
 
     //TODO
