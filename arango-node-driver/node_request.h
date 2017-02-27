@@ -51,6 +51,7 @@ public:
     Nan::SetPrototypeMethod(tpl, "password", NRequest::setPassword);
     Nan::SetPrototypeMethod(tpl, "user", NRequest::setUser);
     Nan::SetPrototypeMethod(tpl, "setContentType", NRequest::setContentType);
+    Nan::SetPrototypeMethod(tpl, "setAcceptType", NRequest::setAcceptType);
 
     Nan::SetPrototypeMethod(tpl, "addParameter", NRequest::addParameter);
     Nan::SetPrototypeMethod(tpl, "addMeta", NRequest::addMeta);
@@ -73,6 +74,7 @@ public:
   static NAN_METHOD(setPassword);
   static NAN_METHOD(setUser);
   static NAN_METHOD(setContentType);
+  static NAN_METHOD(setAcceptType);
 
   static NAN_METHOD(addParameter);
   static NAN_METHOD(addMeta);
@@ -110,6 +112,7 @@ public:
     Nan::SetPrototypeMethod(tpl, "notNull", NResponse::notNull);
 
     Nan::SetPrototypeMethod(tpl, "getContentType", NResponse::getContentType);
+    Nan::SetPrototypeMethod(tpl, "getAcceptType", NResponse::getAcceptType);
     Nan::SetPrototypeMethod(tpl, "getResponseCode", NResponse::getResponseCode);
     Nan::SetPrototypeMethod(tpl, "getMeta", NResponse::getMeta);
     Nan::SetPrototypeMethod(tpl, "payload", NResponse::payload);
@@ -124,6 +127,7 @@ public:
   static NAN_METHOD(notNull);
 
   static NAN_METHOD(getContentType);
+  static NAN_METHOD(getAcceptType);
   static NAN_METHOD(getResponseCode);
   static NAN_METHOD(getMeta);
   static NAN_METHOD(payload);

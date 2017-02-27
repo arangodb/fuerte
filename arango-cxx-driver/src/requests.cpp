@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2016 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2017 ArangoDB GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
@@ -19,75 +19,89 @@
 ///
 /// @author Jan Christoph Uhde
 ////////////////////////////////////////////////////////////////////////////////
-#pragma once
-#ifndef ARANGO_CXX_DRIVER_REQUESTS
-#define ARANGO_CXX_DRIVER_REQUESTS
 
-#include "message.h"
-
-// This file will be a bit messy in the near future
-//
-// Maybe we will use some kind of mpl library that allows us to use named and
-// defaulted arguments (not only at the end of signature) for constructors.
-// The way it is now we need too supply too many different make functions.
-// At the is probably the best to create request manually and fill in the
-// required fields
-//
-
-//
-// Fuerte defaults to VelocyPack for sending and receiving
-//
-
-//
-// should it default to VelocyPack for sending, maybe the contentType
-// should be required when payload is added.
-//
+#include <fuerte/requests.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
 // Helper and Implementation
-
-// base case - everything uses this
 std::unique_ptr<Request>
 createRequest(MessageHeader&& messageHeader
              ,mapss&& headerStrings
              ,RestVerb const& verb
              ,ContentType const& contentType
-             );
+             ){
 
-// wrapper for const paramters
+  auto request = std::unique_ptr<Request>(new Request(std::move(messageHeader),std::move(headerStrings)));
+
+  request->header.restVerb = verb;
+  if (!request->header.type){
+    request->header.type = MessageType::Request;
+  }
+
+  request->header.contentType(contentType);
+  // fuerte requests defualt to vpack content type for accept
+  request->header.acceptType(ContentType::VPack);
+
+  return request;
+}
+
 std::unique_ptr<Request>
 createRequest(MessageHeader const& messageHeader
              ,mapss const& headerStrings
              ,std::string const& database
              ,RestVerb const& verb
              ,ContentType const& contentType
-             );
+             ){
+  MessageHeader header = messageHeader;
+  mapss strings = headerStrings;
+  return createRequest(std::move(header), std::move(strings), database, verb, contentType);
+}
 
 std::unique_ptr<Request>
 createRequest(RestVerb const& verb
              ,ContentType const& contentType
-             );
+             ){
+  return createRequest(MessageHeader(), mapss(), verb, contentType);
+}
 
 // For User
 std::unique_ptr<Request>
 createRequest(RestVerb verb
              ,std::string const& path
              ,mapss const& parameter
-             ,VBuffer&& payload
-             );
+             ,VBuffer&& payload)
+{
+  auto request = createRequest(verb, ContentType::VPack);
+  request->header.path = path;
+  request->header.parameter = parameter;
+  request->addVPack(std::move(payload));
+  return request;
+}
 
 std::unique_ptr<Request>
 createRequest(RestVerb verb
              ,std::string const& path
              ,mapss const& parameter
-             ,VSlice const& payload
-             );
+             ,VSlice const& payload)
+{
+  auto request = createRequest(verb, ContentType::VPack);
+  request->header.path = path;
+  request->header.parameter = parameter;
+  request->addVPack(payload);
+  return request;
+}
 
 std::unique_ptr<Request>
 createRequest(RestVerb verb
              ,std::string const& path
-             ,mapss const& parameter = mapss()
-             );
+             ,mapss const& parameter
+             )
+{
+  auto request = createRequest(verb, ContentType::VPack);
+  request->header.path = path;
+  request->header.parameter = parameter;
+  return request;
+}
+
 }}}
-#endif

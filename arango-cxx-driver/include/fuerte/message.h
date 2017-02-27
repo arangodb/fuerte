@@ -37,6 +37,7 @@ namespace vst {
 }
 
 const std::string fu_content_type_key("content-type");
+const std::string fu_accept_key("accept");
 
 // mabye get rid of optional
 struct MessageHeader {
@@ -56,37 +57,17 @@ struct MessageHeader {
   ::boost::optional<std::string> password;
   ::boost::optional<std::size_t> byteSize; //for debugging
 
-  //get set content type
-  std::string contentTypeString() const {
-    if(!meta){
-      return "";
-    }
+  // content type accessors
+  std::string contentTypeString() const;
+  ContentType contentType() const;
+  void contentType(std::string const& type);
+  void contentType(ContentType type);
 
-    auto& hmap = meta.get();
-    auto found =  hmap.find(fu_content_type_key);
-    if(found == hmap.end()){
-      return "";
-    }
-
-    return found->second;
-  }
-
-  ContentType contentType() const {
-    return to_ContentType(contentTypeString());
-  }
-
-
-  void contentType(std::string const& type){
-    if(!meta){
-      meta = mapss();
-    }
-
-    meta.get()[fu_content_type_key] = type;
-  }
-
-  void contentType(ContentType type){
-    contentType(to_string(type));
-  }
+  // accept header accessors
+  std::string acceptTypeString() const;
+  ContentType acceptType() const;
+  void acceptType(std::string const& type);
+  void acceptType(ContentType type);
 };
 
 std::string to_string(MessageHeader const&);
@@ -146,21 +127,17 @@ public:
   std::vector<VSlice>const & slices();
   std::pair<uint8_t const *, std::size_t> payload(); //as binary
 
-  std::string contentTypeString() const {
-    return header.contentTypeString();
-  }
+  // content-type header accessors
+  std::string contentTypeString() const;
+  ContentType contentType() const;
+  void contentType(std::string const& type);
+  void contentType(ContentType type);
 
-  ContentType contentType() const {
-    return header.contentType();
-  }
-
-  void contentType(std::string const& type){
-    header.contentType(type);
-  }
-
-  void contentType(ContentType type){
-    header.contentType(type);
-  }
+  // accept header accessors
+  std::string acceptTypeString() const;
+  ContentType acceptType() const;
+  void acceptType(std::string const& type);
+  void acceptType(ContentType type);
 
 private:
   VBuffer _payload;

@@ -54,6 +54,7 @@ add_library(fuerte STATIC
     src/collection.cpp
     src/connection.cpp
     src/database.cpp
+    src/requests.cpp
 )
 
 target_link_libraries(fuerte PUBLIC

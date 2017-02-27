@@ -98,6 +98,66 @@ std::string to_string(MessageHeader const& header){
 }
 
 ///////////////////////////////////////////////
+// class MessageHeader
+///////////////////////////////////////////////
+
+// content type accessors
+std::string MessageHeader::contentTypeString() const {
+  if(!meta){
+    return "";
+  }
+  auto& hmap = meta.get();
+  auto found =  hmap.find(fu_content_type_key);
+  if(found == hmap.end()){
+    return "";
+  }
+  return found->second;
+}
+
+ContentType MessageHeader::contentType() const {
+  return to_ContentType(contentTypeString());
+}
+
+void MessageHeader::contentType(std::string const& type){
+  if(!meta){
+    meta = mapss();
+  }
+  meta.get()[fu_content_type_key] = type;
+}
+
+void MessageHeader::contentType(ContentType type){
+  contentType(to_string(type));
+}
+
+// accept header accessors
+std::string MessageHeader::acceptTypeString() const {
+  if(!meta){
+    return "";
+  }
+  auto& hmap = meta.get();
+  auto found =  hmap.find(fu_accept_key);
+  if(found == hmap.end()){
+    return "";
+  }
+  return found->second;
+}
+
+ContentType MessageHeader::acceptType() const {
+  return to_ContentType(acceptTypeString());
+}
+
+void MessageHeader::acceptType(std::string const& type){
+  if(!meta){
+    meta = mapss();
+  }
+  meta.get()[fu_accept_key] = type;
+}
+
+void MessageHeader::acceptType(ContentType type){
+  acceptType(to_string(type));
+}
+
+///////////////////////////////////////////////
 // class Message
 ///////////////////////////////////////////////
 
@@ -211,6 +271,39 @@ std::pair<uint8_t const *, std::size_t> Message::payload(){
 }
 
 
+// content-type header accessors
+std::string Message::contentTypeString() const {
+  return header.contentTypeString();
+}
+
+ContentType Message::contentType() const {
+  return header.contentType();
+}
+
+void Message::contentType(std::string const& type) {
+  header.contentType(type);
+}
+
+void Message::contentType(ContentType type) {
+  header.contentType(type);
+}
+
+// accept header accessors
+std::string Message::acceptTypeString() const {
+  return header.acceptTypeString();
+}
+
+ContentType Message::acceptType() const {
+  return header.acceptType();
+}
+
+void Message::acceptType(std::string const& type) {
+  header.acceptType(type);
+}
+
+void Message::acceptType(ContentType type) {
+  header.acceptType(type);
+}
 
 // ////helper
 // static bool specialHeader(Message& request, std::string const&, std::string const&){

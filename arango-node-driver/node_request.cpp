@@ -176,6 +176,15 @@ NAN_METHOD(NRequest::setContentType){
   }
 }
 
+NAN_METHOD(NRequest::setAcceptType){
+  try {
+    unwrapSelf<NRequest>(info)->_cppClass->acceptType(to<std::string>(info[0]));
+    info.GetReturnValue().Set(info.This());
+  } catch(std::exception const& e){
+    Nan::ThrowError("Request.setUser binding failed with exception");
+  }
+}
+
 NAN_METHOD(NRequest::addParameter){
   try {
     if (info.Length() != 2 ) {
@@ -311,7 +320,20 @@ NAN_METHOD(NResponse::getContentType){
     if(cppClass->contentType() != fu::ContentType::Unset){
       info.GetReturnValue().Set(Nan::New(cppClass->contentTypeString()).ToLocalChecked());
     } else {
-      info.GetReturnValue().Set(Nan::New(fu::to_string(fu::ContentType::VPack)).ToLocalChecked());
+      info.GetReturnValue().Set(Nan::New(fu::to_string(fu::ContentType::Unset)).ToLocalChecked());
+    }
+  } catch(std::exception const& e){
+    Nan::ThrowError("Response.getConentType binding failed with exception");
+  }
+}
+
+NAN_METHOD(NResponse::getAcceptType){
+  try{
+    auto cppClass = unwrapSelf<NResponse>(info)->_cppClass.get();
+    if(cppClass->acceptType() != fu::ContentType::Unset){
+      info.GetReturnValue().Set(Nan::New(cppClass->acceptTypeString()).ToLocalChecked());
+    } else {
+      info.GetReturnValue().Set(Nan::New(fu::to_string(fu::ContentType::Unset)).ToLocalChecked());
     }
   } catch(std::exception const& e){
     Nan::ThrowError("Response.getConentType binding failed with exception");
