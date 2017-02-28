@@ -3,6 +3,8 @@
 conf="$1"
 source_dir="$2"
 
+shift 2
+
 (
 
 cd $source_dir || { echo "failed to cd into source"; exit 1; }
@@ -17,6 +19,16 @@ case $conf in
             --log.level requests=trace \
             ../arangodb-data/
 
+    ;;
+
+    default-gdb)
+        gdb --args ./build/bin/arangod \
+            --server.authentication false \
+            --server.endpoint vst+tcp://127.0.0.1:8530 \
+            --server.endpoint http+tcp://127.0.0.1:8529 \
+            --log.level communication=trace \
+            --log.level requests=trace \
+            ../arangodb-data/
     ;;
 
     nospam)
