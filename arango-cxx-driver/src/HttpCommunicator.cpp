@@ -283,17 +283,13 @@ void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
       // in the response
       case ContentType::VPack: {
         auto slice = VSlice(responseBody.c_str());
-        VBuffer buffer;
-        VBuilder builder(buffer);
-        builder.add(slice);
-        response->addVPack(std::move(buffer));
+        response->addVPack(slice);
         break;
       }
 
       default: {
         VBuffer buffer;
-        VBuilder builder(buffer);
-        builder.add(VValue(responseBody));
+        buffer.append(responseBody);
         response->addBinarySingle(std::move(buffer));
         break;
       }
@@ -338,46 +334,6 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
 
   CURL* handle = handleInProgress->_handle;
   struct curl_slist* requestHeaders = nullptr;
-
-  switch (request->contentType()) {
-
-    //the code below defaults to json - vpack slices are converted to json!
-    case ContentType::Unset:
-    case ContentType::VPack:
-      requestHeaders = curl_slist_append(
-          requestHeaders, (std::string("Content-Type: ") +
-                           to_string(ContentType::VPack)).c_str());
-    break;
-
-    case ContentType::Json:
-    case ContentType::Custom:
-    case ContentType::Html:
-    case ContentType::Text:
-    case ContentType::Dump:
-      requestHeaders = curl_slist_append(
-          requestHeaders, (std::string("Content-Type: ") +
-                           request->contentTypeString()).c_str());
-  }
-
-  switch (request->acceptType()) {
-
-    //the code below defaults to json - vpack slices are converted to json!
-    case ContentType::Unset:
-    case ContentType::VPack:
-      requestHeaders = curl_slist_append(
-          requestHeaders, (std::string("Accept: ") +
-                           to_string(ContentType::VPack)).c_str());
-    break;
-
-    case ContentType::Json:
-    case ContentType::Custom:
-    case ContentType::Html:
-    case ContentType::Text:
-    case ContentType::Dump:
-      requestHeaders = curl_slist_append(
-          requestHeaders, (std::string("Accept: ") +
-                           request->acceptTypeString()).c_str());
-  }
 
   if(request->header.meta){
     for (auto const& header : request->header.meta.get()) {
