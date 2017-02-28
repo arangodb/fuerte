@@ -175,78 +175,87 @@ NAN_METHOD(NConnection::sendRequest) {
                                 ,std::unique_ptr<fu::Request> creq
                                 ,std::unique_ptr<fu::Response> cres)
     {
-      //TODO add node exceptions to callbacks
-      v8::HandleScope scope(iso);
+      try {
+        v8::HandleScope scope(iso);
 
-      auto jsOnErr = v8::Local<v8::Function>();
-      { //create local function and dispose persistent
-        std::lock_guard<std::mutex> lock(maplock);
-        auto& mapElement = callbackMap[id];
-        jsOnErr = v8::Local<v8::Function>::New(iso,mapElement.first);
-        mapElement.first.Reset();
-        mapElement.second.Reset();
-        callbackMap.erase(id);
+        auto jsOnErr = v8::Local<v8::Function>();
+        { //create local function and dispose persistent
+          std::lock_guard<std::mutex> lock(maplock);
+          auto& mapElement = callbackMap[id];
+          jsOnErr = v8::Local<v8::Function>::New(iso,mapElement.first);
+          mapElement.first.Reset();
+          mapElement.second.Reset();
+          callbackMap.erase(id);
+        }
+
+        // wrap request
+        v8::Local<v8::Function> requestProto = v8::Local<v8::Function>::New(iso,NRequest::constructor());
+        auto reqObj = requestProto->NewInstance(iso->GetCurrentContext()).FromMaybe(v8::Local<v8::Object>());
+        unwrap<NRequest>(reqObj)->setCppClass(std::move(creq));
+
+        // wrap response
+        v8::Local<v8::Function> responseProto = v8::Local<v8::Function>::New(iso,NResponse::constructor());
+        auto resObj = responseProto->NewInstance(iso->GetCurrentContext()).FromMaybe(v8::Local<v8::Object>());
+        unwrap<NResponse>(resObj)->setCppClass(std::move(cres));
+
+        // build args
+        const unsigned argc = 3;
+        v8::Local<v8::Value> argv[argc] = { Nan::New<v8::Integer>(err), reqObj, resObj };
+
+        // call
+        jsOnErr->Call(iso->GetCurrentContext(), jsOnErr, argc, argv);
+      } catch (std::exception const& e){
+        std::string errorMesasge("Exception in success callback: ");
+        errorMesasge += e.what();
+        iso->ThrowException(v8::Exception::Error(v8::String::NewFromUtf8(iso,errorMesasge.c_str())));
       }
-
-      // wrap request
-      v8::Local<v8::Function> requestProto = v8::Local<v8::Function>::New(iso,NRequest::constructor());
-      auto reqObj = requestProto->NewInstance(iso->GetCurrentContext()).FromMaybe(v8::Local<v8::Object>());
-      unwrap<NRequest>(reqObj)->setCppClass(std::move(creq));
-
-      // wrap response
-      v8::Local<v8::Function> responseProto = v8::Local<v8::Function>::New(iso,NResponse::constructor());
-      auto resObj = responseProto->NewInstance(iso->GetCurrentContext()).FromMaybe(v8::Local<v8::Object>());
-      unwrap<NResponse>(resObj)->setCppClass(std::move(cres));
-
-      // build args
-      const unsigned argc = 3;
-      v8::Local<v8::Value> argv[argc] = { Nan::New<v8::Integer>(err), reqObj, resObj };
-
-      // call
-      jsOnErr->Call(iso->GetCurrentContext(), jsOnErr, argc, argv);
-
     };
 
     fu::OnSuccessCallback succ = [iso,id](std::unique_ptr<fu::Request> creq
                                    ,std::unique_ptr<fu::Response> cres)
     {
-      //TODO add node exceptions to callbacks
-      v8::HandleScope scope(iso);
+      try {
+        //TODO add node exceptions to callbacks
+        v8::HandleScope scope(iso);
 
-      auto jsOnSucc = v8::Local<v8::Function>();
-      { // create locacl function and dispose persistent
-        std::lock_guard<std::mutex> lock(maplock);
-        auto& mapElement = callbackMap[id];
-        //create local function
-        jsOnSucc = v8::Local<v8::Function>::New(iso,callbackMap[id].second);
+        auto jsOnSucc = v8::Local<v8::Function>();
+        { // create locacl function and dispose persistent
+          std::lock_guard<std::mutex> lock(maplock);
+          auto& mapElement = callbackMap[id];
+          //create local function
+          jsOnSucc = v8::Local<v8::Function>::New(iso,callbackMap[id].second);
 
-        //dispose map element
-        mapElement.first.Reset(); // do not depend on kResetInDestructorFlag of Persistent
-        mapElement.second.Reset();
-        callbackMap.erase(id);
+          //dispose map element
+          mapElement.first.Reset(); // do not depend on kResetInDestructorFlag of Persistent
+          mapElement.second.Reset();
+          callbackMap.erase(id);
+        }
+
+        // wrap request
+        //v8::Local<v8::Function> requestProto = Nan::New(NConnection::constructor()); // with Nan
+        v8::Local<v8::Function> requestProto = v8::Local<v8::Function>::New(iso,NRequest::constructor());
+        //auto reqObj = Nan::NewInstance(requestProto).ToLocalChecked(); // with Nan
+        auto reqObj = requestProto->NewInstance(iso->GetCurrentContext()).ToLocalChecked();
+        unwrap<NRequest>(reqObj)->setCppClass(std::move(creq));
+
+        // wrap response
+        v8::Local<v8::Function> responseProto = v8::Local<v8::Function>::New(iso,NResponse::constructor());
+        auto resObj = responseProto->NewInstance(iso->GetCurrentContext()).ToLocalChecked();
+        unwrap<NResponse>(resObj)->setCppClass(std::move(cres));
+
+        // build args
+        const unsigned argc = 2;
+        v8::Local<v8::Value> argv[argc] = { reqObj, resObj };
+
+        // call
+        //jsOnSucc->Call(v8::Null(iso), argc, argv);
+        jsOnSucc->Call(iso->GetCurrentContext(), jsOnSucc, argc, argv);
+        //jsOnSucc->Call(iso->GetCurrentContext(), iso->GetCurrentContext()->Global(), argc, argv);
+      } catch (std::exception const& e){
+        std::string errorMesasge("Exception in error callback: ");
+        errorMesasge += e.what();
+        iso->ThrowException(v8::Exception::Error(v8::String::NewFromUtf8(iso,errorMesasge.c_str())));
       }
-
-      // wrap request
-      //v8::Local<v8::Function> requestProto = Nan::New(NConnection::constructor()); // with Nan
-      v8::Local<v8::Function> requestProto = v8::Local<v8::Function>::New(iso,NRequest::constructor());
-      //auto reqObj = Nan::NewInstance(requestProto).ToLocalChecked(); // with Nan
-      auto reqObj = requestProto->NewInstance(iso->GetCurrentContext()).ToLocalChecked();
-      unwrap<NRequest>(reqObj)->setCppClass(std::move(creq));
-
-      // wrap response
-      v8::Local<v8::Function> responseProto = v8::Local<v8::Function>::New(iso,NResponse::constructor());
-      auto resObj = responseProto->NewInstance(iso->GetCurrentContext()).ToLocalChecked();
-      unwrap<NResponse>(resObj)->setCppClass(std::move(cres));
-
-      // build args
-      const unsigned argc = 2;
-      v8::Local<v8::Value> argv[argc] = { reqObj, resObj };
-
-      // call
-      //jsOnSucc->Call(v8::Null(iso), argc, argv);
-      jsOnSucc->Call(iso->GetCurrentContext(), jsOnSucc, argc, argv);
-      //jsOnSucc->Call(iso->GetCurrentContext(), iso->GetCurrentContext()->Global(), argc, argv);
-
     };
 
     //finally invoke the c++ callback
