@@ -189,6 +189,7 @@ NAN_METHOD(NRequest::addParameter){
   try {
     if (info.Length() != 2 ) {
       Nan::ThrowTypeError("Wrong number of Arguments");
+      return;
     }
     boost::optional<fu::mapss>& params = unwrapSelf<NRequest>(info)->_cppClass->header.parameter;
     if(!params){
@@ -202,15 +203,20 @@ NAN_METHOD(NRequest::addParameter){
 }
 
 NAN_METHOD(NRequest::addMeta){
-  if (info.Length() != 2 ) {
-    Nan::ThrowTypeError("Wrong number of Arguments");
+  try {
+    if (info.Length() != 2 ) {
+      Nan::ThrowTypeError("Wrong number of Arguments");
+      return;
+    }
+    boost::optional<fu::mapss>& params = unwrapSelf<NRequest>(info)->_cppClass->header.meta;
+    if(!params){
+      params = fu::mapss();
+    }
+    params.get().insert({to<std::string>(info[0]),to<std::string>(info[1])});
+    info.GetReturnValue().Set(info.This());
+  } catch(std::exception const& e){
+    Nan::ThrowError("Request.addMeta binding failed with exception");
   }
-  boost::optional<fu::mapss>& params = unwrapSelf<NRequest>(info)->_cppClass->header.meta;
-  if(!params){
-    params = fu::mapss();
-  }
-  params.get().insert({to<std::string>(info[0]),to<std::string>(info[1])});
-  info.GetReturnValue().Set(info.This());
 }
 
 
@@ -303,11 +309,13 @@ NAN_METHOD(NResponse::getMeta){
         auto done = headers->Set(info.GetIsolate()->GetCurrentContext(),k.ToLocalChecked(),v.ToLocalChecked());
         if(!done.FromJust()){
           Nan::ThrowError("Unable to write meta value to v8 object.");
+          return;
         }
       }
       info.GetReturnValue().Set(headers);
     } else {
       Nan::ThrowError("C++ Response Object is a nullptr");
+      return;
     }
   } catch(std::exception const& e){
     Nan::ThrowError("Reponse.getMeta binding failed with exception");
