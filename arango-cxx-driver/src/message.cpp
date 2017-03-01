@@ -77,9 +77,9 @@ std::string to_string(MessageHeader const& header){
   }
 
   if(header.meta){
-    ss << "meta: ";
+    ss << "meta:\n";
     for(auto const& item : header.meta.get()){
-      ss << item.first <<  " -:- " << item.second << "\n";
+      ss << "\t" << item.first <<  " -:- " << item.second << "\n";
     }
     ss<< std::endl;
   }
@@ -246,7 +246,7 @@ void Message::addBinarySingle(VBuffer&& buffer){
 
 //// get payload
 // get payload as slices
-std::vector<VSlice>const & Message::slices(){
+std::vector<VSlice>const & Message::slices() {
   if(_isVpack && _modified){
     _slices.clear();
     auto length = _payload.byteSize();
@@ -266,7 +266,7 @@ std::vector<VSlice>const & Message::slices(){
 }
 
 // get payload as binary
-std::pair<uint8_t const *, std::size_t> Message::payload(){
+std::pair<uint8_t const *, std::size_t> Message::payload() const {
   //return { _payload.data(), _payload.byteSize() };
   return { _payload.data(), _payloadLength };
 }

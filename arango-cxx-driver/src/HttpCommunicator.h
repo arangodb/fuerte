@@ -75,17 +75,17 @@ class HttpCommunicator {
   ~HttpCommunicator();
 
  public:
-  void queueRequest(Destination, std::unique_ptr<Request>, Callbacks);
+  uint64_t queueRequest(Destination, std::unique_ptr<Request>, Callbacks);
   int workOnce();
   void wait();
 
  private:
   struct NewRequest {
     Destination _destination;
-    std::unique_ptr<Request> _request;
+    std::unique_ptr<Request> _fuRequest;
     Callbacks _callbacks;
     Options _options;
-    Ticket _ticketId;
+    //Ticket _ticketId;
   };
 
   class RequestInProgress {
@@ -164,6 +164,7 @@ class HttpCommunicator {
 
  private:
   std::mutex _newRequestsLock;
+  std::mutex _curlLock;
   std::vector<NewRequest> _newRequests;
 
   std::unordered_map<uint64_t, std::unique_ptr<CurlHandle>> _handlesInProgress;

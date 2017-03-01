@@ -60,11 +60,27 @@ std::string to_string(std::vector<VSlice> const& slices){
       ss << to_string(slice);
     }
   } else {
-    ss << "empty" << std::endl;
+    ss << "empty";
   }
+  ss << "\n";
+  return ss.str();
+}
 
-  ss << std::endl;
-
+//message is not const because message.slices is not
+std::string to_string(Message& message){
+  std::stringstream ss;
+  ss << "\n#### Message #####################################\n";
+  ss << "Id:" <<  message.messageid << "\n";
+  ss << "Header:\n";
+  ss << to_string(message.header);
+  ss << "\nBody:\n";
+  if(message.contentType() == ContentType::VPack){
+    ss << to_string(message.slices());
+  } else {
+    ss << message.payloadAsString();
+  }
+  ss << "\n";
+  ss << "##################################################\n";
   return ss.str();
 }
 

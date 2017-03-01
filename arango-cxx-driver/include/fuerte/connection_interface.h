@@ -24,6 +24,7 @@
 #define ARANGO_CXX_DRIVER_CONNECTION_INTERFACE
 
 #include "message.h"
+#include "../src/FuerteLogger.h"
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
 class ConnectionInterface {

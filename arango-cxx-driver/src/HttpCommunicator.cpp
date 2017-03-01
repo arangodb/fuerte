@@ -27,6 +27,10 @@
 #include <velocypack/Parser.h>
 #include <cassert>
 #include <sstream>
+#include <atomic>
+#include <cassert>
+
+#include <fuerte/helper.h>
 
 namespace arangodb {
 namespace fuerte {
@@ -77,6 +81,13 @@ HttpCommunicator::HttpCommunicator() : _curl(nullptr) {
 }
 
 HttpCommunicator::~HttpCommunicator() {
+  FUERTE_LOG_HTTPTRACE << "DESTROYING COMMUNICATOR" << std::endl;
+  if(! _handlesInProgress.empty()){
+    FUERTE_LOG_HTTPTRACE << "DESTROYING CONNECTION WITH: "
+                         << _handlesInProgress.size()
+                         << " outstanding requests!"
+                         << std::endl;
+  }
   ::curl_multi_cleanup(_curl);
   ::curl_global_cleanup();
 }
@@ -85,29 +96,35 @@ HttpCommunicator::~HttpCommunicator() {
 // --SECTION--                                                    public methods
 // -----------------------------------------------------------------------------
 
-void HttpCommunicator::queueRequest(Destination destination,
+uint64_t HttpCommunicator::queueRequest(Destination destination,
                                     std::unique_ptr<Request> request,
                                     Callbacks callbacks) {
-  static uint64_t ticketId =
-      std::chrono::duration_cast<std::chrono::microseconds>(
-          std::chrono::steady_clock::now().time_since_epoch())
-          .count();
+  FUERTE_LOG_HTTPTRACE << "queueRequest - start" << std::endl;
+  static std::atomic<uint64_t> ticketId(0);
+      //std::chrono::duration_cast<std::chrono::microseconds>(
+      //    std::chrono::steady_clock::now().time_since_epoch())
+      //    .count();
+  uint64_t thisId = ++ticketId;
 
+  request->messageid = thisId;
   NewRequest newRequest;
 
   newRequest._destination = destination;
-  newRequest._request.reset(request.release());
+  newRequest._fuRequest.reset(request.release());
   newRequest._callbacks = callbacks;
 
   {
     std::lock_guard<std::mutex> guard(_newRequestsLock);
 
-    newRequest._ticketId = ticketId++;
+    //newRequest._ticketId = ticketId;
     _newRequests.emplace_back(std::move(newRequest));
   }
+  FUERTE_LOG_HTTPTRACE << "queueRequest - end" << std::endl;
+  return thisId;
 }
 
 int HttpCommunicator::workOnce() {
+  FUERTE_LOG_HTTPTRACE << "WORK ONCE\n";
   std::vector<NewRequest> newRequests;
 
   {
@@ -164,12 +181,12 @@ void HttpCommunicator::wait() {
 
 int HttpCommunicator::curlDebug(CURL* handle, curl_infotype type, char* data,
                                 size_t size, void* userptr) {
-  RequestInProgress* request = nullptr;
-  curl_easy_getinfo(handle, CURLINFO_PRIVATE, &request);
+  RequestInProgress* inprogress = nullptr;
+  curl_easy_getinfo(handle, CURLINFO_PRIVATE, &inprogress);
 
   std::string dataStr(data, size);
   std::string prefix("Communicator(" +
-                     std::to_string(request->_request._ticketId) + "): ");
+                     std::to_string(inprogress->_request._fuRequest->messageid) + "): ");
 
   switch (type) {
     case CURLINFO_TEXT:
@@ -229,6 +246,7 @@ void HttpCommunicator::logHttpHeaders(std::string const& prefix,
   }
 }
 
+// stores headers in _responseHeaders (lowercase)
 size_t HttpCommunicator::readHeaders(char* buffer, size_t size, size_t nitems,
                                      void* userptr) {
   size_t realsize = size * nitems;
@@ -244,7 +262,6 @@ size_t HttpCommunicator::readHeaders(char* buffer, size_t size, size_t nitems,
     rip->_responseHeaders.emplace(
         key, header.substr(pivot + 2, header.length() - pivot - 4));
   }
-
   return realsize;
 }
 
@@ -330,13 +347,13 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
   // ownership for rip
   auto rip = new RequestInProgress(std::move(newRequest));
   std::unique_ptr<CurlHandle> handleInProgress(new CurlHandle(rip));
-  fuerte::Request* request = rip->_request._request.get();
+  fuerte::Request* fuRequest = rip->_request._fuRequest.get();
 
   CURL* handle = handleInProgress->_handle;
   struct curl_slist* requestHeaders = nullptr;
 
-  if(request->header.meta){
-    for (auto const& header : request->header.meta.get()) {
+  if(fuRequest->header.meta){
+    for (auto const& header : fuRequest->header.meta.get()) {
       std::string thisHeader(header.first + ": " + header.second);
       requestHeaders = curl_slist_append(requestHeaders, thisHeader.c_str());
     }
@@ -379,7 +396,7 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
       static_cast<long>(rip->_request._options.requestTimeout * 1000));
   curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT, connectTimeout);
 
-  auto verb = request->header.restVerb.get();
+  auto verb = fuRequest->header.restVerb.get();
 
   switch (verb) {
     case RestVerb::Post:
@@ -420,7 +437,7 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
   std::string empty("");
   std::string& body = empty;
 
-  auto pay = request->payload();
+  auto pay = fuRequest->payload();
 
   if (pay.second > 0) {
     // https://curl.haxx.se/libcurl/c/CURLOPT_COPYPOSTFIELDS.html
@@ -430,7 +447,7 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
   }
 
   handleInProgress->_rip->_startTime = std::chrono::steady_clock::now();
-  _handlesInProgress.emplace(rip->_request._ticketId,
+  _handlesInProgress.emplace(rip->_request._fuRequest->messageid,
                              std::move(handleInProgress));
   curl_multi_add_handle(_curl, handle);
 }
@@ -446,7 +463,7 @@ void HttpCommunicator::handleResult(CURL* handle, CURLcode rc) {
     return;
   }
 
-  std::string prefix("Communicator(" + std::to_string(rip->_request._ticketId) +
+  std::string prefix("Communicator(" + std::to_string(rip->_request._fuRequest->messageid) +
                      "): ");
 
   FUERTE_LOG_DEBUG << prefix << "curl rc is : " << rc << " after "
@@ -466,15 +483,27 @@ void HttpCommunicator::handleResult(CURL* handle, CURLcode rc) {
         long httpStatusCode = 200;
         curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &httpStatusCode);
 
-        std::unique_ptr<Response> response(new Response());
-        response->header.responseCode = static_cast<unsigned>(httpStatusCode);
-
+        std::unique_ptr<Response> fuResponse(new Response());
+        fuResponse->header.responseCode = static_cast<unsigned>(httpStatusCode);
+        fuResponse->messageid = rip->_request._fuRequest->messageid;
         transformResult(handle, std::move(rip->_responseHeaders),
                         std::move(rip->_responseBody),
-                        dynamic_cast<Response*>(response.get()));
+                        dynamic_cast<Response*>(fuResponse.get()));
 
-          rip->_request._callbacks._onSuccess(std::move(rip->_request._request),
-                                              std::move(response));
+
+          FUERTE_LOG_HTTPTRACE << "CALLING ON SUCESS CALLBACK IN HTTP COMMUNICATOR" << std::endl;
+          auto response_id = fuResponse->messageid;
+          auto request_id = rip->_request._fuRequest->messageid;
+          FUERTE_LOG_HTTPTRACE << "request id: " << request_id << std::endl;
+          FUERTE_LOG_HTTPTRACE << "response id: " << response_id << std::endl;
+          std::cout << "in progress: ";
+          for(auto const& item : _handlesInProgress){
+            std::cout << item.first << " ";
+          }
+          std::cerr << std::endl << to_string(*rip->_request._fuRequest);
+          std::cerr << to_string(*fuResponse);
+          rip->_request._callbacks._onSuccess(std::move(rip->_request._fuRequest),
+                                              std::move(fuResponse));
         break;
       }
 
@@ -485,7 +514,7 @@ void HttpCommunicator::handleResult(CURL* handle, CURLcode rc) {
       case CURLE_SEND_ERROR:
         rip->_request._callbacks._onError(
             static_cast<Error>(ErrorCondition::CouldNotConnect),
-            std::move(rip->_request._request), {nullptr});
+            std::move(rip->_request._fuRequest), {nullptr});
         break;
 
       case CURLE_OPERATION_TIMEDOUT:
@@ -493,22 +522,22 @@ void HttpCommunicator::handleResult(CURL* handle, CURLcode rc) {
       case CURLE_GOT_NOTHING:
         rip->_request._callbacks._onError(
             static_cast<Error>(ErrorCondition::Timeout),
-            std::move(rip->_request._request), {nullptr});
+            std::move(rip->_request._fuRequest), {nullptr});
         break;
 
       default:
         FUERTE_LOG_ERROR << "Curl return " << rc << "\n";
         rip->_request._callbacks._onError(
             static_cast<Error>(ErrorCondition::CurlError),
-            std::move(rip->_request._request), {nullptr});
+            std::move(rip->_request._fuRequest), {nullptr});
         break;
     }
   } catch (...) {
-    _handlesInProgress.erase(rip->_request._ticketId);
+    _handlesInProgress.erase(rip->_request._fuRequest->messageid);
     throw;
   }
 
-  _handlesInProgress.erase(rip->_request._ticketId);
+  _handlesInProgress.erase(rip->_request._fuRequest->messageid);
 }
 }
 }

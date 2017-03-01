@@ -124,8 +124,14 @@ public:
   ///////////////////////////////////////////////
   // get payload
   ///////////////////////////////////////////////
-  std::vector<VSlice>const & slices();
-  std::pair<uint8_t const *, std::size_t> payload(); //as binary
+  std::vector<VSlice>const & slices(); // not const because it updates slices form buffer
+                                       // slices could become a fee standing function
+                                       // it is probably just called once
+  std::pair<uint8_t const *, std::size_t> payload() const; //as binary
+  std::string payloadAsString() const {
+    auto p = payload();
+    return std::string(reinterpret_cast<char const*>(p.first),p.second);
+  }
 
   // content-type header accessors
   std::string contentTypeString() const;

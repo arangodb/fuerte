@@ -37,6 +37,7 @@ class Connection : public std::enable_shared_from_this<Connection> {
   friend class ConnectionBuilder;
 
   public:
+    ~Connection(){ std::cout << "DESTROYING CONNECTION" << std::endl; }
     void restart() { _realConnection->restart(); }
     std::shared_ptr<Database> getDatabase(std::string const& name);
     std::shared_ptr<Database> createDatabase(std::string const& name);

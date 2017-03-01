@@ -25,11 +25,13 @@
 #include <string>
 #include <vector>
 #include <fuerte/types.h>
+#include <fuerte/message.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
 std::string to_string(VSlice const& slice);
 std::string to_string(std::vector<VSlice> const& payload);
+std::string to_string(Message& message);
 mapss sliceToStringMap(VSlice const&);
 
 namespace http {
