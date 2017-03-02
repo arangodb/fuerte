@@ -492,19 +492,21 @@ void HttpCommunicator::handleResult(CURL* handle, CURLcode rc) {
                         dynamic_cast<Response*>(fuResponse.get()));
 
 
-          FUERTE_LOG_HTTPTRACE << "CALLING ON SUCESS CALLBACK IN HTTP COMMUNICATOR" << std::endl;
-          auto response_id = fuResponse->messageid;
-          FUERTE_LOG_HTTPTRACE << "request id: " << request_id << std::endl;
-          FUERTE_LOG_HTTPTRACE << "response id: " << response_id << std::endl;
-          std::cout << "in progress: ";
-          for(auto const& item : _handlesInProgress){
-            std::cout << item.first << " ";
-          }
-          std::cerr << std::endl << to_string(*rip->_request._fuRequest);
-          std::cerr << to_string(*fuResponse);
-          rip->_request._callbacks._onSuccess(std::move(rip->_request._fuRequest),
-                                              std::move(fuResponse));
-          rip->_request._fuRequest = nullptr;
+        auto response_id = fuResponse->messageid;
+#if ENABLE_FUERTE_LOG_HTTPTRACE > 0
+        std::cout << "CALLING ON SUCESS CALLBACK IN HTTP COMMUNICATOR" << std::endl;
+        std::cout << "request id: " << request_id << std::endl;
+        std::cout << "response id: " << response_id << std::endl;
+        std::cout << "in progress: ";
+        for(auto const& item : _handlesInProgress){
+          std::cout << item.first << " ";
+        }
+        std::cout << std::endl << to_string(*rip->_request._fuRequest);
+        std::cout << to_string(*fuResponse);
+#endif
+        rip->_request._callbacks._onSuccess(std::move(rip->_request._fuRequest),
+                                            std::move(fuResponse));
+        rip->_request._fuRequest = nullptr;
         break;
       }
 
