@@ -146,6 +146,15 @@ static std::map<fu::MessageID
 static std::mutex maplock;
 static std::atomic<uint64_t> jsMessageID(0);
 
+const std::string callbackErrorMessage(
+  "##################################################\n"
+  "#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@#\n"
+  "#@Failed to create request instance in callback.@#\n"
+  "#@This could be an error in you JavaScript Code!@#\n"
+  "#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@#\n"
+  "##################################################\n"
+);
+
 NAN_METHOD(NConnection::sendRequest) {
   try {
     if (info.Length() != 3 ) {
@@ -190,12 +199,26 @@ NAN_METHOD(NConnection::sendRequest) {
 
         // wrap request
         v8::Local<v8::Function> requestProto = v8::Local<v8::Function>::New(iso,NRequest::constructor());
-        auto reqObj = requestProto->NewInstance(iso->GetCurrentContext()).FromMaybe(v8::Local<v8::Object>());
+        assert(!requestProto.IsEmpty());
+        v8::Local<v8::Object> reqObj;
+        bool ok = requestProto->NewInstance(iso->GetCurrentContext()).ToLocal(&reqObj);
+        if(!ok) {
+          std::cerr << callbackErrorMessage << std::endl;
+          iso->ThrowException(v8::Exception::Error(v8::String::NewFromUtf8(iso,callbackErrorMessage.c_str())));
+          return;
+        }
         unwrap<NRequest>(reqObj)->setCppClass(std::move(creq));
 
         // wrap response
         v8::Local<v8::Function> responseProto = v8::Local<v8::Function>::New(iso,NResponse::constructor());
-        auto resObj = responseProto->NewInstance(iso->GetCurrentContext()).FromMaybe(v8::Local<v8::Object>());
+        assert(!responseProto.IsEmpty());
+        v8::Local<v8::Object> resObj;
+        ok = responseProto->NewInstance(iso->GetCurrentContext()).ToLocal(&resObj);
+        if(!ok) {
+          std::cerr << callbackErrorMessage << std::endl;
+          iso->ThrowException(v8::Exception::Error(v8::String::NewFromUtf8(iso,callbackErrorMessage.c_str())));
+          return;
+        }
         unwrap<NResponse>(resObj)->setCppClass(std::move(cres));
 
         // build args
@@ -215,6 +238,7 @@ NAN_METHOD(NConnection::sendRequest) {
                                    ,std::unique_ptr<fu::Response> cres)
     {
       try {
+        std::cout << "enter on fuerte-node success callback" << std::endl;
         //TODO add node exceptions to callbacks
         v8::HandleScope scope(iso);
 
@@ -231,16 +255,33 @@ NAN_METHOD(NConnection::sendRequest) {
           callbackMap.erase(id);
         }
 
+            // other ways to do the same
+            // v8::Local<v8::Function> requestProto = Nan::New(NConnection::constructor()); // with Nan
+            // auto reqObj = Nan::NewInstance(requestProto).ToLocalChecked(); // with Nan
+            // auto reqObj = requestProto->NewInstance(iso->GetCurrentContext()).ToLocalChecked(); // should not crash!
+
         // wrap request
-        //v8::Local<v8::Function> requestProto = Nan::New(NConnection::constructor()); // with Nan
         v8::Local<v8::Function> requestProto = v8::Local<v8::Function>::New(iso,NRequest::constructor());
-        //auto reqObj = Nan::NewInstance(requestProto).ToLocalChecked(); // with Nan
-        auto reqObj = requestProto->NewInstance(iso->GetCurrentContext()).ToLocalChecked();
+        assert(!requestProto.IsEmpty());
+        v8::Local<v8::Object> reqObj;
+        bool ok = requestProto->NewInstance(iso->GetCurrentContext()).ToLocal(&reqObj);
+        if(!ok) {
+          std::cerr << callbackErrorMessage << std::endl;
+          iso->ThrowException(v8::Exception::Error(v8::String::NewFromUtf8(iso,callbackErrorMessage.c_str())));
+          return;
+        }
         unwrap<NRequest>(reqObj)->setCppClass(std::move(creq));
 
         // wrap response
         v8::Local<v8::Function> responseProto = v8::Local<v8::Function>::New(iso,NResponse::constructor());
-        auto resObj = responseProto->NewInstance(iso->GetCurrentContext()).ToLocalChecked();
+        assert(!responseProto.IsEmpty());
+        v8::Local<v8::Object> resObj;
+        ok = responseProto->NewInstance(iso->GetCurrentContext()).ToLocal(&resObj);
+        if(!ok) {
+          std::cerr << callbackErrorMessage << std::endl;
+          iso->ThrowException(v8::Exception::Error(v8::String::NewFromUtf8(iso,callbackErrorMessage.c_str())));
+          return;
+        }
         unwrap<NResponse>(resObj)->setCppClass(std::move(cres));
 
         // build args
@@ -263,7 +304,9 @@ NAN_METHOD(NConnection::sendRequest) {
     unwrapSelf<NConnection>(info)->_cppClass->sendRequest(std::move(req), err, succ);
   } catch(std::exception const& e){
     Nan::ThrowError("Connection.sendRequest binding failed with exception");
+    return;
   }
+  std::cout << "exit on fuerte-node success callback" << std::endl;
 }
 
 }}}
