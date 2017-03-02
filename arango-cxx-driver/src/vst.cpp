@@ -20,12 +20,11 @@
 /// @author Jan Christoph Uhde
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <fuerte/helper.h>
 #include <fuerte/types.h>
 #include <fuerte/vst.h>
-#include <fuerte/helper.h>
-#include <velocypack/Validator.h>
 #include <sstream>
-#include "FuerteLogger.h"
+#include <velocypack/Validator.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 

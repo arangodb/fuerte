@@ -26,6 +26,7 @@
 #include <memory>
 #include <mutex>
 #include <atomic>
+#include <fuerte/FuerteLogger.h>
 
 namespace arangodb { namespace fuerte { namespace js {
 
@@ -238,8 +239,7 @@ NAN_METHOD(NConnection::sendRequest) {
                                    ,std::unique_ptr<fu::Response> cres)
     {
       try {
-        std::cout << "enter on fuerte-node success callback" << std::endl;
-        //TODO add node exceptions to callbacks
+        FUERTE_LOG_NODE << "enter on fuerte-node success callback" << std::endl;
         v8::HandleScope scope(iso);
 
         auto jsOnSucc = v8::Local<v8::Function>();
@@ -306,7 +306,7 @@ NAN_METHOD(NConnection::sendRequest) {
     Nan::ThrowError("Connection.sendRequest binding failed with exception");
     return;
   }
-  std::cout << "exit on fuerte-node success callback" << std::endl;
+  FUERTE_LOG_NODE << "exit on fuerte-node success callback" << std::endl;
 }
 
 }}}

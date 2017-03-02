@@ -20,18 +20,18 @@
 /// @author Jan Christoph Uhde
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "FuerteLogger.h"
-#include "VstConnection.h"
-#include <condition_variable>
-#include <fuerte/loop.h>
-#include <fuerte/vst.h>
-#include <fuerte/message.h>
 
+
+#include "VstConnection.h"
 #include <boost/asio/connect.hpp>
 #include <boost/asio/read.hpp>
 #include <boost/asio/write.hpp>
-#include <fuerte/vst.h>
+#include <condition_variable>
+#include <fuerte/FuerteLogger.h>
 #include <fuerte/helper.h>
+#include <fuerte/loop.h>
+#include <fuerte/message.h>
+#include <fuerte/vst.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 

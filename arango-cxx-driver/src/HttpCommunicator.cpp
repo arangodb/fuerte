@@ -135,7 +135,7 @@ int HttpCommunicator::workOnce() {
   for (auto&& newRequest : newRequests) {
     createRequestInProgress(std::move(newRequest));
 
-    std::cout << "CREATE REQUEST\n";
+    FUERTE_LOG_HTTPTRACE << "CREATE REQUEST\n";
   }
 
   int stillRunning;
@@ -240,8 +240,9 @@ void HttpCommunicator::logHttpHeaders(std::string const& prefix,
       break;
     }
 
-    FUERTE_LOG_HTTPTRACE << prefix << " " << headerData.substr(last, n - last)
-                     << "\n";
+    FUERTE_LOG_HTTPTRACE << prefix << " "
+                         << headerData.substr(last, n - last)
+                         << "\n";
     last = n + 2;
   }
 }
@@ -282,12 +283,13 @@ size_t HttpCommunicator::readBody(void* data, size_t size, size_t nitems,
 void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
                                        std::string const& responseBody,
                                        Response* response) {
-
+#if  ENABLE_FUERTE_LOG_HTTPTRACE > 0
   std::cout << "header START" << std::endl;
   for(auto& p : responseHeaders){
     std::cout << p.first << "  " <<p.second << std::endl;
   }
   std::cout << "header END" << std::endl;
+#endif
 
   // no available - response->header.requestType
   auto const& ctype = responseHeaders[fu_content_type_key];

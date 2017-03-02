@@ -26,12 +26,12 @@
 
 #include <fuerte/message.h>
 #include <fuerte/types.h>
+#include <fuerte/FuerteLogger.h>
 
 #include <curl/curl.h>
 #include <chrono>
 #include <mutex>
 
-#include "FuerteLogger.h"
 
 namespace arangodb {
 namespace fuerte {

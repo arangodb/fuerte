@@ -31,7 +31,7 @@
 #include <unordered_map>
 
 #include <fuerte/message.h>
-#include "../../src/FuerteLogger.h"
+#include "FuerteLogger.h"
 
 namespace std {
   class mutex;
