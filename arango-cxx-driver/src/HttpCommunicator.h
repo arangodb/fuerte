@@ -85,7 +85,6 @@ class HttpCommunicator {
     std::unique_ptr<Request> _fuRequest;
     Callbacks _callbacks;
     Options _options;
-    //Ticket _ticketId;
   };
 
   class RequestInProgress {
@@ -164,7 +163,7 @@ class HttpCommunicator {
 
  private:
   std::mutex _newRequestsLock;
-  std::mutex _curlLock;
+  static std::mutex _curlLock;
   std::vector<NewRequest> _newRequests;
 
   std::unordered_map<uint64_t, std::unique_ptr<CurlHandle>> _handlesInProgress;

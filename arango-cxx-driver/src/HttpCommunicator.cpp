@@ -40,6 +40,8 @@ namespace http {
 // --SECTION--                                      constructors and destructors
 // -----------------------------------------------------------------------------
 
+std::mutex HttpCommunicator::_curlLock;
+
 HttpCommunicator::HttpCommunicator() : _curl(nullptr) {
   curl_global_init(CURL_GLOBAL_ALL);
   _curl = curl_multi_init();
@@ -99,31 +101,29 @@ HttpCommunicator::~HttpCommunicator() {
 uint64_t HttpCommunicator::queueRequest(Destination destination,
                                     std::unique_ptr<Request> request,
                                     Callbacks callbacks) {
-  FUERTE_LOG_HTTPTRACE << "queueRequest - start" << std::endl;
+  FUERTE_LOG_HTTPTRACE << "queueRequest - start - at address: " << request.get() << std::endl;
   static std::atomic<uint64_t> ticketId(0);
       //std::chrono::duration_cast<std::chrono::microseconds>(
       //    std::chrono::steady_clock::now().time_since_epoch())
       //    .count();
-  uint64_t thisId = ++ticketId;
-
-  request->messageid = thisId;
   NewRequest newRequest;
-
   newRequest._destination = destination;
-  newRequest._fuRequest.reset(request.release());
+  newRequest._fuRequest = std::move(request);
   newRequest._callbacks = callbacks;
 
   {
     std::lock_guard<std::mutex> guard(_newRequestsLock);
-
-    //newRequest._ticketId = ticketId;
+    uint64_t thisId = ++ticketId;
+    newRequest._fuRequest->messageid = thisId;
     _newRequests.emplace_back(std::move(newRequest));
+    FUERTE_LOG_HTTPTRACE << "queueRequest - end" << std::endl;
+    return thisId;
   }
-  FUERTE_LOG_HTTPTRACE << "queueRequest - end" << std::endl;
-  return thisId;
 }
 
 int HttpCommunicator::workOnce() {
+  std::lock_guard<std::mutex> guard(_curlLock);
+
   FUERTE_LOG_HTTPTRACE << "WORK ONCE\n";
   std::vector<NewRequest> newRequests;
 
@@ -370,7 +370,7 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
   curl_easy_setopt(handle, CURLOPT_HEADERFUNCTION,
                    HttpCommunicator::readHeaders);
   curl_easy_setopt(handle, CURLOPT_HEADERDATA, handleInProgress->_rip.get());
-  curl_easy_setopt(handle, CURLOPT_DEBUGFUNCTION, HttpCommunicator::curlDebug);
+  //curl_easy_setopt(handle, CURLOPT_DEBUGFUNCTION, HttpCommunicator::curlDebug);
   curl_easy_setopt(handle, CURLOPT_DEBUGDATA, handleInProgress->_rip.get());
   curl_easy_setopt(handle, CURLOPT_ERRORBUFFER,
                    handleInProgress->_rip.get()->_errorBuffer);
@@ -477,6 +477,7 @@ void HttpCommunicator::handleResult(CURL* handle, CURLcode rc) {
                      << "\n";
   }
 
+  auto request_id = rip->_request._fuRequest->messageid;
   try {
     switch (rc) {
       case CURLE_OK: {
@@ -493,7 +494,6 @@ void HttpCommunicator::handleResult(CURL* handle, CURLcode rc) {
 
           FUERTE_LOG_HTTPTRACE << "CALLING ON SUCESS CALLBACK IN HTTP COMMUNICATOR" << std::endl;
           auto response_id = fuResponse->messageid;
-          auto request_id = rip->_request._fuRequest->messageid;
           FUERTE_LOG_HTTPTRACE << "request id: " << request_id << std::endl;
           FUERTE_LOG_HTTPTRACE << "response id: " << response_id << std::endl;
           std::cout << "in progress: ";
@@ -504,6 +504,7 @@ void HttpCommunicator::handleResult(CURL* handle, CURLcode rc) {
           std::cerr << to_string(*fuResponse);
           rip->_request._callbacks._onSuccess(std::move(rip->_request._fuRequest),
                                               std::move(fuResponse));
+          rip->_request._fuRequest = nullptr;
         break;
       }
 
@@ -532,12 +533,15 @@ void HttpCommunicator::handleResult(CURL* handle, CURLcode rc) {
             std::move(rip->_request._fuRequest), {nullptr});
         break;
     }
-  } catch (...) {
-    _handlesInProgress.erase(rip->_request._fuRequest->messageid);
+  } catch (std::exception const& e) {
+    _handlesInProgress.erase(request_id);
+    throw e;
+  }  catch (...) {
+    _handlesInProgress.erase(request_id);
     throw;
   }
 
-  _handlesInProgress.erase(rip->_request._fuRequest->messageid);
+  _handlesInProgress.erase(request_id);
 }
 }
 }
