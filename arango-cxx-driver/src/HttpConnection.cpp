@@ -43,9 +43,13 @@ MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request,
                                  OnSuccessCallback onSuccess){
   Callbacks callbacks(onSuccess, onError);
 
-  Destination destination =
-      (_configuration._ssl ? "https://" : "http://") + _configuration._host +
-      ":" + _configuration._port + request->header.path.get();
+  std::string dbString = (request->header.database) ? std::string("/_db/") + request->header.database.get() : std::string("");
+  Destination destination = (_configuration._ssl ? "https://" : "http://")
+                          + _configuration._host
+                          + ":"
+                          + _configuration._port
+                          + dbString
+                          + request->header.path.get();
 
   auto const& parameter = request->header.parameter;
 
