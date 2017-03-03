@@ -51,6 +51,7 @@ static void usage(char const* name) {
             << "  --method GET|PUT|...\n"
             << "  --parameter force true\n"
             << "  --meta x-arango-async store\n"
+            << " example: fuerte-get --host vst://127.0.0.1:8530 --path /_api/document/profiles/P45476 --method GET"
             << std::endl;
   // clang-format on
 }
@@ -144,15 +145,7 @@ int main(int argc, char* argv[]) {
                         std::unique_ptr<Response> response) {
     std::cout << "--------------------------------------------------------------------------" << std::endl;
     std::cout << "received result:\n"
-              << "request header:\n"
-              << arangodb::fuerte::to_string(request->header)
-              << "request - payload:\n"
-              << fu::to_string(request->slices())
-              << "---\n"
-              << "response header:\n"
-              << arangodb::fuerte::to_string(response->header)
-              << "response - payload:\n"
-              << fu::to_string(response->slices())
+              << (response ? fu::to_string(*response) : "no response")
               << std::endl;
   };
 
@@ -162,7 +155,7 @@ int main(int argc, char* argv[]) {
     std::cout << "received error: " << err << std::endl
               << to_string(request->header)
               << "request payload:"
-              << fu::to_string(request->slices())
+              << (response ? fu::to_string(*response) : "no response")
               << std::endl;
   };
 
@@ -174,7 +167,11 @@ int main(int argc, char* argv[]) {
   for (size_t i = 0; i < 1; ++i) {
     try {
       auto request = arangodb::fuerte::createRequest(method, path, parameter, vbuilder.slice());
-      connection->sendRequest(std::move(request), errCallback, resCallback);
+      std::cout << "Sending Request (messageid will be replaced)"
+                << fu::to_string(*request) << std::endl;
+
+      auto id = connection->sendRequest(std::move(request), errCallback, resCallback);
+      std::cout << "Request was assigned ID: " << id << std::endl;
     } catch (std::exception const& ex) {
       std::cerr << "exception: " << ex.what() << std::endl;
       exit(EXIT_FAILURE);
