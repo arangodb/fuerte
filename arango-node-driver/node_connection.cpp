@@ -35,13 +35,17 @@ namespace arangodb { namespace fuerte { namespace js {
 // NConnectionBuilder /////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 NAN_METHOD(NConnectionBuilder::New) {
-  if (info.IsConstructCall()) {
+  try {
+    if (info.IsConstructCall()) {
       NConnectionBuilder* obj = new NConnectionBuilder();
       obj->Wrap(info.This());
       info.GetReturnValue().Set(info.This());
-  } else {
-    v8::Local<v8::Function> builder = Nan::New(constructor());
-    info.GetReturnValue().Set(Nan::NewInstance(builder).ToLocalChecked());
+    } else {
+      v8::Local<v8::Function> builder = Nan::New(constructor());
+      info.GetReturnValue().Set(Nan::NewInstance(builder).ToLocalChecked());
+    }
+ } catch(std::exception const& e){
+   Nan::ThrowError("ConnectionBuilder.New binding failed with exception");
  }
 }
 
@@ -50,7 +54,13 @@ NAN_METHOD(NConnectionBuilder::connect){
     v8::Local<v8::Function> connFunction = Nan::New(NConnection::constructor());
     const int argc = 1;
     v8::Local<v8::Value> argv[argc] = {info.This()};
-    auto connInstance = Nan::NewInstance(connFunction, argc, argv).ToLocalChecked();
+    v8::Local<v8::Object> connInstance;
+    bool ok = Nan::NewInstance(connFunction, argc, argv).ToLocal(&connInstance);
+    if(!ok){
+      Nan::ThrowError("ConnectionBuilder.connect binding failed with exception"
+                      " - please check connection parameters and server");
+      return;
+    }
     info.GetReturnValue().Set(connInstance);
   } catch(std::exception const& e){
     std::cerr << "## DRIVER LEVEL EXCEPTION - START ##" << std::endl;
@@ -118,17 +128,25 @@ NAN_METHOD(NConnectionBuilder::password){
 // NConnection ////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 NAN_METHOD(NConnection::New) {
-  if (info.IsConstructCall()) {
-    NConnection* obj = new NConnection();
-    if(info[0]->IsObject()){ // NConnectionBuilderObject -- exact type check?
-      obj->_cppClass = unwrap<NConnectionBuilder>(info[0])->_cppClass.connect();
+  try {
+    if (info.IsConstructCall()) {
+      NConnection* obj = new NConnection();
+      if(info[0]->IsObject()){ // NConnectionBuilderObject -- exact type check?
+        obj->_cppClass = unwrap<NConnectionBuilder>(info[0])->_cppClass.connect();
+        if(obj->_cppClass == nullptr){
+          Nan::ThrowError("Connection.New binding failed with exception - check connetction string");
+          return;
+        }
+      }
+      obj->Wrap(info.This());
+      info.GetReturnValue().Set(info.This());
+    } else {
+      v8::Local<v8::Function> cons = Nan::New(constructor());
+      info.GetReturnValue().Set(Nan::NewInstance(cons).ToLocalChecked());
     }
-    obj->Wrap(info.This());
-    info.GetReturnValue().Set(info.This());
-  } else {
-    v8::Local<v8::Function> cons = Nan::New(constructor());
-    info.GetReturnValue().Set(Nan::NewInstance(cons).ToLocalChecked());
- }
+  } catch(std::exception const& e){
+    Nan::ThrowError("Connection.New binding failed with exception");
+  }
 }
 
 
