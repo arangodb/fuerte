@@ -83,6 +83,7 @@ public:
          ,mapss&& headerStrings = mapss()
          )
          :header(std::move(messageHeader))
+         ,messageid(123456789)
          ,_sealed(false)
          ,_modified(true)
          ,_isVpack(boost::none)
@@ -98,6 +99,7 @@ public:
          ,mapss const& headerStrings
          )
          :header(messageHeader)
+         ,messageid(123456789)
          ,_sealed(false)
          ,_modified(true)
          ,_isVpack(boost::none)
