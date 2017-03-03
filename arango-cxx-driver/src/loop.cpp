@@ -55,8 +55,18 @@ void Loop::run_ready(){
   if(!_owning){
     return;
   }
+  FUERTE_LOG_DEBUG << "fuerte - asio: run() [to completion (single thread mode)]" << std::endl;
   _singleRunMode=true;
-  _service->run();
+  try{
+    std::cout.flush();
+    _service->run();
+  } catch (std::exception const& e) {
+    FUERTE_LOG_ERROR << "error during run: " << e.what() << std::endl;
+    throw e;
+  } catch (...) {
+    FUERTE_LOG_ERROR << "error during run: " << std::endl;
+    throw;
+  }
   _service->reset();
   _singleRunMode=false;
 }
@@ -66,7 +76,19 @@ void Loop::poll(){
   if(!_owning){
     return;
   }
-  _service->poll();
+#if ENABLE_FUERTE_LOG_CALLBACKS > 0
+  FUERTE_LOG_DEBUG << "fuerte - asio: poll()" << std::endl;
+#endif
+  FUERTE_LOG_CALLBACKS << "P" << std::endl;
+  try{
+    _service->poll();
+  } catch (std::exception const& e) {
+    FUERTE_LOG_ERROR << "error during poll: " << e.what() << std::endl;
+    throw e;
+  } catch (...) {
+    FUERTE_LOG_ERROR << "error during poll: " << std::endl;
+    throw;
+  }
 }
 
 void Loop::reset(){
@@ -120,7 +142,7 @@ void LoopProvider::run(){
   }
 
   //poll http -- spins busy for http
-  if(_httpLoop && mutex.try_lock()){
+  if(_httpLoop && _httpLoop->used() && mutex.try_lock()){
     while (true) {
       int left = _httpLoop->workOnce(); // check if there is still somehting to do
       if (left == 0) { break; }
