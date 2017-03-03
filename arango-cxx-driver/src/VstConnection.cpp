@@ -67,7 +67,10 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
     Lock lockQueue(_sendQueueMutex);
     doWrite = _sendQueue.empty();
     _sendQueue.push_back(item);
-    FUERTE_LOG_CALLBACKS << "request queued" << std::endl;
+#if ENABLE_FUERTE_LOG_CALLBACKS < 0
+    FUERTE_LOG_DEBUG << "queue request" << std::endl;
+#endif
+    FUERTE_LOG_CALLBACKS << "q";
   }
 
   if(doWrite){
@@ -304,10 +307,14 @@ void VstConnection::startRead(){
   // gets data from network and fill
   _deadline.expires_from_now(boost::posix_time::seconds(30));
   FUERTE_LOG_CALLBACKS << "r";
+#if ENABLE_FUERTE_LOG_CALLBACKS > 0
+  std::cout.flush();
+#endif
+  std::cout << mapToKeys(_messageMap) << std::endl;
   auto self = shared_from_this();
   ba::async_read(*_socket
                 ,_receiveBuffer
-                ,ba::transfer_at_least(4)
+                ,ba::transfer_at_least(1)
                 ,[this,self](const boost::system::error_code& error, std::size_t transferred){
                    handleRead(error,transferred);
                  }
@@ -374,8 +381,10 @@ std::tuple<bool,std::shared_ptr<RequestItem>,std::size_t> VstConnection::process
     return std::tuple<bool,RequestItemSP,std::size_t>(nextChunkAvailable, std::move(item), vstChunkHeader._chunkLength);
   } else if (!vstChunkHeader._isFirst){
     //there is chunk that continues a message
+    assert(item->_responseChunk == vstChunkHeader._numberOfChunks); // 0 based counting
     item->_responseChunk++;
-    if(item->_responseChunks == vstChunkHeader._numberOfChunks){ //last chunk reached
+    FUERTE_LOG_VSTTRACE << "cunk: " << vstChunkHeader._numberOfChunks << "/" << item->_responseChunks << std::endl;
+    if(item->_responseChunks == item->_responseChunk){ //last chunk reached
       FUERTE_LOG_VSTTRACE << "adding multi chunk " << std::endl;
       // TODO TODO TODO TODO should multichunk not be working start looking here!!!!!!!
       // the VPackBuffer is unable to track how much has been written to it. Maybe this is
