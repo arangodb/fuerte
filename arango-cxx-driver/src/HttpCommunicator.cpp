@@ -42,7 +42,7 @@ namespace http {
 
 std::mutex HttpCommunicator::_curlLock;
 
-HttpCommunicator::HttpCommunicator() : _curl(nullptr) {
+HttpCommunicator::HttpCommunicator() : _curl(nullptr), _useCount(0) {
   curl_global_init(CURL_GLOBAL_ALL);
   _curl = curl_multi_init();
 
@@ -124,7 +124,7 @@ uint64_t HttpCommunicator::queueRequest(Destination destination,
 int HttpCommunicator::workOnce() {
   std::lock_guard<std::mutex> guard(_curlLock);
 
-  FUERTE_LOG_HTTPTRACE << "WORK ONCE\n";
+  FUERTE_LOG_DEBUG << "fuerte - HttpCommunicator: work once" << std::endl;
   std::vector<NewRequest> newRequests;
 
   {
@@ -366,14 +366,16 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
   curl_easy_setopt(handle, CURLOPT_HTTPHEADER, requestHeaders);
   curl_easy_setopt(handle, CURLOPT_HEADER, 0L);
   curl_easy_setopt(handle, CURLOPT_URL, url.c_str());
-  curl_easy_setopt(handle, CURLOPT_VERBOSE, 1L);
   curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, HttpCommunicator::readBody);
   curl_easy_setopt(handle, CURLOPT_WRITEDATA, handleInProgress->_rip.get());
   curl_easy_setopt(handle, CURLOPT_HEADERFUNCTION,
                    HttpCommunicator::readHeaders);
   curl_easy_setopt(handle, CURLOPT_HEADERDATA, handleInProgress->_rip.get());
-  //curl_easy_setopt(handle, CURLOPT_DEBUGFUNCTION, HttpCommunicator::curlDebug);
+#if ENABLE_FUERTE_LOG_HTTPRACE > 0
+  curl_easy_setopt(handle, CURLOPT_DEBUGFUNCTION, HttpCommunicator::curlDebug);
   curl_easy_setopt(handle, CURLOPT_DEBUGDATA, handleInProgress->_rip.get());
+  curl_easy_setopt(handle, CURLOPT_VERBOSE, 1L);
+#endif
   curl_easy_setopt(handle, CURLOPT_ERRORBUFFER,
                    handleInProgress->_rip.get()->_errorBuffer);
 

@@ -36,7 +36,13 @@ using namespace arangodb::fuerte::detail;
 HttpConnection::HttpConnection(ConnectionConfiguration const& configuration)
     : _communicator(LoopProvider::getProvider().getHttpLoop())
     , _configuration(configuration)
-    {}
+    {
+      _communicator->addUser();
+    }
+
+HttpConnection::~HttpConnection(){
+      _communicator->delUser();
+}
 
 MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request,
                                  OnErrorCallback onError,

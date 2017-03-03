@@ -32,6 +32,7 @@
 #include <chrono>
 #include <mutex>
 
+#include <atomic>
 
 namespace arangodb {
 namespace fuerte {
@@ -78,6 +79,9 @@ class HttpCommunicator {
   uint64_t queueRequest(Destination, std::unique_ptr<Request>, Callbacks);
   int workOnce();
   void wait();
+  bool used(){ return _useCount; }
+  uint64_t addUser(){ return ++_useCount; }
+  uint64_t delUser(){ return --_useCount; }
 
  private:
   struct NewRequest {
@@ -170,6 +174,8 @@ class HttpCommunicator {
   CURLM* _curl;
   CURLMcode _mc;
   curl_waitfd _wakeup;
+  std::atomic<uint64_t> _useCount;
+
 #ifdef _WIN32
   SOCKET _socks[2];
 #else

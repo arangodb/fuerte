@@ -37,6 +37,7 @@ namespace http {
 class HttpConnection : public ConnectionInterface {
  public:
   explicit HttpConnection(detail::ConnectionConfiguration const&);
+  ~HttpConnection();
 
  public:
   MessageID sendRequest(std::unique_ptr<Request>, OnErrorCallback,
