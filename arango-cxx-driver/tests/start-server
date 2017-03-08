@@ -21,6 +21,17 @@ case $conf in
 
     ;;
 
+    debug)
+        ./build/bin/arangod \
+            --server.authentication false \
+            --server.endpoint vst+tcp://127.0.0.1:8530 \
+            --server.endpoint http+tcp://127.0.0.1:8529 \
+            --log.level communication=debug \
+            --log.level requests=debug \
+            ../arangodb-data/
+
+    ;;
+
     default-gdb)
         gdb --args ./build/bin/arangod \
             --server.authentication false \
