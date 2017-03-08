@@ -24,7 +24,10 @@
 #include <fuerte/types.h>
 #include <fuerte/vst.h>
 #include <sstream>
+
 #include <velocypack/Validator.h>
+#include <velocypack/HexDump.h>
+#include <velocypack/velocypack-aliases.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
@@ -33,10 +36,8 @@ using VValidator = ::arangodb::velocypack::Validator;
 // sending vst
 ///////////////////////////////////////////////////////////////////////////////////
 
-
 // ### not exported ###############################################################
 // sending vst
-
 static std::string chunkHeaderToString(ChunkHeader const& header){
   std::stringstream ss;
   ss << "### ChunkHeader ###"
@@ -391,8 +392,10 @@ MessageHeader validateAndExtractMessageHeader(int const& vstVersionID, uint8_t c
   try {
     // isSubPart allows the slice to be shorter than the checked buffer.
     validator.validate(vpStart, length , isSubPart);
+    FUERTE_LOG_VSTTRACE << "validation done" << std::endl;
   } catch (std::exception const& e) {
-    throw std::runtime_error(std::string("error during validation of incoming VPack: ") + e.what());
+    FUERTE_LOG_VSTTRACE << "len: " << length << std::string(reinterpret_cast<char const*>(vpStart), length);
+    throw std::runtime_error(std::string("error during validation of incoming VPack (HEADER): ") + e.what());
   }
   slice = VSlice(vpStart);
   headerLength = slice.byteSize();
@@ -412,11 +415,12 @@ std::size_t validateAndCount(uint8_t const * const vpStart, std::size_t length){
 
 
   FUERTE_LOG_VSTTRACE << "sliceSizes: ";
+  VSlice slice;
   while (length) {
     try {
       // isSubPart allows the slice to be shorter than the checked buffer.
       validator.validate(cursor, length , isSubPart);
-      VSlice slice(cursor);
+      slice = VSlice(cursor);
       auto sliceSize = slice.byteSize();
       if(length < sliceSize){
         throw std::length_error("slice is longer than buffer");
@@ -426,7 +430,9 @@ std::size_t validateAndCount(uint8_t const * const vpStart, std::size_t length){
       numPayloads++;
       FUERTE_LOG_VSTTRACE << sliceSize << " ";
     } catch (std::exception const& e) {
-      throw std::runtime_error(std::string("error during validation of incoming VPack ") + e.what());
+      FUERTE_LOG_VSTTRACE << "len: " << length << VPackHexDump(slice);
+      FUERTE_LOG_VSTTRACE << "len: " << length << std::string(reinterpret_cast<char const*>(cursor), length);
+      throw std::runtime_error(std::string("error during validation of incoming VPack (body)") + e.what());
     }
   }
   FUERTE_LOG_VSTTRACE << std::endl;

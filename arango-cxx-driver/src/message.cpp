@@ -25,6 +25,10 @@
 #include <velocypack/Validator.h>
 #include <sstream>
 
+#ifdef FUERTE_CHECKED_MODE
+  #include <fuerte/vst.h>
+#endif
+
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
 std::string to_string(MessageHeader const& header){
@@ -165,6 +169,10 @@ void MessageHeader::acceptType(ContentType type){
 //// add payload
 // add VelocyPackData
 void Message::addVPack(VSlice const& slice){
+#ifdef FUERTE_CHECKED_MODE
+  //FUERTE_LOG_ERROR << "Checking data that is added to the message: " << std::endl;
+  vst::validateAndCount(slice.start(),slice.byteSize());
+#endif
   if(_sealed || (_isVpack && !_isVpack.get())){
     throw std::logic_error("Message is sealed or of wrong type (vst/binary)");
   };
@@ -182,6 +190,10 @@ void Message::addVPack(VSlice const& slice){
 }
 
 void Message::addVPack(VBuffer const& buffer){
+#ifdef FUERTE_CHECKED_MODE
+  //FUERTE_LOG_ERROR << "Checking data that is added to the message: " << std::endl;
+  vst::validateAndCount(buffer.data(),buffer.byteSize());
+#endif
   if(_sealed || (_isVpack && !_isVpack.get())){
     throw std::logic_error("Message is sealed or of wrong type (vst/binary)");
   };
@@ -211,6 +223,10 @@ void Message::addVPack(VBuffer const& buffer){
 }
 
 void Message::addVPack(VBuffer&& buffer){
+#ifdef FUERTE_CHECKED_MODE
+  //FUERTE_LOG_ERROR << "Checking data that is added to the message: " << std::endl;
+  vst::validateAndCount(buffer.data(),buffer.byteSize());
+#endif
   if(_sealed || _isVpack){
     throw std::logic_error("Message is sealed or of wrong type (vst/binary)");
   };

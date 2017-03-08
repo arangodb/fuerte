@@ -131,6 +131,7 @@ std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
 
 VstConnection::VstConnection(ConnectionConfiguration const& configuration)
     : _asioLoop(getProvider().getAsioLoop())
+    , _messageId(0)
     , _ioService(_asioLoop->getIoService())
     , _socket(nullptr)
     , _context(bs::context::method::sslv23)
@@ -308,13 +309,13 @@ void VstConnection::startRead(){
   _deadline.expires_from_now(boost::posix_time::seconds(30));
   FUERTE_LOG_CALLBACKS << "r";
 #if ENABLE_FUERTE_LOG_CALLBACKS > 0
+  std::cout << mapToKeys(_messageMap) << std::endl;
   std::cout.flush();
 #endif
-  std::cout << mapToKeys(_messageMap) << std::endl;
   auto self = shared_from_this();
   ba::async_read(*_socket
                 ,_receiveBuffer
-                ,ba::transfer_at_least(1)
+                ,ba::transfer_at_least(4)
                 ,[this,self](const boost::system::error_code& error, std::size_t transferred){
                    handleRead(error,transferred);
                  }
@@ -416,6 +417,7 @@ void VstConnection::processCompleteItem(std::shared_ptr<RequestItem>&& itempoint
   itemLength -= messageHeaderLength;
 
   auto response = std::unique_ptr<Response>(new Response(std::move(messageHeader)));
+  response->messageid = itempointer->_messageId;
   // finally add payload
 
   // avoiding the copy would imply that we mess with offsets
@@ -539,10 +541,16 @@ void VstConnection::startWrite(bool possiblyEmpty){
   // make sure we are connected and handshake has been done
   auto self = shared_from_this();
   auto data = *next->_requestBuffer;
+#ifdef FUERTE_CHECKED_MODE
+  FUERTE_LOG_ERROR << "Checking outgoing data for message: " << next->_messageId << std::endl;
+  auto vstChunkHeader = vst::readChunkHeaderV1_0(data.data());
+  validateAndCount(data.data() + vstChunkHeader._chunkHeaderLength
+                  ,data.byteSize() - vstChunkHeader._chunkHeaderLength);
+#endif
   FUERTE_LOG_CALLBACKS << data.byteSize();
   ba::async_write(*_socket
                  ,ba::buffer(data.data(),data.byteSize())
-                 ,[this,self,next,data](BoostEC const& error, std::size_t transferred){
+                 ,[this,self,next](BoostEC const& error, std::size_t transferred){
                     this->handleWrite(error,transferred, next);
                   }
                  );
