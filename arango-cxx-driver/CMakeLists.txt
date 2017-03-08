@@ -57,6 +57,11 @@ add_library(fuerte STATIC
     src/requests.cpp
 )
 
+if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+    message(STATUS "Enabling Fuerte checked mode: -DFUERTE_CHECKED_MODE")
+    target_compile_definitions(fuerte PUBLIC "FUERTE_CHECKED_MODE" )
+endif()
+
 target_link_libraries(fuerte PUBLIC
     velocypack
     curlpp
