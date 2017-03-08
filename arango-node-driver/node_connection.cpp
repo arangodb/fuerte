@@ -27,6 +27,7 @@
 #include <mutex>
 #include <atomic>
 #include <fuerte/FuerteLogger.h>
+#include <fuerte/helper.h>
 
 namespace arangodb { namespace fuerte { namespace js {
 
@@ -204,8 +205,15 @@ NAN_METHOD(NConnection::sendRequest) {
                                 ,std::unique_ptr<fu::Response> cres)
     {
       try {
+#if ENABLE_FUERTE_LOG_NODE > 0
+        if(creq->header.responseCode && creq->header.responseCode.get() >= 400){
+          std::cout << "response code >= 400\n"
+                    << fu::to_string(*creq)
+                    << fu::to_string(*cres)
+                    << std::endl;
+        }
+#endif
         v8::HandleScope scope(iso);
-
         auto jsOnErr = v8::Local<v8::Function>();
         { //create local function and dispose persistent
           std::lock_guard<std::mutex> lock(maplock);
@@ -257,6 +265,14 @@ NAN_METHOD(NConnection::sendRequest) {
                                    ,std::unique_ptr<fu::Response> cres)
     {
       try {
+#if ENABLE_FUERTE_LOG_NODE > 0
+        if(creq->header.responseCode && creq->header.responseCode.get() >= 400){
+          std::cout << "response code >= 400\n"
+                    << fu::to_string(*creq)
+                    << fu::to_string(*cres)
+                    << std::endl;
+        }
+#endif
         FUERTE_LOG_NODE << "enter on fuerte-node success callback" << std::endl;
         v8::HandleScope scope(iso);
 
