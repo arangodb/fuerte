@@ -95,6 +95,18 @@ void Loop::reset(){
   _service->reset();
 }
 
+void Loop::direct_poll(){
+  _service->run();
+}
+
+void Loop::direct_run(){
+  _service->run();
+}
+
+void Loop::direct_stop(){
+  _service->stop();
+}
+
 void Loop::setIoService(::boost::asio::io_service * service){
   if(_sealed){ return; }
   _owning = false;

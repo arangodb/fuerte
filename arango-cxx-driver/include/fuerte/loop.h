@@ -102,7 +102,11 @@ public:
   void poll();
   void reset();
 
-private:
+  void direct_poll();
+  void direct_run();
+  void direct_stop();
+  void direct_reset() { reset(); }
+
   void setIoService(::boost::asio::io_service * service);
   void setIoServiceTakeOwnership(::boost::asio::io_service* service);
   ::boost::asio::io_service* getIoService();
