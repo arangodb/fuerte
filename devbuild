@@ -1,5 +1,0 @@
-#!/bin/bash
-. .scripts-common
-check_create_cd "../fuerte-devbuild"
-cmake -DCMAKE_BUILD_TYPE=Debug -DFUERTE_TESTS=ON -DFUERTE_EXAMPLES=ON ../fuerte/arango-cxx-driver && make -j $(nproc) && \
-ctest --output-on-failure
