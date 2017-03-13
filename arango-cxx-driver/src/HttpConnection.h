@@ -48,6 +48,9 @@ class HttpConnection : public ConnectionInterface {
     return std::unique_ptr<Response>(nullptr);
   }
 
+  std::size_t requestsLeft() override {
+    return _communicator->requestsLeft();
+  }
  private:
   std::shared_ptr<HttpCommunicator> _communicator;
   detail::ConnectionConfiguration _configuration;

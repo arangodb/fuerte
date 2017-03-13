@@ -62,6 +62,10 @@ class Connection : public std::enable_shared_from_this<Connection> {
       return _realConnection->sendRequest(std::move(copy), e, c);
     }
 
+    std::size_t requestsLeft(){
+      return _realConnection->requestsLeft();
+    }
+
   private:
     Connection(detail::ConnectionConfiguration const& conf);
     std::shared_ptr<ConnectionInterface>  _realConnection;

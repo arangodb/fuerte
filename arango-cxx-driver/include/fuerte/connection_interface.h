@@ -36,6 +36,7 @@ public:
   virtual ~ConnectionInterface(){}
   virtual std::unique_ptr<Response> sendRequest(std::unique_ptr<Request>) = 0;
   virtual MessageID sendRequest(std::unique_ptr<Request>, OnErrorCallback, OnSuccessCallback) = 0;
+  virtual std::size_t requestsLeft() = 0;
   virtual void start(){}
   virtual void restart(){}
 };

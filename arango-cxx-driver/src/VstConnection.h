@@ -95,6 +95,7 @@ private:
 
   virtual void start() override { initSocket(); }
   virtual void restart() override { initSocket(); }
+  virtual size_t requestsLeft() override;
 
   //handler to be posted to loop
   //this handler call their handle counterpart on completion

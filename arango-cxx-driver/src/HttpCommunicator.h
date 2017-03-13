@@ -82,6 +82,7 @@ class HttpCommunicator {
   bool used(){ return _useCount; }
   uint64_t addUser(){ return ++_useCount; }
   uint64_t delUser(){ return --_useCount; }
+  int requestsLeft(){ return _stillRunning; }
 
  private:
   struct NewRequest {
@@ -175,6 +176,7 @@ class HttpCommunicator {
   CURLMcode _mc;
   curl_waitfd _wakeup;
   std::atomic<uint64_t> _useCount;
+  int _stillRunning;
 
 #ifdef _WIN32
   SOCKET _socks[2];

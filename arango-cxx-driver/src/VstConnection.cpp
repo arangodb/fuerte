@@ -95,6 +95,23 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
   return item->_messageId;
 }
 
+std::size_t VstConnection::requestsLeft(){
+  // this function does not return the exact size (both mutexes would be
+  // required to be locked at the same time) but as it is used to decide
+  // if another run is called or not this should not be critical.
+  std::size_t left = 0;
+  {
+    Lock sendQueueLock(_sendQueueMutex);
+    left += _sendQueue.size();
+  }
+
+  {
+    Lock mapLock(_mapMutex);
+    left += _messageMap.size();
+  }
+  return left;
+};
+
 std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
   FUERTE_LOG_VSTTRACE << "start sync request" << std::endl;
   // TODO - we expect the loop to be running even for sync requests

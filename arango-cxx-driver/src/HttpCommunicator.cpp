@@ -138,8 +138,7 @@ int HttpCommunicator::workOnce() {
     FUERTE_LOG_HTTPTRACE << "CREATE REQUEST\n";
   }
 
-  int stillRunning;
-  _mc = curl_multi_perform(_curl, &stillRunning);
+  _mc = curl_multi_perform(_curl, &_stillRunning);
 
   if (_mc != CURLM_OK) {
     throw std::runtime_error(
@@ -159,7 +158,7 @@ int HttpCommunicator::workOnce() {
     }
   }
 
-  return stillRunning;
+  return _stillRunning;
 }
 
 void HttpCommunicator::wait() {
