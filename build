@@ -1,7 +1,8 @@
 #!/bin/bash
 cd ${BASH_SOURCE[0]%/*}
 . .scripts-common
-check_create_cd "../fuerte-build"
+check_create_cd "../fuerte-build-asan"
+CXXFLAGS="-fsanitize=address -fsanitize=undefined -fno-sanitize=alignment -fno-sanitize=vptr -lpthread" \
 cmake -DCMAKE_BUILD_TYPE=Debug \
       -DFUERTE_TESTS=TRUE \
     ../fuerte/arango-cxx-driver && make -j $(nproc)

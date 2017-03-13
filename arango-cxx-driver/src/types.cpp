@@ -210,11 +210,27 @@ std::string to_string(ContentType type) {
 }
 
 ErrorCondition intToError(Error integral){
-  static const std::vector<Error> valid = { 0, 1000, 1001, 1002, 1102, 1104, 3000 };
+  static const std::vector<Error> valid = {
+      0,    // NoError
+      //1,  // ErrorCastError
+      1000, // ConnectionError
+      1001, // CouldNotConnect
+      1002, // TimeOut
+      1102, // VstReadError
+      1103, // VstWriteError
+      1104, // VstCancelledDuringReset
+      3000, // CurlError
+  };
   auto pos = std::find(valid.begin(), valid.end(), integral);
   if(pos != valid.end()){
     return static_cast<ErrorCondition>(integral);
   }
+#ifdef FUERTE_DEVBUILD
+  throw std::logic_error(
+    std::string("Error: casting int to ErrorCondition: ")
+               + std::to_string(integral)
+  );
+#endif
   return ErrorCondition::ErrorCastError;
 }
 

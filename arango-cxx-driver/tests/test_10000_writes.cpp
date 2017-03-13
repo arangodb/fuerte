@@ -104,6 +104,8 @@ class Connection100kWritesF : public ::testing::Test {
 namespace fu = ::arangodb::fuerte;
 
 TEST_F(Connection100kWritesF, Writes100k){
+  bool use_threads = true;
+  bool debug = false;
 
   std::ifstream fh("bodies-full.json");
   ASSERT_TRUE(fh.is_open());
@@ -131,8 +133,6 @@ TEST_F(Connection100kWritesF, Writes100k){
     }
   };
 
-  bool use_threads = false;
-
 	size_t numThreads = std::thread::hardware_concurrency();
 	boost::thread_group     threads;
 	boost::barrier          barrier(numThreads);
@@ -158,7 +158,9 @@ TEST_F(Connection100kWritesF, Writes100k){
 		work.reset();
 	}
 
-  std::cerr << "enter loop" << std::endl;
+  if(debug){
+    std::cerr << "enter loop" << std::endl;
+  }
   std::size_t i = 0;
   for(auto const& slice : VPackArrayIterator(builder->slice())){
     ++i;

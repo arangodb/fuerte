@@ -23,7 +23,7 @@ option(FUERTE_EXAMPLES "Build EXAMPLES" OFF)
 find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
 
-set(CMAKE_BOOST_COMPONENTS "system")
+set(CMAKE_BOOST_COMPONENTS "system" "thread")
 find_package(Boost COMPONENTS ${CMAKE_BOOST_COMPONENTS})
 if(Boost_FOUND)
     message(STATUS "== Using Boost provided by your system")
@@ -66,6 +66,7 @@ target_link_libraries(fuerte PUBLIC
     velocypack
     curlpp
     Boost::system
+    Boost::thread
     ${OPENSSL_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
 )
