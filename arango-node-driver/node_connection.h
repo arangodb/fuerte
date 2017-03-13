@@ -37,6 +37,7 @@ public:
     v8::Local<v8::FunctionTemplate> tpl = Nan::New<v8::FunctionTemplate>(New);
     tpl->SetClassName(Nan::New("ConnectionBuilder").ToLocalChecked());
     tpl->InstanceTemplate()->SetInternalFieldCount(1); //should be equal to the number of data members
+    Nan::SetPrototypeMethod(tpl, "requestsLeft", NConnectionBuilder::connect);
     Nan::SetPrototypeMethod(tpl, "connect", NConnectionBuilder::connect);
     Nan::SetPrototypeMethod(tpl, "host", NConnectionBuilder::host);
     Nan::SetPrototypeMethod(tpl, "async", NConnectionBuilder::async);
@@ -47,6 +48,7 @@ public:
   }
 
   static NAN_METHOD(New);
+  static NAN_METHOD(reqestsLeft);
   static NAN_METHOD(connect);
   static NAN_METHOD(host);
   static NAN_METHOD(async);
