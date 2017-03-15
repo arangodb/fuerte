@@ -504,6 +504,7 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
 
     while(processMoreChunks){
       std::tie(processMoreChunks,item,consume) = processChunk(cursor, length);
+      assert(consume <= length);
       consumed += consume;
       cursor += consume;
       length -= consume;
@@ -559,11 +560,13 @@ void VstConnection::startWrite(bool possiblyEmpty){
   auto self = shared_from_this();
   auto data = *next->_requestBuffer;
 #ifdef FUERTE_CHECKED_MODE
-  FUERTE_LOG_ERROR << "Checking outgoing data for message: " << next->_messageId << std::endl;
+  FUERTE_LOG_VSTTRACE << "Checking outgoing data for message: " << next->_messageId << std::endl;
   auto vstChunkHeader = vst::readChunkHeaderV1_0(data.data());
   validateAndCount(data.data() + vstChunkHeader._chunkHeaderLength
                   ,data.byteSize() - vstChunkHeader._chunkHeaderLength);
 #endif
+  assert(next);
+  assert(next->_requestBuffer);
   FUERTE_LOG_CALLBACKS << data.byteSize();
   ba::async_write(*_socket
                  ,ba::buffer(data.data(),data.byteSize())
@@ -607,6 +610,8 @@ void VstConnection::handleWrite(BoostEC const& error, std::size_t transferred, R
     _sendQueue.pop_front();
     if(_sendQueue.empty()){ return; }
   }
-  startWrite();
+  //startWrite();
+  auto self = shared_from_this();
+  _ioService->dispatch( [self](){ self->startWrite(); });
 }
 }}}}

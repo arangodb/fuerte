@@ -89,7 +89,6 @@ class Connection100kWritesF : public ::testing::Test {
       auto result = _connection->sendRequest(std::move(request));
       arangodb::fuerte::run();
     }
-
     _connection.reset();
   }
 
@@ -98,7 +97,6 @@ class Connection100kWritesF : public ::testing::Test {
  private:
   std::string _server;
   std::string _port;
-
 };
 
 namespace fu = ::arangodb::fuerte;
@@ -117,17 +115,20 @@ TEST_F(Connection100kWritesF, Writes100k){
   parser.parse(content);
   auto builder = parser.steal();
 
-  fu::OnErrorCallback onError = [](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
+  fu::OnErrorCallback onError = [](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res) {
     ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
+    std::cerr << fu::to_string(fu::intToError(error));
+    assert(false);
     throw;
   };
 
   fu::OnSuccessCallback onSuccess = [](std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
     //ASSERT_TRUE(res->header.responseCode.get() < 400);
-    std::cerr << res->messageid << std::endl;
-    if (res->header.responseCode.get() >= 400){
+    if (res->header.responseCode.get() >= 400) {
+      std::cerr << res->messageid << std::endl;
       std::cerr << fu::to_string(*req);
       std::cerr << fu::to_string(*res);
+      assert(false);
       ASSERT_TRUE(false);
       throw;
     }
