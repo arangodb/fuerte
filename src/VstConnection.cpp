@@ -558,15 +558,15 @@ void VstConnection::startWrite(bool possiblyEmpty){
 
   // make sure we are connected and handshake has been done
   auto self = shared_from_this();
-  auto data = *next->_requestBuffer;
+  assert(next);
+  assert(next->_requestBuffer);
+  VBuffer const& data = *next->_requestBuffer;
 #ifdef FUERTE_CHECKED_MODE
   FUERTE_LOG_VSTTRACE << "Checking outgoing data for message: " << next->_messageId << std::endl;
   auto vstChunkHeader = vst::readChunkHeaderV1_0(data.data());
   validateAndCount(data.data() + vstChunkHeader._chunkHeaderLength
                   ,data.byteSize() - vstChunkHeader._chunkHeaderLength);
 #endif
-  assert(next);
-  assert(next->_requestBuffer);
   FUERTE_LOG_CALLBACKS << data.byteSize();
   ba::async_write(*_socket
                  ,ba::buffer(data.data(),data.byteSize())
