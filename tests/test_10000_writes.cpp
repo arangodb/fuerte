@@ -134,6 +134,8 @@ TEST_F(Connection100kWritesF, Writes100k){
       ASSERT_TRUE(false);
       throw;
     }
+    std::cerr << res->messageid << "ok!" << std::endl;
+
   };
 
 	size_t numThreads = std::thread::hardware_concurrency();
