@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.4)
 
 project(fuerte CXX)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
