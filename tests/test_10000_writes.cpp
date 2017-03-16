@@ -123,6 +123,8 @@ TEST_F(Connection100kWritesF, Writes100k){
   };
 
   fu::OnSuccessCallback onSuccess = [](std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
+    assert(req);
+    assert(res);
     //ASSERT_TRUE(res->header.responseCode.get() < 400);
     if (res->header.responseCode.get() >= 400) {
       std::cerr << res->messageid << std::endl;

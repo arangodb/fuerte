@@ -80,8 +80,8 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
       FUERTE_LOG_VSTTRACE << "queue write" << std::endl;
       FUERTE_LOG_VSTTRACE << "messageid: " << item->_request->messageid << " path: " << item->_request->header.path.get() << std::endl;
       auto self = shared_from_this();
-      //_ioService->dispatch( [this,self](){ startWrite(); } );
-      startWrite();
+      _ioService->dispatch( [this,self](){ startWrite(); } );
+      //startWrite();
 
       bool alreadyReading = _reading.exchange(true);
       if (!alreadyReading){
@@ -518,9 +518,9 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
 
   /// end new function
 
-  if(!_asioLoop->_singleRunMode){
-    startRead(); //start next read - code below might run in parallel to new read
-  }
+  //if(!_asioLoop->_singleRunMode){
+  //  startRead(); //start next read - code below might run in parallel to new read
+  //}
 
   if(!items.empty()){
     for(auto itempointer : items){
@@ -528,9 +528,9 @@ void VstConnection::handleRead(const boost::system::error_code& error, std::size
     }
   }
 
-  if(_asioLoop->_singleRunMode){
+  //if(_asioLoop->_singleRunMode){
     startRead();
-  }
+  //}
 }
 
 void VstConnection::startWrite(bool possiblyEmpty){
