@@ -29,7 +29,7 @@ namespace f = ::arangodb::fuerte;
 class ConnectionBasicVstF : public ::testing::Test {
  protected:
   ConnectionBasicVstF(){
-    _server = "vst://127.0.0.1:8530";
+    _server = "vst://127.0.0.1:8529";
   }
   virtual ~ConnectionBasicVstF() noexcept {}
 
