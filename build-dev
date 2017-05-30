@@ -3,4 +3,4 @@
 check_create_cd ".build-dev"
 #cmake -DCMAKE_BUILD_TYPE=Debug -DFUERTE_TESTS=ON -DFUERTE_EXAMPLES=ON .. && make -j $(nproc) && \
 cmake -DCMAKE_BUILD_TYPE=Debug -DFUERTE_TESTS=ON .. && make -j $(nproc) && \
-ctest --output-on-failure
+ctest --output-on-failure --verbose
