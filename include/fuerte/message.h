@@ -26,6 +26,7 @@
 #include "types.h"
 
 #include <boost/optional.hpp>
+#include <boost/asio/buffer.hpp>
 #include <string>
 #include <vector>
 #include <map>
@@ -79,32 +80,18 @@ mapss headerStrings(MessageHeader const& header);
 class Message {
 friend class VstConnection;
 public:
-  Message(MessageHeader&& messageHeader = MessageHeader()
-         ,mapss&& headerStrings = mapss()
-         )
-         :header(std::move(messageHeader))
-         ,messageid(123456789)
-         ,_sealed(false)
-         ,_modified(true)
-         ,_isVpack(boost::none)
-         ,_builder(nullptr)
-         ,_payloadLength(0)
+  Message(MessageHeader&& messageHeader = MessageHeader(), mapss&& headerStrings = mapss())
+    : header(std::move(messageHeader)),
+      messageID(123456789)
          {
            if (!headerStrings.empty()){
             header.meta = std::move(headerStrings);
            }
          }
 
-  Message(MessageHeader const& messageHeader
-         ,mapss const& headerStrings
-         )
-         :header(messageHeader)
-         ,messageid(123456789)
-         ,_sealed(false)
-         ,_modified(true)
-         ,_isVpack(boost::none)
-         ,_builder(nullptr)
-         ,_payloadLength(0)
+  Message(MessageHeader const& messageHeader, mapss const& headerStrings)
+    : header(messageHeader),
+      messageID(123456789)
          {
            if (!headerStrings.empty()){
             header.meta = std::move(headerStrings);
@@ -112,7 +99,49 @@ public:
          }
 
   MessageHeader header;
-  uint64_t messageid; //generate by some singleton
+  MessageID messageID; //generate by some singleton
+
+  ///////////////////////////////////////////////
+  // get payload
+  ///////////////////////////////////////////////
+  virtual std::vector<VSlice>const & slices() = 0;
+  virtual boost::asio::const_buffer payload() const = 0; 
+  std::string payloadAsString() const {
+    auto p = payload();
+    return std::string(boost::asio::buffer_cast<char const*>(p), boost::asio::buffer_size(p));
+  }
+
+  // content-type header accessors
+  std::string contentTypeString() const;
+  ContentType contentType() const;
+
+  // accept header accessors
+  std::string acceptTypeString() const;
+  ContentType acceptType() const;
+};
+
+class Request : public Message {
+public:
+  Request(MessageHeader&& messageHeader = MessageHeader(), mapss&& headerStrings = mapss())
+    : Message(std::move(messageHeader), std::move(headerStrings)),
+      _sealed(false),
+      _modified(true),
+      _isVpack(boost::none),
+      _builder(nullptr),
+      _payloadLength(0)
+         {
+           header.type = MessageType::Request;
+         }
+  Request(MessageHeader const& messageHeader, mapss const& headerStrings)
+    : Message(messageHeader, headerStrings),
+      _sealed(false),
+      _modified(true),
+      _isVpack(boost::none),
+      _builder(nullptr),
+      _payloadLength(0)
+         {
+           header.type = MessageType::Request;
+         }
 
   ///////////////////////////////////////////////
   // add payload
@@ -123,29 +152,19 @@ public:
   void addBinary(uint8_t const* data, std::size_t length);
   void addBinarySingle(VBuffer&& buffer);
 
-  ///////////////////////////////////////////////
-  // get payload
-  ///////////////////////////////////////////////
-  std::vector<VSlice>const & slices(); // not const because it updates slices form buffer
-                                       // slices could become a fee standing function
-                                       // it is probably just called once
-  std::pair<uint8_t const *, std::size_t> payload() const; //as binary
-  std::string payloadAsString() const {
-    auto p = payload();
-    return std::string(reinterpret_cast<char const*>(p.first),p.second);
-  }
-
   // content-type header accessors
-  std::string contentTypeString() const;
-  ContentType contentType() const;
   void contentType(std::string const& type);
   void contentType(ContentType type);
 
   // accept header accessors
-  std::string acceptTypeString() const;
-  ContentType acceptType() const;
   void acceptType(std::string const& type);
   void acceptType(ContentType type);
+
+  ///////////////////////////////////////////////
+  // get payload
+  ///////////////////////////////////////////////
+  virtual std::vector<VSlice>const & slices() override;
+  virtual boost::asio::const_buffer payload() const override; 
 
 private:
   VBuffer _payload;
@@ -158,34 +177,25 @@ private:
                               // to track the Length manually
 };
 
-class Request : public Message {
-public:
-  Request(MessageHeader&& messageHeader = MessageHeader()
-         ,mapss&& headerStrings = mapss()
-         ): Message(std::move(messageHeader), std::move(headerStrings))
-         {
-           header.type = MessageType::Request;
-         }
-  Request(MessageHeader const& messageHeader
-         ,mapss const& headerStrings
-         ): Message(messageHeader, headerStrings)
-         {
-           header.type = MessageType::Request;
-         }
-
-};
-
 class Response : public Message {
 public:
-  Response(MessageHeader&& messageHeader = MessageHeader()
-          ,mapss&& headerStrings = mapss()
-          )
-          :Message(std::move(messageHeader), std::move(headerStrings))
+  Response(MessageHeader&& messageHeader = MessageHeader(), mapss&& headerStrings = mapss())
+    : Message(std::move(messageHeader), std::move(headerStrings))
           {
             header.type = MessageType::Response;
           }
 
+  ///////////////////////////////////////////////
+  // get/set payload
+  ///////////////////////////////////////////////
+  virtual std::vector<VSlice>const & slices() override;
+  virtual boost::asio::const_buffer payload() const override; 
 
+  void setPayload(VBuffer&& buffer);
+
+private:
+  VBuffer _payload;
+  std::vector<VSlice> _slices;
 };
 
 //std::unique_ptr<Response> createResponse(unsigned code);

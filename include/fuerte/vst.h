@@ -131,7 +131,7 @@ struct RequestItem {
   std::unique_ptr<Request> _request;  // Reference to the request we're processing 
   OnErrorCallback _onError;           // Callback for errors
   OnSuccessCallback _onSuccess;       // Callback for success
-  MessageID _messageId;               // ID of this message
+  MessageID _messageID;               // ID of this message
   // Request variables
   std::string _msgHdr;                // VST message header
   VBuffer _requestChunkBuffer;        // Buffer used to hold chunk headers
@@ -150,6 +150,13 @@ struct RequestItem {
   // try to assembly the received chunks into a response.
   // returns NULL if not all chunks are available.
   std::unique_ptr<VBuffer> assemble();
+
+  // Flush all memory needed for sending this request.
+  inline void resetSendData() {
+    _msgHdr.clear();
+    _requestBuffers.clear();
+    _requestChunkBuffer.clear();
+  }
 };
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -162,10 +169,10 @@ struct RequestItem {
 std::size_t isChunkComplete(uint8_t const * const begin, std::size_t const length);
 
 // readChunkHeaderVST1_0 reads a chunk header in VST1.0 format.
-ChunkHeader readChunkHeaderV1_0(uint8_t const * const bufferBegin);
+ChunkHeader readChunkHeaderVST1_0(uint8_t const * const bufferBegin);
 
 // readChunkHeaderVST1_1 reads a chunk header in VST1.1 format.
-ChunkHeader readChunkHeaderV1_1(uint8_t const * const bufferBegin);
+ChunkHeader readChunkHeaderVST1_1(uint8_t const * const bufferBegin);
 
 // creates a MessageHeader form a given slice
 MessageHeader messageHeaderFromSlice(VSlice const& headerSlice);

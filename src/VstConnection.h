@@ -116,8 +116,9 @@ private:
   // triggering the next read it processes the received data.
   void asyncReadCallback(boost::system::error_code const&, std::size_t transferred);
   // Process the given incoming chunk.
-  void processChunk(const ChunkHeader &chunk);
-  void processCompleteItem(std::shared_ptr<RequestItem>&& item);
+  void processChunk(ChunkHeader &chunk);
+  // Create a response object for given RequestItem & received response buffer.
+  std::unique_ptr<Response> createResponse(RequestItem& item, std::unique_ptr<VBuffer>& responseBuffer);
 
   // writes data from task queue to network using boost::asio::async_write
   void startWrite(bool possiblyEmpty = false);
@@ -129,7 +130,7 @@ private:
   // TODO FIXME -- fix alignment when done so mutexes are not on the same cacheline etc
   std::shared_ptr<Loop> _asioLoop;
   detail::ConnectionConfiguration _configuration;
-  ::std::atomic_uint_least64_t _messageId;
+  ::std::atomic_uint_least64_t _messageID;
   // socket
   ::boost::asio::io_service* _ioService;
   ::std::shared_ptr<::boost::asio::ip::tcp::socket> _socket;

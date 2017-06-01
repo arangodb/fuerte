@@ -94,7 +94,7 @@ size_t ChunkHeader::writeHeaderToVST1_1(VBuffer& buffer) const {
 // The resulting set of chunks are added to the given result vector.
 void buildChunks(uint64_t messageID, uint32_t maxChunkSize, std::vector<VSlice> const& messageParts, std::vector<ChunkHeader>& result) {
   // Check arguments 
-  assert(maxChunkSize <= maxChunkHeaderSize);
+  assert(maxChunkSize > maxChunkHeaderSize);
 
   // calculate total message length
   uint64_t messageLength = 0;
@@ -232,7 +232,7 @@ void RequestItem::prepareForNetwork(VSTVersion vstVersion) {
   // Add message header slice to the front 
   slices.insert(slices.begin(), VSlice(_msgHdr.data()));
   std::vector<ChunkHeader> chunks;
-  buildChunks(_messageId, defaultMaxChunkSize, slices, chunks);
+  buildChunks(_messageID, defaultMaxChunkSize, slices, chunks);
 
   // Prepare request (write) buffers 
   _requestChunkBuffer.reserve(chunks.size() * maxChunkHeaderSize); // Reserve, so we don't have to re-allocate memory
@@ -319,7 +319,7 @@ MessageHeader messageHeaderFromSlice(int vstVersionID, VSlice const& headerSlice
   MessageHeader header;
   header.byteSize = headerSlice.byteSize(); //for debugging
 
-  if(vstVersionID == 1){
+  if(vstVersionID == 1) {
     header.contentType(ContentType::VPack);
   } else {
     // found in params
@@ -432,7 +432,7 @@ void RequestItem::addChunk(ChunkHeader& chunk) {
   }
 }
 
-static bool chunkByIndex (const ChunkHeader& a, b) { return (a.index() < b.index()); }
+static bool chunkByIndex (const ChunkHeader& a, const ChunkHeader& b) { return (a.index() < b.index()); }
 
 // try to assembly the received chunks into a buffer.
 // returns NULL if not all chunks are available.

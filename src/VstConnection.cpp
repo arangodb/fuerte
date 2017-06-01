@@ -52,10 +52,10 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
                                     ,OnSuccessCallback onSuccess) {
 
   //check if id is already used and fail
-  request->messageid = ++_messageId;
+  request->messageID = ++_messageID;
   auto item = std::make_shared<RequestItem>();
 
-  item->_messageId = _messageId;
+  item->_messageID = request->messageID;
   item->_onError = onError;
   item->_onSuccess = onSuccess;
   item->_request = std::move(request);
@@ -82,7 +82,7 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
     // not to block until all writing is done
     if(_connected){
       FUERTE_LOG_VSTTRACE << "queue write" << std::endl;
-      FUERTE_LOG_VSTTRACE << "messageid: " << item->_request->messageid << " path: " << item->_request->header.path.get() << std::endl;
+      FUERTE_LOG_VSTTRACE << "messageid: " << item->_request->messageID << " path: " << item->_request->header.path.get() << std::endl;
       //auto self = shared_from_this();
       //_ioService->dispatch( [this,self](){ startWrite(); } );
       startWrite();
@@ -99,7 +99,7 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
     }
   }
   FUERTE_LOG_VSTTRACE << "sendRequest (async) done" << std::endl;
-  return item->_messageId;
+  return item->_messageID;
 }
 
 std::size_t VstConnection::requestsLeft(){
@@ -163,7 +163,7 @@ std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
 VstConnection::VstConnection(ConnectionConfiguration const& configuration)
     : _vstVersion(VST1_0)
     , _asioLoop(getProvider().getAsioLoop())
-    , _messageId(0)
+    , _messageID(0)
     , _ioService(_asioLoop->getIoService())
     , _socket(nullptr)
     , _context(bs::context::method::sslv23)
@@ -411,10 +411,10 @@ void VstConnection::asyncReadCallback(const boost::system::error_code& error, st
     ChunkHeader chunk;
     switch (_vstVersion) {
       case VST1_0:
-        chunk = vst::readChunkHeaderV1_0(cursor);
+        chunk = vst::readChunkHeaderVST1_0(cursor);
         break;
       case VST1_1:
-        chunk = vst::readChunkHeaderV1_1(cursor);
+        chunk = vst::readChunkHeaderVST1_1(cursor);
         break;
       default:
         throw std::logic_error("Unknown VST version");
@@ -434,7 +434,7 @@ void VstConnection::asyncReadCallback(const boost::system::error_code& error, st
 }
 
 // Process the given incoming chunk.
-void VstConnection::processChunk(const ChunkHeader &chunk) {
+void VstConnection::processChunk(ChunkHeader &chunk) {
   auto msgID = chunk.messageID();
   FUERTE_LOG_VSTTRACE << "processChunk: messageID=" << msgID << std::endl;
 
@@ -442,7 +442,7 @@ void VstConnection::processChunk(const ChunkHeader &chunk) {
   ::std::map<MessageID,std::shared_ptr<RequestItem>>::iterator found;
   {
     Lock lock(_mapMutex);
-    found = _messageMap.find(vstChunkHeader._messageID);
+    found = _messageMap.find(chunk._messageID);
     if (found == _messageMap.end()) {
       FUERTE_LOG_ERROR << "got chunk with unknown message ID: " << msgID << std::endl;
       return;
@@ -454,8 +454,8 @@ void VstConnection::processChunk(const ChunkHeader &chunk) {
   item->addChunk(chunk);
 
   // Try to assembly chunks in RequestItem to complete response.
-  auto completeResponse = m.assemble();
-  if (completeResponse) {
+  auto completeBuffer = item->assemble();
+  if (completeBuffer) {
     // Message is complete 
     // Remove message from store 
     {
@@ -463,52 +463,34 @@ void VstConnection::processChunk(const ChunkHeader &chunk) {
       _messageMap.erase(item->_messageID);
     }
 
+    // Create response
+    auto response = createResponse(*item, completeBuffer);
+
     // Notify listeners
-    item->_onSuccess(std::move(item->_request), std::move(completeResponse));
+    item->_onSuccess(std::move(item->_request), std::move(response));
   }
 }
 
-void VstConnection::processCompleteItem(std::shared_ptr<RequestItem>&& itempointer){
-  RequestItem& item = *itempointer;
-  FUERTE_LOG_VSTTRACE << "completing item with messageid: " << item._messageId << std::endl;
-  auto itemCursor = item._responseBuffer.data();
-  auto itemLength = item._responseBuffer.byteSize();
+// Create a response object for given RequestItem & received response buffer.
+std::unique_ptr<Response> VstConnection::createResponse(RequestItem& item, std::unique_ptr<VBuffer>& responseBuffer) {
+  FUERTE_LOG_VSTTRACE << "creating response for item with messageid: " << item._messageID << std::endl;
+  auto itemCursor = responseBuffer->data();
+  auto itemLength = responseBuffer->byteSize();
   std::size_t messageHeaderLength;
-  MessageHeader messageHeader = validateAndExtractMessageHeader(_vstVersionID, itemCursor, itemLength, messageHeaderLength);
+  int vstVersionID = 1;
+  MessageHeader messageHeader = validateAndExtractMessageHeader(vstVersionID, itemCursor, itemLength, messageHeaderLength);
   itemCursor += messageHeaderLength;
   itemLength -= messageHeaderLength;
 
   auto response = std::unique_ptr<Response>(new Response(std::move(messageHeader)));
-  response->messageid = itempointer->_messageId;
-  // finally add payload
+  response->messageID = item._messageID;
+  response->setPayload(std::move(*responseBuffer));
 
-  // avoiding the copy would imply that we mess with offsets
-  // if feels like Velocypack could gain some options like
-  // adding some offset for a buffer that way the already
-  // allocated memory could be reused.
-  if(messageHeader.contentType() == ContentType::VPack){
-    auto numPayloads = vst::validateAndCount(itemCursor,itemLength);
-    FUERTE_LOG_VSTTRACE << "number of slices: " << numPayloads << std::endl;
-    VBuffer buffer;
-    buffer.append(itemCursor,itemLength); //we should avoid this copy FIXME
-    buffer.resetTo(itemLength);
-    auto slice = VSlice(itemCursor);
-    FUERTE_LOG_VSTTRACE << to_string(slice)  << " , " << slice.byteSize() << std::endl;
-    FUERTE_LOG_VSTTRACE << "buffer size" << " , " << buffer.size() << std::endl;
-    response->addVPack(std::move(buffer)); //ASK jan
-    FUERTE_LOG_VSTTRACE << "payload size" << " , " << response->payload().second << std::endl;
-  } else {
-    response->addBinary(itemCursor,itemLength);
-  }
-  // call callback
-  item._onSuccess(std::move(item._request),std::move(response));
-  {
-    Lock mapLock(_mapMutex);
-    _messageMap.erase(item._messageId);
-  }
+  return response;
 }
 
-void VstConnection::startWrite(bool possiblyEmpty){
+// writes data from task queue to network using boost::asio::async_write
+void VstConnection::startWrite(bool possiblyEmpty) {
   FUERTE_LOG_CALLBACKS << "startWrite" << std::endl;
   FUERTE_LOG_TRACE << "+" ;
   if (_pleaseStop) {
@@ -529,7 +511,7 @@ void VstConnection::startWrite(bool possiblyEmpty){
 
   {
     Lock mapLock(_mapMutex);
-    _messageMap.emplace(next->_messageId,next);
+    _messageMap.emplace(next->_messageID, next);
   }
 
   FUERTE_LOG_CALLBACKS << "startWrite: preparing to send next" << std::endl;
@@ -537,17 +519,16 @@ void VstConnection::startWrite(bool possiblyEmpty){
   // make sure we are connected and handshake has been done
   auto self = shared_from_this();
   assert(next);
-  assert(next->_requestBuffer);
-  VBuffer const& data = *next->_requestBuffer;
-#ifdef FUERTE_CHECKED_MODE
-  FUERTE_LOG_VSTTRACE << "Checking outgoing data for message: " << next->_messageId << std::endl;
+  assert(next->_requestBuffers.size());
+/*#ifdef FUERTE_CHECKED_MODE
+  FUERTE_LOG_VSTTRACE << "Checking outgoing data for message: " << next->_messageID << std::endl;
   auto vstChunkHeader = vst::readChunkHeaderV1_0(data.data());
   validateAndCount(data.data() + vstChunkHeader._chunkHeaderLength
                   ,data.byteSize() - vstChunkHeader._chunkHeaderLength);
-#endif
-  FUERTE_LOG_CALLBACKS << data.byteSize();
-  ba::async_write(*_socket, ba::buffer(data.data(),data.byteSize()),
-    [this,self,next](BoostEC const& error, std::size_t transferred) {
+#endif*/
+  ba::async_write(*_socket, 
+    next->_requestBuffers,
+    [this, self, next](BoostEC const& error, std::size_t transferred) {
       this->asyncWriteCallback(error, transferred, next);
     });
 
@@ -564,7 +545,7 @@ void VstConnection::asyncWriteCallback(BoostEC const& error, std::size_t transfe
     _pleaseStop = true; //stop reading as well
     {
       Lock lock(_mapMutex);
-      _messageMap.erase(item->_messageId);
+      _messageMap.erase(item->_messageID);
     }
 
     //let user know that this request caused the error
@@ -581,8 +562,8 @@ void VstConnection::asyncWriteCallback(BoostEC const& error, std::size_t transfe
 
   FUERTE_LOG_CALLBACKS << "asyncWriteCallback: send succeeded, " << transferred << " bytes transferred" << std::endl;
 
-  item->_requestBuffer.reset(); //request is written we no longer need the buffer
-  //everything is ok
+  item->resetSendData(); //request is written we no longer data for that
+  // everything is ok
   // remove item when work is done;
   // so the queue does not get empty in between which could
   // trigger another parallel write that is not allowed
@@ -591,16 +572,16 @@ void VstConnection::asyncWriteCallback(BoostEC const& error, std::size_t transfe
   {
     Lock sendQueueLock(_sendQueueMutex);
     _sendQueue.pop_front();
-    if(_sendQueue.empty()){ 
+    if(_sendQueue.empty()) { 
       FUERTE_LOG_CALLBACKS << "asyncWriteCallback: sendQueue is empty" << std::endl;
       return; 
-      }
+    }
   }
 
   FUERTE_LOG_CALLBACKS << "asyncWriteCallback: send next request" << std::endl;
 
-  //startWrite();
-  auto self = shared_from_this();
-  _ioService->dispatch( [self](){ self->startWrite(); });
+  startWrite();
+  //auto self = shared_from_this();
+  //_ioService->dispatch( [self](){ self->startWrite(); });
 }
 }}}}

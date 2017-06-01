@@ -158,7 +158,7 @@ TEST_F(ConnectionBasicVstF, ShortAndLongASync){
 
   fu::OnSuccessCallback onSuccess = [](std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
     auto slice = res->slices().front();
-    std::cout << "messageID: " << req->messageid << " " << slice.toJson() << std::endl;
+    std::cout << "messageID: " << req->messageID << " " << slice.toJson() << std::endl;
   };
 
   auto requestShort = fu::createRequest(fu::RestVerb::Post, "/_api/cursor");

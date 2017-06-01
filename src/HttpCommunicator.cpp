@@ -114,7 +114,7 @@ uint64_t HttpCommunicator::queueRequest(Destination destination,
   {
     std::lock_guard<std::mutex> guard(_newRequestsLock);
     uint64_t thisId = ++ticketId;
-    newRequest._fuRequest->messageid = thisId;
+    newRequest._fuRequest->messageID = thisId;
     _newRequests.emplace_back(std::move(newRequest));
     FUERTE_LOG_HTTPTRACE << "queueRequest - end" << std::endl;
     return thisId;
@@ -185,7 +185,7 @@ int HttpCommunicator::curlDebug(CURL* handle, curl_infotype type, char* data,
 
   std::string dataStr(data, size);
   std::string prefix("Communicator(" +
-                     std::to_string(inprogress->_request._fuRequest->messageid) + "): ");
+                     std::to_string(inprogress->_request._fuRequest->messageID) + "): ");
 
   switch (type) {
     case CURLINFO_TEXT:
@@ -294,25 +294,10 @@ void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
   auto const& ctype = responseHeaders[fu_content_type_key];
   response->header.contentType(ctype);
 
-  if(responseBody.length()){
-    switch (response->contentType()){
-
-      // At the moment we can hadle only one slice
-      // in the response
-      case ContentType::VPack: {
-        auto slice = VSlice(responseBody.c_str());
-        response->addVPack(slice);
-        break;
-      }
-
-      default: {
-        VBuffer buffer;
-        buffer.append(responseBody);
-        response->addBinarySingle(std::move(buffer));
-        break;
-      }
-
-    }
+  if (responseBody.length()) {
+      VBuffer buffer;
+      buffer.append(responseBody);
+      response->setPayload(std::move(buffer));
   }
   response->header.meta = std::move(responseHeaders);
 
@@ -441,16 +426,17 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
   std::string& body = empty;
 
   auto pay = fuRequest->payload();
+  auto paySize = boost::asio::buffer_size(pay);
 
-  if (pay.second > 0) {
+  if (paySize > 0) {
     // https://curl.haxx.se/libcurl/c/CURLOPT_COPYPOSTFIELDS.html
     // DO NOT CHANGE BODY SIZE LATER!!
-    curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, pay.second);
-    curl_easy_setopt(handle, CURLOPT_COPYPOSTFIELDS, pay.first);
+    curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, paySize);
+    curl_easy_setopt(handle, CURLOPT_COPYPOSTFIELDS, boost::asio::buffer_cast<const char*>(pay));
   }
 
   handleInProgress->_rip->_startTime = std::chrono::steady_clock::now();
-  _handlesInProgress.emplace(rip->_request._fuRequest->messageid,
+  _handlesInProgress.emplace(rip->_request._fuRequest->messageID,
                              std::move(handleInProgress));
   curl_multi_add_handle(_curl, handle);
 }
@@ -466,7 +452,7 @@ void HttpCommunicator::handleResult(CURL* handle, CURLcode rc) {
     return;
   }
 
-  std::string prefix("Communicator(" + std::to_string(rip->_request._fuRequest->messageid) +
+  std::string prefix("Communicator(" + std::to_string(rip->_request._fuRequest->messageID) +
                      "): ");
 
   FUERTE_LOG_DEBUG << prefix << "curl rc is : " << rc << " after "
@@ -480,7 +466,7 @@ void HttpCommunicator::handleResult(CURL* handle, CURLcode rc) {
                      << "\n";
   }
 
-  auto request_id = rip->_request._fuRequest->messageid;
+  auto request_id = rip->_request._fuRequest->messageID;
   try {
     switch (rc) {
       case CURLE_OK: {
@@ -489,13 +475,13 @@ void HttpCommunicator::handleResult(CURL* handle, CURLcode rc) {
 
         std::unique_ptr<Response> fuResponse(new Response());
         fuResponse->header.responseCode = static_cast<unsigned>(httpStatusCode);
-        fuResponse->messageid = rip->_request._fuRequest->messageid;
+        fuResponse->messageID = rip->_request._fuRequest->messageID;
         transformResult(handle, std::move(rip->_responseHeaders),
                         std::move(rip->_responseBody),
                         dynamic_cast<Response*>(fuResponse.get()));
 
 
-        auto response_id = fuResponse->messageid;
+        auto response_id = fuResponse->messageID;
 #if ENABLE_FUERTE_LOG_HTTPTRACE > 0
         std::cout << "CALLING ON SUCESS CALLBACK IN HTTP COMMUNICATOR" << std::endl;
         std::cout << "request id: " << request_id << std::endl;

@@ -123,7 +123,7 @@ ContentType MessageHeader::contentType() const {
 }
 
 void MessageHeader::contentType(std::string const& type){
-  if(!meta){
+  if (!meta) {
     meta = mapss();
   }
   meta.get()[fu_content_type_key] = type;
@@ -166,9 +166,47 @@ void MessageHeader::acceptType(ContentType type){
 // class Message
 ///////////////////////////////////////////////
 
+// content-type header accessors
+std::string Message::contentTypeString() const {
+  return header.contentTypeString();
+}
+
+ContentType Message::contentType() const {
+  return header.contentType();
+}
+
+void Request::contentType(std::string const& type) {
+  header.contentType(type);
+}
+
+void Request::contentType(ContentType type) {
+  header.contentType(type);
+}
+
+// accept header accessors
+std::string Message::acceptTypeString() const {
+  return header.acceptTypeString();
+}
+
+ContentType Message::acceptType() const {
+  return header.acceptType();
+}
+
+///////////////////////////////////////////////
+// class Request
+///////////////////////////////////////////////
+
+void Request::acceptType(std::string const& type) {
+  header.acceptType(type);
+}
+
+void Request::acceptType(ContentType type) {
+  header.acceptType(type);
+}
+
 //// add payload
 // add VelocyPackData
-void Message::addVPack(VSlice const& slice){
+void Request::addVPack(VSlice const& slice){
 #ifdef FUERTE_CHECKED_MODE
   //FUERTE_LOG_ERROR << "Checking data that is added to the message: " << std::endl;
   vst::validateAndCount(slice.start(),slice.byteSize());
@@ -189,7 +227,7 @@ void Message::addVPack(VSlice const& slice){
   _payload.resetTo(_payloadLength);
 }
 
-void Message::addVPack(VBuffer const& buffer){
+void Request::addVPack(VBuffer const& buffer){
 #ifdef FUERTE_CHECKED_MODE
   //FUERTE_LOG_ERROR << "Checking data that is added to the message: " << std::endl;
   vst::validateAndCount(buffer.data(),buffer.byteSize());
@@ -222,7 +260,7 @@ void Message::addVPack(VBuffer const& buffer){
   }
 }
 
-void Message::addVPack(VBuffer&& buffer){
+void Request::addVPack(VBuffer&& buffer){
 #ifdef FUERTE_CHECKED_MODE
   //FUERTE_LOG_ERROR << "Checking data that is added to the message: " << std::endl;
   vst::validateAndCount(buffer.data(),buffer.byteSize());
@@ -240,7 +278,7 @@ void Message::addVPack(VBuffer&& buffer){
 }
 
 // add binary data
-void Message::addBinary(uint8_t const* data, std::size_t length){
+void Request::addBinary(uint8_t const* data, std::size_t length){
   if(_sealed || (_isVpack && _isVpack.get())){ return; };
   _isVpack = false;
   _modified = true;
@@ -249,7 +287,7 @@ void Message::addBinary(uint8_t const* data, std::size_t length){
   _payload.resetTo(_payloadLength);
 }
 
-void Message::addBinarySingle(VBuffer&& buffer){
+void Request::addBinarySingle(VBuffer&& buffer){
   if(_sealed || (_isVpack && _isVpack.get())){ return; };
   _isVpack = false;
   _sealed = true;
@@ -259,11 +297,9 @@ void Message::addBinarySingle(VBuffer&& buffer){
   _payload.resetTo(_payloadLength);
 }
 
-
-//// get payload
 // get payload as slices
-std::vector<VSlice>const & Message::slices() {
-  if(_isVpack && _modified){
+std::vector<VSlice>const & Request::slices() {
+  if(_isVpack && _modified) {
     _slices.clear();
     auto length = _payload.byteSize();
     auto cursor = _payload.data();
@@ -282,45 +318,40 @@ std::vector<VSlice>const & Message::slices() {
 }
 
 // get payload as binary
-std::pair<uint8_t const *, std::size_t> Message::payload() const {
-  //return { _payload.data(), _payload.byteSize() };
-  return { _payload.data(), _payloadLength };
+boost::asio::const_buffer Request::payload() const {
+  return boost::asio::const_buffer(_payload.data(), _payloadLength);
 }
 
+///////////////////////////////////////////////
+// class Response
+///////////////////////////////////////////////
 
-// content-type header accessors
-std::string Message::contentTypeString() const {
-  return header.contentTypeString();
+std::vector<VSlice>const & Response::slices() {
+  if (_slices.empty()) {
+    auto length = _payload.byteSize();
+    auto cursor = _payload.data();
+    while (length){
+      _slices.emplace_back(cursor);
+      auto sliceSize = _slices.back().byteSize();
+      if (length < sliceSize){
+        throw std::logic_error("invalid buffer");
+      }
+      cursor += sliceSize;
+      length -= sliceSize;
+    }
+  }
+  return _slices;
 }
 
-ContentType Message::contentType() const {
-  return header.contentType();
+boost::asio::const_buffer Response::payload() const {
+  return boost::asio::const_buffer(_payload.data(), _payload.byteSize());
 }
 
-void Message::contentType(std::string const& type) {
-  header.contentType(type);
+void Response::setPayload(VBuffer&& buffer) {
+  _slices.clear();
+  _payload = std::move(buffer);
 }
 
-void Message::contentType(ContentType type) {
-  header.contentType(type);
-}
-
-// accept header accessors
-std::string Message::acceptTypeString() const {
-  return header.acceptTypeString();
-}
-
-ContentType Message::acceptType() const {
-  return header.acceptType();
-}
-
-void Message::acceptType(std::string const& type) {
-  header.acceptType(type);
-}
-
-void Message::acceptType(ContentType type) {
-  header.acceptType(type);
-}
 
 // ////helper
 // static bool specialHeader(Message& request, std::string const&, std::string const&){
