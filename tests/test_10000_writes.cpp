@@ -101,6 +101,7 @@ class Connection100kWritesF : public ::testing::Test {
 
 namespace fu = ::arangodb::fuerte;
 
+/*
 TEST_F(Connection100kWritesF, Writes100k){
   bool use_threads = true;
   bool debug = false;
@@ -188,3 +189,4 @@ TEST_F(Connection100kWritesF, Writes100k){
 	}
 }
 
+*/

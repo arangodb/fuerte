@@ -30,6 +30,8 @@
 #include <stdexcept>
 #include <unordered_map>
 
+#include <boost/asio/buffer.hpp>
+
 #include <fuerte/message.h>
 #include "FuerteLogger.h"
 
@@ -41,9 +43,19 @@ namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
 class IncompleteMessage;
 using MessageID = uint64_t;
+enum VSTVersion {
+  VST1_0,
+  VST1_1
+};
 
 static size_t const bufferLength = 4096UL;
-static size_t const chunkMaxBytes = 1000UL;
+//static size_t const chunkMaxBytes = 1000UL;
+static size_t const	minChunkHeaderSize = 16;
+static size_t const	maxChunkHeaderSize = 24;
+static size_t const defaultMaxChunkSize = 30000;
+
+static const char *vstHeader1_0 = "VST/1.0\r\n\r\n";
+static const char *vstHeader1_1 = "VST/1.1\r\n\r\n";
 
 /////////////////////////////////////////////////////////////////////////////////////
 // DataStructures
@@ -52,85 +64,108 @@ static size_t const chunkMaxBytes = 1000UL;
 // Velocystream Chunk Header
 struct ChunkHeader {
   // data used in the specification
-  uint32_t _chunkLength;           // length of this chunk includig chunkHeader
-  uint32_t _chunk;                 // number of chunks or chunk number
+  uint32_t _chunkLength;           // length of this chunk includig chunkHeader 
+  uint32_t _chunkX;                // number of chunks or chunk number
   uint64_t _messageID;             // messageid
-  uint64_t _totalMessageLength;    // length of total unencrypeted payload + vstMessageHeader
-                                   // but without chunk headers
+  uint64_t _messageLength;         // length of total payload
 
-  // additional data that is not in the protocl
-  std::size_t _chunkHeaderLength;  // lenght of vstChunkHeader
-  uint32_t _chunkPayloadLength;    // length of payload for this chunk
-  uint32_t _numberOfChunks;
-  bool _isSingle;                  // is a single chunk?
-  bool _isFirst;                   // is first or followup chunk -- encoded in chunk
+  // internal data
+  boost::asio::const_buffer _data;    // Reference to data that belongs to this chunk.
+  size_t _responseChunkContentOffset; // Offset of start of content of this chunk in RequestItem._responseChunkContent.
+  size_t _responseContentLength;      // Content length of this chunk (only used during read operations).
 
-  //update chunk len in structure and in an already existing buffer
-  uint32_t updateChunkPayload(uint8_t* headerStartInBuffer, uint32_t payloadLength){
-    _chunkPayloadLength = payloadLength;
-    _chunkLength = _chunkHeaderLength + _chunkPayloadLength;
-    //update chunk len in buffer
-    std::memcpy(headerStartInBuffer, &_chunkLength, sizeof(_chunkLength)); //target, source, length
-    FUERTE_LOG_VSTTRACE << "chunk length set to: " << _chunkLength
-                        << " = "
-                        << _chunkHeaderLength << " + " << _chunkPayloadLength
-                        << std::endl;
-    return _chunkLength;
+  // Return length of this chunk (in host byte order)
+  inline uint32_t chunkLength() const { return _chunkLength; }
+  // Return message ID of this chunk (in host byte order)
+  inline uint64_t messageID() const { return _messageID; }
+  // Return total message length (in host byte order)
+  inline uint64_t messageLength() const { return _messageLength; }
+  // isFirst returns true when the "first chunk" flag has been set.
+  inline bool isFirst() const { return ((_chunkX & 0x01) == 1); }
+  // index returns the index of this chunk in the message.
+  inline uint32_t index() const { 
+    if ((_chunkX && 0x01) == 1) {
+      return 0;
+    }
+    return _chunkX >> 1;
+  }
+  // numberOfChunks return the number of chunks that make up the entire message.
+  // This function is only valid for first chunks.
+  inline uint32_t numberOfChunks() const { 
+    if ((_chunkX && 0x01) == 1) {
+      return _chunkX >> 1;
+    }
+    return 0; // Not known
   }
 
-  uint32_t updateTotalPayload(uint8_t* headerStartInBuffer, uint64_t messageLength){
-    _totalMessageLength = messageLength;
-    auto pos = headerStartInBuffer + sizeof(_chunkLength) + sizeof(_chunk) + sizeof(_messageID);
-    std::memcpy(pos, &_totalMessageLength, sizeof(_totalMessageLength)); //target, source, length
+  // writeHeaderToVST1_0 write the chunk to the given buffer in VST 1.0 format.
+  // The length of the buffer is returned.
+  size_t writeHeaderToVST1_0(VBuffer& buffer) const;
 
-    FUERTE_LOG_DEBUG << "totalMessageLength set to: " << _totalMessageLength
-                     << std::endl;
-    return _totalMessageLength;
-  }
+  // writeHeaderToVST1_1 write the chunk to the given buffer in VST 1.1 format.
+  // The length of the buffer is returned.
+  size_t writeHeaderToVST1_1(VBuffer& buffer) const;
 };
 
-inline constexpr std::size_t chunkHeaderLength(int version, bool isFirst, bool isSingle){
-  // until there is the next version we should use c++14 :P
-  return (version == 1) ?
-    sizeof(ChunkHeader::_chunkLength) + sizeof(ChunkHeader::_chunk) +
-    sizeof(ChunkHeader::_messageID) + (isFirst && !isSingle ? sizeof(ChunkHeader::_totalMessageLength) : 0)
-    :
-    sizeof(ChunkHeader::_chunkLength) + sizeof(ChunkHeader::_chunk) + sizeof(ChunkHeader::_messageID)
-    ;
+// buildChunks builds a list of chunks that are ready to be send to the server.
+// The resulting set of chunks are added to the given result vector.
+void buildChunks(uint64_t messageID, uint32_t maxChunkSize, std::vector<VSlice> const& messageParts, std::vector<ChunkHeader>& result);
+
+// chunkHeaderLength returns the length of a VST chunk header for given arguments.
+inline std::size_t chunkHeaderLength(VSTVersion vstVersion, bool isFirst, bool isSingle) {
+  switch (vstVersion) {
+    case VST1_0:
+      if (isFirst && !isSingle) {
+        return maxChunkHeaderSize;
+      }
+      return minChunkHeaderSize;
+    case VST1_1:
+      return maxChunkHeaderSize;
+    default:
+      throw std::logic_error("Unknown VST version");
+  }
 }
 
 // Item that represents a Request in flight
 struct RequestItem {
-  std::unique_ptr<Request> _request;
-  OnErrorCallback _onError;
-  OnSuccessCallback _onSuccess;
-  MessageID _messageId;
-  std::shared_ptr<VBuffer> _requestBuffer;
-  VBuffer _responseBuffer;
-  uint32_t _responseLength;    // length of complete message in bytes
-  std::size_t _responseChunks; // number of chunks in response
-  std::size_t _responseChunk;  // nuber of current chunk
+  std::unique_ptr<Request> _request;  // Reference to the request we're processing 
+  OnErrorCallback _onError;           // Callback for errors
+  OnSuccessCallback _onSuccess;       // Callback for success
+  MessageID _messageId;               // ID of this message
+  // Request variables
+  std::string _msgHdr;                // VST message header
+  VBuffer _requestChunkBuffer;        // Buffer used to hold chunk headers
+  std::vector<boost::asio::const_buffer> _requestBuffers; // Buffers the will be send to the socket.
+  // Response variables
+  std::vector<ChunkHeader> _responseChunks; // List of chunks that have been received.
+  VBuffer _responseChunkContent;      // Buffer containing content of received chunks. (this is not in sorted order!)
+  size_t _responseNumberOfChunks;     // The number of chunks we're expecting (0==not know yet).
+
+  // prepareForNetwork prepares the internal structures for writing the request 
+  // to the network.
+  void prepareForNetwork(VSTVersion);
+
+  // add the given chunk to the list of response chunks.
+  void addChunk(ChunkHeader&);
+  // try to assembly the received chunks into a response.
+  // returns NULL if not all chunks are available.
+  std::unique_ptr<VBuffer> assemble();
 };
-
-/////////////////////////////////////////////////////////////////////////////////////
-// send vst
-/////////////////////////////////////////////////////////////////////////////////////
-
-// creates a buffer in a shared pointer containg the message read to be send
-// out as vst (ChunkHeader, Header, Payload)
-std::shared_ptr<VBuffer> toNetwork(Request&);
 
 /////////////////////////////////////////////////////////////////////////////////////
 // receive vst
 /////////////////////////////////////////////////////////////////////////////////////
 
-// find out if data between begin and end assembles a complete
-// Velocystream chunk. If so return offset to chunk end or 0 if chunk is not complete
+// isChunkComplete returns the length of the chunk that starts at the given begin 
+// if the entire chunk is available.
+// Otherwise 0 is returned.
 std::size_t isChunkComplete(uint8_t const * const begin, std::size_t const length);
 
-// If there is a complete VstChunk you can use this function to read the header
-// a version 1.0 Header into a data structure
+// readChunkHeaderVST1_0 reads a chunk header in VST1.0 format.
 ChunkHeader readChunkHeaderV1_0(uint8_t const * const bufferBegin);
+
+// readChunkHeaderVST1_1 reads a chunk header in VST1.1 format.
+ChunkHeader readChunkHeaderV1_1(uint8_t const * const bufferBegin);
 
 // creates a MessageHeader form a given slice
 MessageHeader messageHeaderFromSlice(VSlice const& headerSlice);

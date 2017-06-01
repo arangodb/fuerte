@@ -49,7 +49,7 @@ typedef std::unique_ptr<Response> ResponseUP;
 
 MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
                                     ,OnErrorCallback onError
-                                    ,OnSuccessCallback onSuccess){
+                                    ,OnSuccessCallback onSuccess) {
 
   //check if id is already used and fail
   request->messageid = ++_messageId;
@@ -58,8 +58,10 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
   item->_messageId = _messageId;
   item->_onError = onError;
   item->_onSuccess = onSuccess;
-  item->_requestBuffer = vst::toNetwork(*request);
   item->_request = std::move(request);
+  item->prepareForNetwork(_vstVersion);
+
+  FUERTE_LOG_VSTTRACE << "sendRequest (async): before Lock" << std::endl;
 
   //start Write may be only entered once!
   bool doWrite;
@@ -73,15 +75,17 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
     FUERTE_LOG_CALLBACKS << "q";
   }
 
-  if(doWrite){
+  FUERTE_LOG_VSTTRACE << "sendRequest (async): before doWrite{..}" << std::endl;
+
+  if (doWrite) {
     // this allows sendRequest to return immediately and
     // not to block until all writing is done
     if(_connected){
       FUERTE_LOG_VSTTRACE << "queue write" << std::endl;
       FUERTE_LOG_VSTTRACE << "messageid: " << item->_request->messageid << " path: " << item->_request->header.path.get() << std::endl;
-      auto self = shared_from_this();
-      _ioService->dispatch( [this,self](){ startWrite(); } );
-      //startWrite();
+      //auto self = shared_from_this();
+      //_ioService->dispatch( [this,self](){ startWrite(); } );
+      startWrite();
 
       bool alreadyReading = _reading.exchange(true);
       if (!alreadyReading){
@@ -90,8 +94,11 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
       } else {
         FUERTE_LOG_TRACE << "NOT starting new read" << std::endl;
       }
+    } else {
+          FUERTE_LOG_VSTTRACE << "sendRequest (async): not connected" << std::endl;
     }
   }
+  FUERTE_LOG_VSTTRACE << "sendRequest (async) done" << std::endl;
   return item->_messageId;
 }
 
@@ -123,12 +130,14 @@ std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
 
   auto rv = std::unique_ptr<Response>(nullptr);
   auto onError  = [&](::arangodb::fuerte::v1::Error error, RequestUP request, ResponseUP response){
+    FUERTE_LOG_VSTTRACE << "sendRequest (sync): onError" << std::endl;
     rv = std::move(response);
     done = true;
     conditionVar.notify_one();
   };
 
   auto onSuccess  = [&](RequestUP request, ResponseUP response){
+    FUERTE_LOG_VSTTRACE << "sendRequest (sync): onSuccess" << std::endl;
     rv = std::move(response);
     done = true;
     conditionVar.notify_one();
@@ -138,16 +147,22 @@ std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
     std::unique_lock<std::mutex> lock(mutex);
     sendRequest(std::move(request),onError,onSuccess);
     if(!_asioLoop->_running){
-      arangodb::fuerte::run();
+      FUERTE_LOG_VSTTRACE << "sendRequest (sync): before run" << std::endl;
+      _asioLoop->run_ready();
+      //arangodb::fuerte::run(); // run
+      FUERTE_LOG_VSTTRACE << "sendRequest (sync): after run" << std::endl;
     }
+    FUERTE_LOG_VSTTRACE << "sendRequest (sync): before wait" << std::endl;
     conditionVar.wait(lock, [&]{ return done; });
   }
+  FUERTE_LOG_VSTTRACE << "sendRequest (sync): done" << std::endl;
   return std::move(rv);
 }
 
 
 VstConnection::VstConnection(ConnectionConfiguration const& configuration)
-    : _asioLoop(getProvider().getAsioLoop())
+    : _vstVersion(VST1_0)
+    , _asioLoop(getProvider().getAsioLoop())
     , _messageId(0)
     , _ioService(_asioLoop->getIoService())
     , _socket(nullptr)
@@ -158,7 +173,6 @@ VstConnection::VstConnection(ConnectionConfiguration const& configuration)
     , _reading(false)
     , _configuration(configuration)
     , _deadline(*_ioService)
-    , _vstVersionID(1)
 {
     bt::resolver resolver(*_ioService);
 
@@ -227,6 +241,7 @@ void VstConnection::restartConnection(){
 
 // ASIO CONNECT
 
+// try to open the socket connection to the first endpoint.
 void VstConnection::startConnect(bt::resolver::iterator endpointItr){
   if (endpointItr != boost::asio::ip::tcp::resolver::iterator()){
     FUERTE_LOG_CALLBACKS << "trying to connect to: " << endpointItr->endpoint() << "..." << std::endl;
@@ -239,13 +254,14 @@ void VstConnection::startConnect(bt::resolver::iterator endpointItr){
     ba::async_connect(*_socket
                      ,endpointItr
                      ,[this,self](BoostEC const& error, bt::resolver::iterator endpointItr){
-                        handleConnect(error,endpointItr);
+                        asyncConnectCallback(error,endpointItr);
                       }
                      );
   }
 }
 
-void VstConnection::handleConnect(BoostEC const& error, bt::resolver::iterator endpointItr){
+// callback handler for async_callback (called in startConnect).
+void VstConnection::asyncConnectCallback(BoostEC const& error, bt::resolver::iterator endpointItr){
   if(!error){
     FUERTE_LOG_CALLBACKS << "connected" << std::endl;
     //if success - start async handshake
@@ -270,16 +286,43 @@ void VstConnection::handleConnect(BoostEC const& error, bt::resolver::iterator e
   throw std::logic_error("you should not end up here!!!");
 }
 
+// socket connection is up (with optional SSL), now initiate the VST protocol.
 void VstConnection::finishInitialization(){
   FUERTE_LOG_CALLBACKS << "finish initialization" << std::endl;
   {
     _connected = true;
   }
-  startWrite(true); // there might be no requests enqueued
-  bool alreadyReading = _reading.exchange(true);
-  if (!alreadyReading){
-    startRead();
+
+  const char* vstHeader;
+  switch (_vstVersion) {
+    case VST1_0:
+      vstHeader = vstHeader1_0;
+      break;
+    case VST1_1:
+      vstHeader = vstHeader1_1;
+      break;
+    default:
+      throw std::logic_error("Unknown VST version");
   }
+
+  auto self = shared_from_this();
+  ba::async_write(*_socket
+                 ,ba::buffer(vstHeader, strlen(vstHeader))
+                 ,[this,self](BoostEC const& error, std::size_t transferred){
+                    if (error) {
+                      FUERTE_LOG_ERROR << error.message() << std::endl;
+                      _connected = false;
+                      shutdownConnection();
+                    } else {
+                      FUERTE_LOG_CALLBACKS << "finish initialization; VST header sent" << std::endl;
+                      startWrite(true); // there might be no requests enqueued
+                      bool alreadyReading = _reading.exchange(true);
+                      if (!alreadyReading){
+                        startRead();
+                      }
+                    }
+                  }
+                 );
 }
 
 void VstConnection::startHandshake(){
@@ -305,8 +348,10 @@ void VstConnection::startHandshake(){
 // READING WRITING / NORMAL OPERATIONS  ///////////////////////////////////////
 
 void VstConnection::startRead(){
+  FUERTE_LOG_VSTTRACE << "startRead" << std::endl;
   FUERTE_LOG_CALLBACKS << "-";
   if (_pleaseStop) {
+    FUERTE_LOG_VSTTRACE << "startRead: pleaseStop" << std::endl;
     return;
   }
 
@@ -326,7 +371,7 @@ void VstConnection::startRead(){
   _deadline.expires_from_now(boost::posix_time::seconds(30));
   FUERTE_LOG_CALLBACKS << "r";
 #if ENABLE_FUERTE_LOG_CALLBACKS > 0
-  std::cout << mapToKeys(_messageMap) << std::endl;
+  std::cout << "_messageMap = " << mapToKeys(_messageMap) << std::endl;
   std::cout.flush();
 #endif
   auto self = shared_from_this();
@@ -334,93 +379,93 @@ void VstConnection::startRead(){
                 ,_receiveBuffer
                 ,ba::transfer_at_least(4)
                 ,[this,self](const boost::system::error_code& error, std::size_t transferred){
-                   handleRead(error,transferred);
+                   this->asyncReadCallback(error, transferred);
                  }
                 );
+
+  FUERTE_LOG_VSTTRACE << "startRead: done" << std::endl;
 }
 
-// helper for turning a asio::const_buffer into a accessible form
-template<typename T = uint8_t>
-std::pair<T const*, std::size_t> bufferToPointerAndSize(boost::asio::const_buffer& buffer){
-  return std::make_pair( boost::asio::buffer_cast<T const*>(buffer)
-                       , boost::asio::buffer_size(buffer));
-}
-
-std::tuple<bool,std::shared_ptr<RequestItem>,std::size_t> VstConnection::processChunk(uint8_t const * cursor, std::size_t length){
-  FUERTE_LOG_VSTTRACE << "\n\n\nENTER PROCESS CHUNK, address: " << cursor << " length: " <<  length << std::endl;
-  auto vstChunkHeader = vst::readChunkHeaderV1_0(cursor);
-  //peek next chunk
-  bool nextChunkAvailable = false;
-  if(length > vstChunkHeader._chunkLength + sizeof(ChunkHeader::_chunkLength)){
-    FUERTE_LOG_VSTTRACE << "processing chunk with messageid: " << vstChunkHeader._messageID << std::endl;
-    FUERTE_LOG_VSTTRACE << "peeking into next chunk!" << std::endl;
-    nextChunkAvailable = vst::isChunkComplete(cursor + vstChunkHeader._chunkLength
-                                             ,length - vstChunkHeader._chunkLength);
-    FUERTE_LOG_VSTTRACE << "next available: " << nextChunkAvailable << std::endl;
+// asyncReadCallback is called when startRead is resulting in some data.
+void VstConnection::asyncReadCallback(const boost::system::error_code& error, std::size_t transferred){
+  FUERTE_LOG_CALLBACKS << "asyncReadCallback begin" ;
+  if (error){
+    FUERTE_LOG_CALLBACKS << "Error while reading form socket";
+    FUERTE_LOG_ERROR << error.message() << std::endl;
+    restartConnection();
   }
 
-  FUERTE_LOG_VSTTRACE << "ChunkLength: " << vstChunkHeader._chunkLength << std::endl
-                      << "available length: " << length << std::endl;
-  cursor += vstChunkHeader._chunkHeaderLength;
-  length -= vstChunkHeader._chunkHeaderLength;
+  FUERTE_LOG_CALLBACKS << "R(" << transferred << ")" ;
 
-  FUERTE_LOG_VSTTRACE << "ChunkHeaderLength: " << vstChunkHeader._chunkHeaderLength << std::endl;
-  FUERTE_LOG_VSTTRACE << "ChunkPayloadLength: " << vstChunkHeader._chunkPayloadLength << std::endl
-                      << "available length: " << length << std::endl;
+  if(_pleaseStop) {
+    FUERTE_LOG_CALLBACKS << "asyncReadCallback: pleaseStop" ;
+    return;
+  }
 
-  //because we are in single chunk mode for now
-  //assert(length == vstChunkHeader._chunkPayloadLength);
+  // Inspect the data we've received so far.
+  auto receivedBuf = _receiveBuffer.data(); //no copy
+  auto cursor = boost::asio::buffer_cast<const uint8_t*>(receivedBuf);
+  auto available = boost::asio::buffer_size(receivedBuf);
+  while (vst::isChunkComplete(cursor, available)) {
+    // Read chunk 
+    ChunkHeader chunk;
+    switch (_vstVersion) {
+      case VST1_0:
+        chunk = vst::readChunkHeaderV1_0(cursor);
+        break;
+      case VST1_1:
+        chunk = vst::readChunkHeaderV1_1(cursor);
+        break;
+      default:
+        throw std::logic_error("Unknown VST version");
+    }
 
+    // Process chunk 
+    processChunk(chunk);
+
+    // Remove consumed data from receive buffer.
+    _receiveBuffer.consume(chunk.chunkLength());
+    cursor += chunk.chunkLength();
+    available -= chunk.chunkLength();
+  }
+
+  // Continue reading data
+  startRead();
+}
+
+// Process the given incoming chunk.
+void VstConnection::processChunk(const ChunkHeader &chunk) {
+  auto msgID = chunk.messageID();
+  FUERTE_LOG_VSTTRACE << "processChunk: messageID=" << msgID << std::endl;
+
+  // Find requestItem for this chunk.  
   ::std::map<MessageID,std::shared_ptr<RequestItem>>::iterator found;
   {
     Lock lock(_mapMutex);
     found = _messageMap.find(vstChunkHeader._messageID);
     if (found == _messageMap.end()) {
-      throw std::logic_error("got message with no matching request");
+      FUERTE_LOG_ERROR << "got chunk with unknown message ID: " << msgID << std::endl;
+      return;
     }
   }
 
-  RequestItemSP item = found->second;
+  // We've found the matching RequestItem.
+  auto item = found->second;
+  item->addChunk(chunk);
 
-  FUERTE_LOG_VSTTRACE << "appending to item with length: " << vstChunkHeader._chunkPayloadLength << std::endl;
-  // copy payload to buffer
-  item->_responseBuffer.append(cursor,vstChunkHeader._chunkPayloadLength);
-
-  cursor += vstChunkHeader._chunkPayloadLength;
-  length -= vstChunkHeader._chunkPayloadLength;
-
-  FUERTE_LOG_VSTTRACE << "next chunk available: " << std::boolalpha << nextChunkAvailable  << std::endl;
-
-  if(vstChunkHeader._isSingle){ //we got a single chunk containing the complete message
-    FUERTE_LOG_VSTTRACE << "adding single chunk " << std::endl;
-    FUERTE_LOG_VSTTRACE << "resetting buffer length to: " << vstChunkHeader._chunkPayloadLength << std::endl;
-    item->_responseBuffer.resetTo(vstChunkHeader._chunkPayloadLength);
-    FUERTE_LOG_VSTTRACE << "setting buffer length - done" << vstChunkHeader._chunkPayloadLength << std::endl;
-    return std::tuple<bool,RequestItemSP,std::size_t>(nextChunkAvailable, std::move(item), vstChunkHeader._chunkLength);
-  } else if (!vstChunkHeader._isFirst){
-    //there is chunk that continues a message
-    assert(item->_responseChunk == vstChunkHeader._numberOfChunks); // 0 based counting
-    item->_responseChunk++;
-    FUERTE_LOG_VSTTRACE << "cunk: " << vstChunkHeader._numberOfChunks << "/" << item->_responseChunks << std::endl;
-    if(item->_responseChunks == item->_responseChunk){ //last chunk reached
-      FUERTE_LOG_VSTTRACE << "adding multi chunk " << std::endl;
-      // TODO TODO TODO TODO should multichunk not be working start looking here!!!!!!!
-      // the VPackBuffer is unable to track how much has been written to it. Maybe this is
-      // fixed when you read this.
-      //assert(item->_responseBuffer.length() == item->_responseLength);
-      item->_responseBuffer.resetTo(item->_responseLength);
-      return std::tuple<bool,RequestItemSP,std::size_t>(nextChunkAvailable, std::move(item),vstChunkHeader._chunkLength);
+  // Try to assembly chunks in RequestItem to complete response.
+  auto completeResponse = m.assemble();
+  if (completeResponse) {
+    // Message is complete 
+    // Remove message from store 
+    {
+      Lock lock(_mapMutex);
+      _messageMap.erase(item->_messageID);
     }
-    FUERTE_LOG_VSTTRACE << "multi chunk incomplete" << std::endl;
-  } else {
-    //the chunk stats a multipart message
-    item->_responseLength = vstChunkHeader._totalMessageLength;
-    item->_responseChunks = vstChunkHeader._numberOfChunks;
-    item->_responseChunk = 1;
-    FUERTE_LOG_VSTTRACE << "starting multi chunk" << std::endl;
-  }
 
-  return std::tuple<bool,RequestItemSP,std::size_t>(nextChunkAvailable, nullptr, vstChunkHeader._chunkLength);
+    // Notify listeners
+    item->_onSuccess(std::move(item->_request), std::move(completeResponse));
+  }
 }
 
 void VstConnection::processCompleteItem(std::shared_ptr<RequestItem>&& itempointer){
@@ -463,79 +508,11 @@ void VstConnection::processCompleteItem(std::shared_ptr<RequestItem>&& itempoint
   }
 }
 
-void VstConnection::handleRead(const boost::system::error_code& error, std::size_t transferred){
-  if (error){
-    FUERTE_LOG_CALLBACKS << "Error while reading form socket";
-    FUERTE_LOG_ERROR << error.message() << std::endl;
-    restartConnection();
-  }
-
-  FUERTE_LOG_CALLBACKS << "R(" << transferred << ")" ;
-
-  if(_pleaseStop) {
-    return;
-  }
-
-  //THIS WILL MAKE THE CODE FAIL WHEN RECONNECTING
-  //if (!transferred) {
-  // throw std::logic_error("handler called without receiving data");
-  //}
-
-  boost::asio::const_buffer received = _receiveBuffer.data(); //no copy
-  std::size_t size = boost::asio::buffer_size(received);
-
-  //assert(transferred == size); // could be longer because we do not take everything form the buffer
-  auto pair = bufferToPointerAndSize<uint8_t>(received); //get write access
-  if (!vst::isChunkComplete(pair.first, pair.second)){
-    FUERTE_LOG_CALLBACKS << "no complete chunk continue reading" << std::endl;
-    startRead();
-    return;
-  }
-
-  uint8_t const* cursor = pair.first;
-  auto length = pair.second;
-  std::size_t consumed = 0;
-  std::vector<std::shared_ptr<RequestItem>> items;
-
-  { // limit scope of vars
-    RequestItemSP item = nullptr; // id is given only when a chunk is complete
-    bool processMoreChunks = true;
-    std::size_t consume;
-
-    while(processMoreChunks){
-      std::tie(processMoreChunks,item,consume) = processChunk(cursor, length);
-      assert(consume <= length);
-      consumed += consume;
-      cursor += consume;
-      length -= consume;
-      if(item){
-        items.push_back(std::move(item));
-      }
-    }
-
-    _receiveBuffer.consume(consumed); //remove chunk from input
-  }
-
-  /// end new function
-
-  //if(!_asioLoop->_singleRunMode){
-  //  startRead(); //start next read - code below might run in parallel to new read
-  //}
-
-  if(!items.empty()){
-    for(auto itempointer : items){
-      processCompleteItem(std::move(itempointer)); //maybe as ref or plain pointer?!
-    }
-  }
-
-  //if(_asioLoop->_singleRunMode){
-    startRead();
-  //}
-}
-
 void VstConnection::startWrite(bool possiblyEmpty){
+  FUERTE_LOG_CALLBACKS << "startWrite" << std::endl;
   FUERTE_LOG_TRACE << "+" ;
   if (_pleaseStop) {
+    FUERTE_LOG_CALLBACKS << "startWrite: pleaseStop" << std::endl;
     return;
   }
 
@@ -544,6 +521,7 @@ void VstConnection::startWrite(bool possiblyEmpty){
     Lock sendQueueLock(_sendQueueMutex);
     if(_sendQueue.empty()){
       assert(possiblyEmpty);
+      FUERTE_LOG_CALLBACKS << "startWrite: sendQueue empty" << std::endl;
       return;
     }
     next = _sendQueue.front();
@@ -554,7 +532,7 @@ void VstConnection::startWrite(bool possiblyEmpty){
     _messageMap.emplace(next->_messageId,next);
   }
 
-  FUERTE_LOG_CALLBACKS << "s";
+  FUERTE_LOG_CALLBACKS << "startWrite: preparing to send next" << std::endl;
 
   // make sure we are connected and handshake has been done
   auto self = shared_from_this();
@@ -568,18 +546,20 @@ void VstConnection::startWrite(bool possiblyEmpty){
                   ,data.byteSize() - vstChunkHeader._chunkHeaderLength);
 #endif
   FUERTE_LOG_CALLBACKS << data.byteSize();
-  ba::async_write(*_socket
-                 ,ba::buffer(data.data(),data.byteSize())
-                 ,[this,self,next](BoostEC const& error, std::size_t transferred){
-                    this->handleWrite(error,transferred, next);
-                  }
-                 );
+  ba::async_write(*_socket, ba::buffer(data.data(),data.byteSize()),
+    [this,self,next](BoostEC const& error, std::size_t transferred) {
+      this->asyncWriteCallback(error, transferred, next);
+    });
+
+  FUERTE_LOG_CALLBACKS << "startWrite: done" << std::endl;
 }
 
-void VstConnection::handleWrite(BoostEC const& error, std::size_t transferred, RequestItemSP item){
-  FUERTE_LOG_CALLBACKS << "S";
+// callback of async_write function that is called in startWrite.
+void VstConnection::asyncWriteCallback(BoostEC const& error, std::size_t transferred, RequestItemSP item){
+  FUERTE_LOG_CALLBACKS << "asyncWriteCallback" << std::endl;
 
   if (error){
+    FUERTE_LOG_CALLBACKS << "asyncWriteCallback: error " << error.message() << std::endl;
     FUERTE_LOG_ERROR << error.message() << std::endl;
     _pleaseStop = true; //stop reading as well
     {
@@ -598,6 +578,9 @@ void VstConnection::handleWrite(BoostEC const& error, std::size_t transferred, R
     _sendQueue.pop_front();
     return;
   }
+
+  FUERTE_LOG_CALLBACKS << "asyncWriteCallback: send succeeded, " << transferred << " bytes transferred" << std::endl;
+
   item->_requestBuffer.reset(); //request is written we no longer need the buffer
   //everything is ok
   // remove item when work is done;
@@ -608,8 +591,14 @@ void VstConnection::handleWrite(BoostEC const& error, std::size_t transferred, R
   {
     Lock sendQueueLock(_sendQueueMutex);
     _sendQueue.pop_front();
-    if(_sendQueue.empty()){ return; }
+    if(_sendQueue.empty()){ 
+      FUERTE_LOG_CALLBACKS << "asyncWriteCallback: sendQueue is empty" << std::endl;
+      return; 
+      }
   }
+
+  FUERTE_LOG_CALLBACKS << "asyncWriteCallback: send next request" << std::endl;
+
   //startWrite();
   auto self = shared_from_this();
   _ioService->dispatch( [self](){ self->startWrite(); });

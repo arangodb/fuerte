@@ -98,13 +98,23 @@ public:
   Loop();
   //void run();
   //void ask_to_stop();
+  // Run the eventloop. Only return when all work is done or the eventloop is stopped.
+  // There is no need to reset the eventloop sfter this call, unless an exception is thrown.
   void run_ready();
+  // Run all handlers that are ready to run without blocking.
+  // Only returns when there are no more ready handlers, or or the eventloop is stopped.
+private:
   void poll();
   void reset();
 
+private:
   void direct_poll();
+  
+  // Run the eventloop. Only return when all work is done or the eventloop is stopped.
   void direct_run();
+  // Stop the eventloop as soon as possible.
   void direct_stop();
+  // Reset the eventloop, so run can function again.
   void direct_reset() { reset(); }
 
   void setIoService(::boost::asio::io_service * service);

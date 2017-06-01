@@ -56,14 +56,14 @@ class VstConnection : public std::enable_shared_from_this<VstConnection>, public
 // handshake is done it starts the async read loop on the socket. And tries a
 // first write.
 //
-// The startRead function uses the function handleRead as handler for the
+// The startRead function uses the function asyncReadCallback as handler for the
 // async_read on the socket. This handler calls start Read as soon it has taken
 // all relevant data from the socket. so The loop runs until the vstConnection
 // is stopped.
 //
 // startWrite will be Triggered after establishing a connection or when new
 // data has been queued for sending. Then startWrite and handleWrite call each
-// other in the same way as startRead / handleRead but stop doing so as soon as
+// other in the same way as startRead / asyncReadCallback but stop doing so as soon as
 // the writeQueue is empty.
 //
 
@@ -102,7 +102,7 @@ private:
 
   // establishes connection and initiates handshake
   void startConnect(boost::asio::ip::tcp::resolver::iterator);
-  void handleConnect(boost::system::error_code const& ec, boost::asio::ip::tcp::resolver::iterator);
+  void asyncConnectCallback(boost::system::error_code const& ec, boost::asio::ip::tcp::resolver::iterator);
 
   // does handshake and starts async read and write
   void startHandshake();
@@ -114,18 +114,18 @@ private:
   // handler for boost::asio::async_read that extracs chunks form the network
   // takes complete chunks form the socket and starts a new read action. After
   // triggering the next read it processes the received data.
-  void handleRead(boost::system::error_code const&, std::size_t transferred);
-  // processes single chunks and updates cursor to the next position
-  // returns bool signaling if more chunks need to be processed and MessageID of the just processed chunk
-  std::tuple<bool,std::shared_ptr<RequestItem>,std::size_t> processChunk(uint8_t const* cursor, std::size_t length);
+  void asyncReadCallback(boost::system::error_code const&, std::size_t transferred);
+  // Process the given incoming chunk.
+  void processChunk(const ChunkHeader &chunk);
   void processCompleteItem(std::shared_ptr<RequestItem>&& item);
 
-  // writes data form task queue to network using boost::asio::async_write
+  // writes data from task queue to network using boost::asio::async_write
   void startWrite(bool possiblyEmpty = false);
   // handler for boost::asio::async_wirte that calls startWrite as long as there is new data
-  void handleWrite(boost::system::error_code const&, std::size_t transferred, std::shared_ptr<RequestItem>);
+  void asyncWriteCallback(boost::system::error_code const&, std::size_t transferred, std::shared_ptr<RequestItem>);
 
 private:
+  VSTVersion _vstVersion;
   // TODO FIXME -- fix alignment when done so mutexes are not on the same cacheline etc
   std::shared_ptr<Loop> _asioLoop;
   detail::ConnectionConfiguration _configuration;
@@ -148,7 +148,6 @@ private:
   ::std::deque<std::shared_ptr<RequestItem>> _sendQueue;
   ::std::mutex _mapMutex;
   ::std::map<MessageID,std::shared_ptr<RequestItem>> _messageMap;
-  int _vstVersionID;
 };
 
 }

@@ -50,6 +50,8 @@ Loop::Loop()
   ,_singleRunMode(false)
   {}
 
+// Run the eventloop. Only returns when all work is done or the eventloop is stopped.
+// There is no need to reset the eventloop sfter this call, unless an exception is thrown.
 void Loop::run_ready(){
   _sealed = true;
   if(!_owning){
@@ -71,6 +73,8 @@ void Loop::run_ready(){
   _singleRunMode=false;
 }
 
+// Run all handlers that are ready to run without blocking.
+// Only returns when there are no more ready handlers, or or the eventloop is stopped.
 void Loop::poll(){
   _sealed = true;
   if(!_owning){
@@ -91,6 +95,7 @@ void Loop::poll(){
   }
 }
 
+// Reset the eventloop, so run can function again.
 void Loop::reset(){
   _service->reset();
 }
@@ -99,10 +104,12 @@ void Loop::direct_poll(){
   _service->run();
 }
 
+// Run the eventloop. Only return when all work is done or the eventloop is stopped.
 void Loop::direct_run(){
   _service->run();
 }
 
+// Stop the eventloop as soon as possible.
 void Loop::direct_stop(){
   _service->stop();
 }
