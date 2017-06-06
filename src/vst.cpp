@@ -294,7 +294,8 @@ ChunkHeader readChunkHeaderVST1_0(uint8_t const * const bufferBegin) {
 	}
 
   size_t contentLength = header._chunkLength - hdrLen;
-  header._data = boost::asio::const_buffer(hdr+header._chunkLength, contentLength);
+  header._data = boost::asio::const_buffer(hdr+hdrLen, contentLength);
+  FUERTE_LOG_VSTTRACE << "readChunkHeaderVST1_0: got " << contentLength << " data bytes after " << hdrLen << " header bytes" << std::endl;
 
   return header;
 }
@@ -309,7 +310,7 @@ ChunkHeader readChunkHeaderVST1_1(uint8_t const * const bufferBegin) {
   header._messageID = le64toh(*reinterpret_cast<const uint64_t*>(hdr+8));
   header._messageLength = le64toh(*reinterpret_cast<const uint64_t*>(hdr+16));
   size_t contentLength = header._chunkLength - maxChunkHeaderSize;
-  header._data = boost::asio::const_buffer(hdr+header._chunkLength, contentLength);
+  header._data = boost::asio::const_buffer(hdr+maxChunkHeaderSize, contentLength);
 
   return header;
 }
@@ -456,7 +457,7 @@ std::unique_ptr<VBuffer> RequestItem::assemble() {
 
   // Combine chunk content 
   FUERTE_LOG_VSTTRACE << "RequestItem::assemble: build response buffer" << std::endl;
-  auto buffer = std::unique_ptr<VBuffer>();
+  auto buffer = std::unique_ptr<VBuffer>(new VBuffer());
   for (auto it = std::begin(_responseChunks); it!=std::end(_responseChunks); ++it) {
     buffer->append(_responseChunkContent.data() + it->_responseChunkContentOffset, it->_responseContentLength);
   }
