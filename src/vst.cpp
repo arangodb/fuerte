@@ -210,7 +210,7 @@ static std::string createVstMessageHeader(MessageHeader const& header)
   }
   builder.close();
 
-  return builder.toString();
+  return buffer.toString();
 }
 
 // ################################################################################
@@ -420,6 +420,7 @@ void RequestItem::addChunk(ChunkHeader& chunk) {
   // Copy _data to response buffer 
   auto contentStart = boost::asio::buffer_cast<const uint8_t*>(chunk._data);
   chunk._responseContentLength = boost::asio::buffer_size(chunk._data);
+  FUERTE_LOG_VSTTRACE << "RequestItem::addChunk: adding " << chunk._responseContentLength << " bytes to buffer" << std::endl;
   chunk._responseChunkContentOffset = _responseChunkContent.byteSize();
   _responseChunkContent.append(contentStart, chunk._responseContentLength);
   // Release _data in chunk 
@@ -429,6 +430,7 @@ void RequestItem::addChunk(ChunkHeader& chunk) {
   // Gather number of chunk info 
   if (chunk.isFirst()) {
     _responseNumberOfChunks = chunk.numberOfChunks();
+    FUERTE_LOG_VSTTRACE << "RequestItem::addChunk: set #chunks to " << _responseNumberOfChunks << std::endl;
   }
 }
 
@@ -439,17 +441,21 @@ static bool chunkByIndex (const ChunkHeader& a, const ChunkHeader& b) { return (
 std::unique_ptr<VBuffer> RequestItem::assemble() {
   if (_responseNumberOfChunks == 0) {
 		// We don't have the first chunk yet
+    FUERTE_LOG_VSTTRACE << "RequestItem::assemble: don't have first chunk" << std::endl;
 		return nullptr;
 	}
 	if (_responseChunks.size() < _responseNumberOfChunks) {
 		// Not all chunks have arrived yet
+    FUERTE_LOG_VSTTRACE << "RequestItem::assemble: not all chunks have arrived" << std::endl;
 		return nullptr;
 	}
 
   // We now have all chunks. Sort them by index.
+  FUERTE_LOG_VSTTRACE << "RequestItem::assemble: sort chunks" << std::endl;
   std::sort (_responseChunks.begin(), _responseChunks.end(), chunkByIndex);
 
   // Combine chunk content 
+  FUERTE_LOG_VSTTRACE << "RequestItem::assemble: build response buffer" << std::endl;
   auto buffer = std::unique_ptr<VBuffer>();
   for (auto it = std::begin(_responseChunks); it!=std::end(_responseChunks); ++it) {
     buffer->append(_responseChunkContent.data() + it->_responseChunkContentOffset, it->_responseContentLength);
