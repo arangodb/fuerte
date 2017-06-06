@@ -450,10 +450,12 @@ void VstConnection::processChunk(ChunkHeader &chunk) {
   }
 
   // We've found the matching RequestItem.
+  FUERTE_LOG_VSTTRACE << "processChunk: found RequestItem: addChunk" << std::endl;
   auto item = found->second;
   item->addChunk(chunk);
 
   // Try to assembly chunks in RequestItem to complete response.
+  FUERTE_LOG_VSTTRACE << "processChunk: found RequestItem: assemble" << std::endl;
   auto completeBuffer = item->assemble();
   if (completeBuffer) {
     // Message is complete 
@@ -464,9 +466,11 @@ void VstConnection::processChunk(ChunkHeader &chunk) {
     }
 
     // Create response
+    FUERTE_LOG_VSTTRACE << "processChunk: found RequestItem: createResponse" << std::endl;
     auto response = createResponse(*item, completeBuffer);
 
     // Notify listeners
+    FUERTE_LOG_VSTTRACE << "processChunk: found RequestItem: onSuccess" << std::endl;
     item->_onSuccess(std::move(item->_request), std::move(response));
   }
 }
