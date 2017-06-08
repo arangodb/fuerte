@@ -56,6 +56,15 @@
         "random": "cpp",
         "bitset": "cpp",
         "future": "cpp",
-        "ios": "cpp"
+        "ios": "cpp",
+        "queue": "cpp",
+        "hash_map": "cpp",
+        "hash_set": "cpp",
+        "forward_list": "cpp",
+        "iterator": "cpp",
+        "map": "cpp",
+        "set": "cpp",
+        "stack": "cpp",
+        "unordered_set": "cpp"
     }
 }

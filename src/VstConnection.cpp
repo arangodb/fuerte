@@ -18,9 +18,8 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author Jan Christoph Uhde
+/// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
-
-
 
 #include "VstConnection.h"
 #include <boost/asio/connect.hpp>
@@ -64,53 +63,31 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
   FUERTE_LOG_VSTTRACE << "sendRequest (async): before Lock" << std::endl;
 
   //start Write may be only entered once!
-  bool doWrite;
-  {
-    Lock lockQueue(_sendQueueMutex);
-    doWrite = _sendQueue.empty();
-    _sendQueue.push_back(item);
-#if ENABLE_FUERTE_LOG_CALLBACKS < 0
-    FUERTE_LOG_DEBUG << "queue request" << std::endl;
-#endif
-    FUERTE_LOG_CALLBACKS << "q";
-  }
-
+  _sendQueue.add(item);
   FUERTE_LOG_VSTTRACE << "sendRequest (async): before doWrite{..}" << std::endl;
 
-  if (doWrite) {
-    // this allows sendRequest to return immediately and
-    // not to block until all writing is done
-    if(_connected){
-      FUERTE_LOG_VSTTRACE << "queue write" << std::endl;
-      FUERTE_LOG_VSTTRACE << "messageid: " << item->_request->messageID << " path: " << item->_request->header.path.get() << std::endl;
-      //auto self = shared_from_this();
-      //_ioService->dispatch( [this,self](){ startWrite(); } );
-      startWrite();
-
-      bool alreadyReading = _reading.exchange(true);
-      if (!alreadyReading){
-        FUERTE_LOG_TRACE << "starting new read" << std::endl;
-        startRead();
-      } else {
-        FUERTE_LOG_TRACE << "NOT starting new read" << std::endl;
-      }
-    } else {
-          FUERTE_LOG_VSTTRACE << "sendRequest (async): not connected" << std::endl;
-    }
+  // this allows sendRequest to return immediately and
+  // not to block until all writing is done
+  if (_connected) {
+    FUERTE_LOG_VSTTRACE << "queue write" << std::endl;
+    FUERTE_LOG_VSTTRACE << "messageid: " << item->_request->messageID
+                        << " path: " << item->_request->header.path.get()
+                        << std::endl;
+    startSending();
+    startReading();
+  } else {
+    FUERTE_LOG_VSTTRACE << "sendRequest (async): not connected" << std::endl;
   }
+
   FUERTE_LOG_VSTTRACE << "sendRequest (async) done" << std::endl;
   return item->_messageID;
 }
 
-std::size_t VstConnection::requestsLeft(){
+std::size_t VstConnection::requestsLeft() {
   // this function does not return the exact size (both mutexes would be
   // required to be locked at the same time) but as it is used to decide
   // if another run is called or not this should not be critical.
-  std::size_t left = 0;
-  {
-    Lock sendQueueLock(_sendQueueMutex);
-    left += _sendQueue.size();
-  }
+  auto left = _sendQueue.size();
 
   {
     Lock mapLock(_mapMutex);
@@ -196,9 +173,9 @@ void VstConnection::initSocket(){
 }
 
 void VstConnection::shutdownSocket(){
-  std::unique_lock<std::mutex> queueLock(_sendQueueMutex, std::defer_lock);
+  std::unique_lock<std::mutex> queueLock(_sendQueue.mutex(), std::defer_lock);
   std::unique_lock<std::mutex> mapLock(_mapMutex, std::defer_lock);
-  std::lock(queueLock,mapLock);
+  std::lock(queueLock, mapLock);
 
   FUERTE_LOG_CALLBACKS << "begin shutdown socket" << std::endl;
 
@@ -215,6 +192,7 @@ void VstConnection::shutdownConnection(){
   // this function must be used in handlers
   bool alreadyStopping = _pleaseStop.exchange(true);
   _reading = false;
+  _sending = false;
   if (alreadyStopping){
     return;
   }
@@ -264,7 +242,7 @@ void VstConnection::asyncConnectCallback(BoostEC const& error, bt::resolver::ite
   if(!error){
     FUERTE_LOG_CALLBACKS << "connected" << std::endl;
     //if success - start async handshake
-    if(_configuration._ssl){
+    if(_configuration._ssl) {
       FUERTE_LOG_CALLBACKS << "call start startHandshake" << std::endl;
       startHandshake();
       return;
@@ -314,11 +292,8 @@ void VstConnection::finishInitialization(){
                       shutdownConnection();
                     } else {
                       FUERTE_LOG_CALLBACKS << "finish initialization; VST header sent" << std::endl;
-                      startWrite(true); // there might be no requests enqueued
-                      bool alreadyReading = _reading.exchange(true);
-                      if (!alreadyReading){
-                        startRead();
-                      }
+                      startSending();
+                      startReading();
                     }
                   }
                  );
@@ -346,19 +321,21 @@ void VstConnection::startHandshake(){
 
 // READING WRITING / NORMAL OPERATIONS  ///////////////////////////////////////
 
-void VstConnection::startRead(){
-  FUERTE_LOG_VSTTRACE << "startRead" << std::endl;
+// readNextBytes reads the next bytes from the server.
+void VstConnection::readNextBytes(){
+  FUERTE_LOG_VSTTRACE << "readNextBytes" << std::endl;
   FUERTE_LOG_CALLBACKS << "-";
   if (_pleaseStop) {
-    FUERTE_LOG_VSTTRACE << "startRead: pleaseStop" << std::endl;
+    FUERTE_LOG_VSTTRACE << "readNextBytes: pleaseStop" << std::endl;
+    _reading = false;
     return;
   }
 
   {
-    std::unique_lock<std::mutex> queueLock(_sendQueueMutex, std::defer_lock);
+    std::unique_lock<std::mutex> queueLock(_sendQueue.mutex(), std::defer_lock);
     std::unique_lock<std::mutex> mapLock(_mapMutex, std::defer_lock);
-    std::lock(queueLock,mapLock);
-    if(_messageMap.empty() && _sendQueue.empty()){
+    std::lock(queueLock, mapLock);
+    if (_messageMap.empty() && _sendQueue.empty(true)) {
       _reading = false;
       FUERTE_LOG_VSTTRACE << "returning from read loop";
       FUERTE_LOG_CALLBACKS <<  std::endl;
@@ -382,10 +359,10 @@ void VstConnection::startRead(){
                  }
                 );
 
-  FUERTE_LOG_VSTTRACE << "startRead: done" << std::endl;
+  FUERTE_LOG_VSTTRACE << "readNextBytes: done" << std::endl;
 }
 
-// asyncReadCallback is called when startRead is resulting in some data.
+// asyncReadCallback is called when readNextBytes is resulting in some data.
 void VstConnection::asyncReadCallback(const boost::system::error_code& error, std::size_t transferred){
   FUERTE_LOG_CALLBACKS << "asyncReadCallback begin" ;
   if (error){
@@ -398,6 +375,7 @@ void VstConnection::asyncReadCallback(const boost::system::error_code& error, st
 
   if(_pleaseStop) {
     FUERTE_LOG_CALLBACKS << "asyncReadCallback: pleaseStop" ;
+    _reading = false;
     return;
   }
 
@@ -429,7 +407,7 @@ void VstConnection::asyncReadCallback(const boost::system::error_code& error, st
   }
 
   // Continue reading data
-  startRead();
+  readNextBytes();
 }
 
 // Process the given incoming chunk.
@@ -491,23 +469,21 @@ std::unique_ptr<Response> VstConnection::createResponse(RequestItem& item, std::
 }
 
 // writes data from task queue to network using boost::asio::async_write
-void VstConnection::startWrite(bool possiblyEmpty) {
-  FUERTE_LOG_CALLBACKS << "startWrite" << std::endl;
+void VstConnection::sendNextRequest() {
+  FUERTE_LOG_CALLBACKS << "sendNextRequest" << std::endl;
   FUERTE_LOG_TRACE << "+" ;
   if (_pleaseStop) {
-    FUERTE_LOG_CALLBACKS << "startWrite: pleaseStop" << std::endl;
+    FUERTE_LOG_CALLBACKS << "sendNextRequest: pleaseStop" << std::endl;
+    _sending = false;
     return;
   }
 
-  std::shared_ptr<RequestItem> next;
-  {
-    Lock sendQueueLock(_sendQueueMutex);
-    if(_sendQueue.empty()){
-      assert(possiblyEmpty);
-      FUERTE_LOG_CALLBACKS << "startWrite: sendQueue empty" << std::endl;
-      return;
-    }
-    next = _sendQueue.front();
+  auto next = _sendQueue.front();
+  if (!next) {
+    // send queue is empty
+    FUERTE_LOG_CALLBACKS << "sendNextRequest: sendQueue empty" << std::endl;
+    _sending = false;
+    return;
   }
 
   {
@@ -515,7 +491,7 @@ void VstConnection::startWrite(bool possiblyEmpty) {
     _messageMap.emplace(next->_messageID, next);
   }
 
-  FUERTE_LOG_CALLBACKS << "startWrite: preparing to send next" << std::endl;
+  FUERTE_LOG_CALLBACKS << "sendNextRequest: preparing to send next" << std::endl;
 
   // make sure we are connected and handshake has been done
   auto self = shared_from_this();
@@ -529,18 +505,18 @@ void VstConnection::startWrite(bool possiblyEmpty) {
 #endif*/
   ba::async_write(*_socket, 
     next->_requestBuffers,
-    [this, self, next](BoostEC const& error, std::size_t transferred) {
-      this->asyncWriteCallback(error, transferred, next);
+    [self, next](BoostEC const& error, std::size_t transferred) {
+      self->asyncWriteCallback(error, transferred, next);
     });
 
-  FUERTE_LOG_CALLBACKS << "startWrite: done" << std::endl;
+  FUERTE_LOG_CALLBACKS << "sendNextRequest: done" << std::endl;
 }
 
-// callback of async_write function that is called in startWrite.
+// callback of async_write function that is called in sendNextRequest.
 void VstConnection::asyncWriteCallback(BoostEC const& error, std::size_t transferred, RequestItemSP item){
   FUERTE_LOG_CALLBACKS << "asyncWriteCallback" << std::endl;
 
-  if (error){
+  if (error) {
     FUERTE_LOG_CALLBACKS << "asyncWriteCallback: error " << error.message() << std::endl;
     FUERTE_LOG_ERROR << error.message() << std::endl;
     _pleaseStop = true; //stop reading as well
@@ -549,40 +525,27 @@ void VstConnection::asyncWriteCallback(BoostEC const& error, std::size_t transfe
       _messageMap.erase(item->_messageID);
     }
 
-    //let user know that this request caused the error
-    item->_onError(errorToInt(ErrorCondition::VstWriteError),std::move(item->_request),nullptr);
+    // let user know that this request caused the error
+    item->_onError(errorToInt(ErrorCondition::VstWriteError), std::move(item->_request), nullptr);
 
     restartConnection();
 
     // pop at the very end of error handling so nothing else
     // gets queued in the io_service
-    Lock sendQueueLock(_sendQueueMutex);
-    _sendQueue.pop_front();
+    _sendQueue.removeFirst();
     return;
   }
 
   FUERTE_LOG_CALLBACKS << "asyncWriteCallback: send succeeded, " << transferred << " bytes transferred" << std::endl;
 
-  item->resetSendData(); //request is written we no longer data for that
-  // everything is ok
-  // remove item when work is done;
-  // so the queue does not get empty in between which could
-  // trigger another parallel write that is not allowed
-  // the caller of async_write has to make sure that there
-  // are no parallel calls
-  {
-    Lock sendQueueLock(_sendQueueMutex);
-    _sendQueue.pop_front();
-    if(_sendQueue.empty()) { 
-      FUERTE_LOG_CALLBACKS << "asyncWriteCallback: sendQueue is empty" << std::endl;
-      return; 
-    }
-  }
+  // Remove item from send queue 
+  _sendQueue.removeFirst();
+  // request is written we no longer data for that
+  item->resetSendData(); 
 
-  FUERTE_LOG_CALLBACKS << "asyncWriteCallback: send next request" << std::endl;
-
-  startWrite();
-  //auto self = shared_from_this();
-  //_ioService->dispatch( [self](){ self->startWrite(); });
+  // Continue with next request (if any)
+  FUERTE_LOG_CALLBACKS << "asyncWriteCallback: send next request (if any)" << std::endl;
+  sendNextRequest();
 }
+
 }}}}

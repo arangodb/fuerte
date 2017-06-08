@@ -29,7 +29,7 @@ void handler(int sig) {
 }
 
 int main(int argc, char** argv) {
-  signal(SIGSEGV, handler);                // install our handler
+  //signal(SIGSEGV, handler);                // install our handler
   ::testing::InitGoogleTest(&argc, argv);  // removes google test parameters
   arguments = parse_args(argc, argv);      // init global Schmutz
   return RUN_ALL_TESTS();

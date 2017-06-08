@@ -33,10 +33,6 @@
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
-namespace vst {
-  class VstConnection;
-}
-
 const std::string fu_content_type_key("content-type");
 const std::string fu_accept_key("accept");
 
@@ -76,10 +72,10 @@ std::string to_string(MessageHeader const&);
 // create a map<string,string> from header object
 mapss headerStrings(MessageHeader const& header);
 
-// TODO SPLIT MESSAGE INTO REQEST / RESPONSE
+// Message is base class for message being send to (Request) or
+// from (Response) a server.
 class Message {
-friend class VstConnection;
-public:
+protected:
   Message(MessageHeader&& messageHeader = MessageHeader(), mapss&& headerStrings = mapss())
     : header(std::move(messageHeader)),
       messageID(123456789)
@@ -98,6 +94,7 @@ public:
            }
          }
 
+public:
   MessageHeader header;
   MessageID messageID; //generate by some singleton
 
@@ -120,6 +117,7 @@ public:
   ContentType acceptType() const;
 };
 
+// Request contains the message send to a server in a request.
 class Request : public Message {
 public:
   Request(MessageHeader&& messageHeader = MessageHeader(), mapss&& headerStrings = mapss())
@@ -177,6 +175,7 @@ private:
                               // to track the Length manually
 };
 
+// Response contains the message resulting from a request to a server.
 class Response : public Message {
 public:
   Response(MessageHeader&& messageHeader = MessageHeader(), mapss&& headerStrings = mapss())

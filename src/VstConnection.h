@@ -28,6 +28,7 @@
 #include <mutex>
 #include <map>
 #include <deque>
+#include <condition_variable>
 
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl.hpp>
@@ -110,8 +111,12 @@ private:
 
   void finishInitialization();
 
+  // activate the receiver loop (if needed)
+  inline void startReading() {
+    if (!_reading.exchange(true)) readNextBytes();
+  }
   // reads data from socket with boost::asio::async_read
-  void startRead();
+  void readNextBytes();
   // handler for boost::asio::async_read that extracs chunks form the network
   // takes complete chunks form the socket and starts a new read action. After
   // triggering the next read it processes the received data.
@@ -121,8 +126,12 @@ private:
   // Create a response object for given RequestItem & received response buffer.
   std::unique_ptr<Response> createResponse(RequestItem& item, std::unique_ptr<VBuffer>& responseBuffer);
 
+  // activate the sender loop (if needed)
+  inline void startSending() {
+    if (!_sending.exchange(true)) sendNextRequest();
+  }
   // writes data from task queue to network using boost::asio::async_write
-  void startWrite(bool possiblyEmpty = false);
+  void sendNextRequest();
   // handler for boost::asio::async_wirte that calls startWrite as long as there is new data
   void asyncWriteCallback(boost::system::error_code const&, std::size_t transferred, std::shared_ptr<RequestItem>);
 
@@ -143,14 +152,64 @@ private:
   ::std::atomic_bool _connected;
   ::std::atomic_bool _pleaseStop;
   ::std::atomic_bool _reading;
+  ::std::atomic_bool _sending;
   //queues
   ::boost::asio::streambuf _receiveBuffer; // async read can not run concurrent
-  ::std::mutex _sendQueueMutex;
-  ::std::deque<std::shared_ptr<RequestItem>> _sendQueue;
   ::std::mutex _mapMutex;
   ::std::map<MessageID,std::shared_ptr<RequestItem>> _messageMap;
-};
 
+  // SendQueue encapsulates a thread safe queue containing RequestItem's that 
+  // need sending to the server.
+  class SendQueue {
+   public:
+     // add the given item to the end of the queue.
+    void add(std::shared_ptr<RequestItem>& item) {
+      std::lock_guard<std::mutex> lockQueue(_mutex);
+      _queue.push_back(item);
+    }
+
+    // front returns the first item in the queue.
+    // If the queue is empty, NULL is returned.
+    std::shared_ptr<RequestItem> front() {
+      std::lock_guard<std::mutex> sendQueueLock(_mutex);
+      if (_queue.empty()) {
+        return std::shared_ptr<RequestItem>();
+      }
+      return _queue.front();
+    }
+
+    // removeFirst removes the first entry of the queue.
+    void removeFirst() {
+      std::lock_guard<std::mutex> sendQueueLock(_mutex);
+      _queue.pop_front();
+    }
+
+    // size returns the number of elements in the queue.
+    size_t size() {
+      std::lock_guard<std::mutex> lockQueue(_mutex);
+      return _queue.size();
+    }
+
+    // empty returns true when there are no elements in the queue, false otherwise.
+    bool empty(bool unlocked = false) {
+      if (unlocked) {
+        return _queue.empty();
+      } else {
+        std::lock_guard<std::mutex> lockQueue(_mutex);
+        return _queue.empty();
+      }
+    }
+
+    // mutex provides low level access to the mutex, used for shared locking.
+    std::mutex& mutex() { return _mutex; }
+
+   private:
+    std::mutex _mutex;
+    std::deque<std::shared_ptr<RequestItem>> _queue;
+  };
+
+  SendQueue _sendQueue;
+};
 }
 }}}
 #endif
