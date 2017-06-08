@@ -26,6 +26,7 @@
 #define ARANGO_CXX_DRIVER_HTTP_CONNECTION_H 1
 
 #include <fuerte/connection_interface.h>
+#include <fuerte/loop.h>
 #include <stdexcept>
 
 #include "HttpCommunicator.h"
@@ -36,7 +37,7 @@ inline namespace v1 {
 namespace http {
 class HttpConnection : public ConnectionInterface {
  public:
-  explicit HttpConnection(detail::ConnectionConfiguration const&);
+  explicit HttpConnection(EventLoopService&, detail::ConnectionConfiguration const&);
   ~HttpConnection();
 
  public:

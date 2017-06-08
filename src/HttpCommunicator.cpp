@@ -297,7 +297,7 @@ void HttpCommunicator::transformResult(CURL* handle, mapss&& responseHeaders,
   if (responseBody.length()) {
       VBuffer buffer;
       buffer.append(responseBody);
-      response->setPayload(std::move(buffer));
+      response->setPayload(std::move(buffer), 0);
   }
   response->header.meta = std::move(responseHeaders);
 

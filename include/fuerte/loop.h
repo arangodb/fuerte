@@ -18,6 +18,7 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author Jan Christoph Uhde
+/// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 
@@ -27,18 +28,15 @@
 #include <utility>
 #include <memory>
 
+#include <boost/asio.hpp>
+#include <boost/thread.hpp>
 
 // run / runWithWork / poll for Loop mapping to ioservice
 // free function run with threads / with thread group barrier and work
 
-
-namespace boost { namespace  asio {
-  class io_service;
-}}
-
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
-class Work;
+//class Work;
 class Loop;
 
 namespace vst {
@@ -47,11 +45,67 @@ namespace vst {
 
 namespace http{
   class HttpCommunicator;
+  class HttpConnection;
 }
 
 // need partial rewrite so it can be better integrated in client applications
 
+typedef ::boost::asio::io_service asio_io_service;
+typedef ::boost::asio::io_service::work asio_work;
 
+// EventLoopService implements multi-threaded event loops for
+// boost io_service as well as curl HTTP.
+class EventLoopService {
+  friend class vst::VstConnection;
+  friend class http::HttpConnection;
+
+ public:
+  // Initialize an EventLoopService with a given number of threads and a new io_service.
+  EventLoopService(unsigned int threadCount = 1);
+  // Initialize an EventLoopService with a given number of threads and a given io_service.
+  EventLoopService(unsigned int threadCount,
+                   const std::shared_ptr<asio_io_service>& io_service,
+                   const std::shared_ptr<http::HttpCommunicator>& httpCommunicator)
+      : io_service_(io_service), 
+      working_(new asio_work(*io_service)),
+      httpCommunicator_(httpCommunicator) {
+    while (threadCount > 0) {
+      auto worker = boost::bind(&EventLoopService::run, this);
+      threadGroup_.add_thread(new boost::thread(worker));
+      threadCount--;
+    }
+  }
+  virtual ~EventLoopService() {
+    working_.reset();  // allow run() to exit
+    threadGroup_.join_all();
+    io_service_->stop();
+  }
+
+ protected:
+  // run is called for each thread. It calls io_service.run() and
+  // invokes the curl handlers.
+  // You only need to invoke this if you want a custom event loop service.
+  void run() {
+    try {
+      io_service_->run();
+    } catch (std::exception const& ex) {
+      std::cerr << "exception: " << ex.what() << std::endl;
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  // io_service returns a reference to the boost io_service.
+  std::shared_ptr<asio_io_service>& io_service() { return io_service_; }
+  // httpCommunicator returns a reference to the HTTP communicator.
+  std::shared_ptr<http::HttpCommunicator>& httpCommunicator() { return httpCommunicator_; }
+
+ private:
+  std::shared_ptr<asio_io_service> io_service_;
+  std::shared_ptr<http::HttpCommunicator> httpCommunicator_;
+  std::unique_ptr<asio_work> working_;  // Used to keep the io-service alive.
+  boost::thread_group threadGroup_;     // Used to join on.
+};
+/*
 // LoopProvider is a meyers singleton so we have private constructors
 // call to the class are not thread safe! It is your responsiblity
 // to make sure that there is no concurrent access to this class in
@@ -80,7 +134,9 @@ public:
   std::shared_ptr<Loop> getAsioLoop();
 
   // poll / run both loops
+  private:
   void poll();
+  public:
   void run();
   void resetIoService();
 
@@ -99,11 +155,11 @@ public:
   //void run();
   //void ask_to_stop();
   // Run the eventloop. Only return when all work is done or the eventloop is stopped.
-  // There is no need to reset the eventloop sfter this call, unless an exception is thrown.
+  // There is no need to reset the eventloop after this call, unless an exception is thrown.
   void run_ready();
+private:
   // Run all handlers that are ready to run without blocking.
   // Only returns when there are no more ready handlers, or or the eventloop is stopped.
-private:
   void poll();
   void reset();
 
@@ -124,7 +180,7 @@ private:
 private:
   std::shared_ptr<::boost::asio::io_service> _serviceSharedPtr;
   ::boost::asio::io_service* _service;
-  std::shared_ptr<Work> _work;
+  //std::shared_ptr<Work> _work;
   bool _owning;
   bool _sealed;
   bool _running;
@@ -136,7 +192,7 @@ private:
 // Otherwise (blocking == false) it will return immediately if there is no
 // ready handler so it will not wait for things like epoll on a socket.
 // You want to use poll(false) if you are using fuerte with your own event loop.
-inline void poll(){ LoopProvider::getProvider().poll(); };
+//inline void poll(){ LoopProvider::getProvider().poll(); };
 
 inline void run(){
   static auto& provider = LoopProvider::getProvider();
@@ -148,6 +204,7 @@ inline LoopProvider& getProvider(){
   static auto& provider = LoopProvider::getProvider();
   return provider;
 };
+*/
 
 }}}
 #endif

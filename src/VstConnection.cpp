@@ -146,12 +146,12 @@ std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
   {
     std::unique_lock<std::mutex> lock(mutex);
     sendRequest(std::move(request),onError,onSuccess);
-    if(!_asioLoop->_running){
+    /*if(!_asioLoop->_running){
       FUERTE_LOG_VSTTRACE << "sendRequest (sync): before run" << std::endl;
       _asioLoop->run_ready();
       //arangodb::fuerte::run(); // run
       FUERTE_LOG_VSTTRACE << "sendRequest (sync): after run" << std::endl;
-    }
+    }*/
     FUERTE_LOG_VSTTRACE << "sendRequest (sync): before wait" << std::endl;
     conditionVar.wait(lock, [&]{ return done; });
   }
@@ -160,11 +160,10 @@ std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
 }
 
 
-VstConnection::VstConnection(ConnectionConfiguration const& configuration)
+VstConnection::VstConnection(EventLoopService& eventLoopService, ConnectionConfiguration const& configuration)
     : _vstVersion(VST1_0)
-    , _asioLoop(getProvider().getAsioLoop())
     , _messageID(0)
-    , _ioService(_asioLoop->getIoService())
+    , _ioService(eventLoopService.io_service())
     , _socket(nullptr)
     , _context(bs::context::method::sslv23)
     , _sslSocket(nullptr)
@@ -483,12 +482,10 @@ std::unique_ptr<Response> VstConnection::createResponse(RequestItem& item, std::
   std::size_t messageHeaderLength;
   int vstVersionID = 1;
   MessageHeader messageHeader = validateAndExtractMessageHeader(vstVersionID, itemCursor, itemLength, messageHeaderLength);
-  itemCursor += messageHeaderLength;
-  itemLength -= messageHeaderLength;
 
   auto response = std::unique_ptr<Response>(new Response(std::move(messageHeader)));
   response->messageID = item._messageID;
-  response->setPayload(std::move(*responseBuffer));
+  response->setPayload(std::move(*responseBuffer), messageHeaderLength);
 
   return response;
 }

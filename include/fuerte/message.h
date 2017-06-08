@@ -191,10 +191,11 @@ public:
   virtual std::vector<VSlice>const & slices() override;
   virtual boost::asio::const_buffer payload() const override; 
 
-  void setPayload(VBuffer&& buffer);
+  void setPayload(VBuffer&& buffer, size_t payloadOffset);
 
 private:
   VBuffer _payload;
+  size_t _payloadOffset;
   std::vector<VSlice> _slices;
 };
 

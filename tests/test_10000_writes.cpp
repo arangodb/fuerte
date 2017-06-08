@@ -49,14 +49,14 @@ class Connection100kWritesF : public ::testing::Test {
     try {
       f::ConnectionBuilder cbuilder;
       cbuilder.host(_server);
-      _connection = cbuilder.connect();
+      _connection = cbuilder.connect(_eventLoopService);
 
       //delete collection
       {
         auto request = arangodb::fuerte::createRequest(
           arangodb::fuerte::RestVerb::Delete, "/_api/collection/testobi");
         auto result = _connection->sendRequest(std::move(request));
-        arangodb::fuerte::run();
+        //arangodb::fuerte::run();
       }
       //create collection
       {
@@ -87,7 +87,7 @@ class Connection100kWritesF : public ::testing::Test {
       auto request = arangodb::fuerte::createRequest(
         arangodb::fuerte::RestVerb::Delete, "/_api/collection/testobi");
       auto result = _connection->sendRequest(std::move(request));
-      arangodb::fuerte::run();
+      //arangodb::fuerte::run();
     }
     _connection.reset();
   }
@@ -95,6 +95,7 @@ class Connection100kWritesF : public ::testing::Test {
   std::shared_ptr<f::Connection> _connection;
 
  private:
+  f::EventLoopService _eventLoopService;
   std::string _server;
   std::string _port;
 };

@@ -35,6 +35,7 @@
 #include <boost/asio/deadline_timer.hpp>
 
 #include <fuerte/connection_interface.h>
+#include <fuerte/loop.h>
 #include <fuerte/vst.h>
 
 // naming in this file will be closer to asio for internal functions and types
@@ -68,7 +69,7 @@ class VstConnection : public std::enable_shared_from_this<VstConnection>, public
 //
 
 public:
-  explicit VstConnection(detail::ConnectionConfiguration const&);
+  explicit VstConnection(EventLoopService& eventLoopService, detail::ConnectionConfiguration const&);
 
 public:
   // this function prepares the request for sending
@@ -128,11 +129,10 @@ private:
 private:
   VSTVersion _vstVersion;
   // TODO FIXME -- fix alignment when done so mutexes are not on the same cacheline etc
-  std::shared_ptr<Loop> _asioLoop;
   detail::ConnectionConfiguration _configuration;
   ::std::atomic_uint_least64_t _messageID;
   // socket
-  ::boost::asio::io_service* _ioService;
+  std::shared_ptr<::boost::asio::io_service> _ioService;
   ::std::shared_ptr<::boost::asio::ip::tcp::socket> _socket;
   ::boost::asio::ssl::context _context;
   ::std::shared_ptr<::boost::asio::ssl::stream<::boost::asio::ip::tcp::socket&>> _sslSocket;

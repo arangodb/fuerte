@@ -328,8 +328,8 @@ boost::asio::const_buffer Request::payload() const {
 
 std::vector<VSlice>const & Response::slices() {
   if (_slices.empty()) {
-    auto length = _payload.byteSize();
-    auto cursor = _payload.data();
+    auto length = _payload.byteSize() - _payloadOffset;
+    auto cursor = _payload.data() + _payloadOffset;
     while (length){
       _slices.emplace_back(cursor);
       auto sliceSize = _slices.back().byteSize();
@@ -344,11 +344,12 @@ std::vector<VSlice>const & Response::slices() {
 }
 
 boost::asio::const_buffer Response::payload() const {
-  return boost::asio::const_buffer(_payload.data(), _payload.byteSize());
+  return boost::asio::const_buffer(_payload.data() + _payloadOffset, _payload.byteSize());
 }
 
-void Response::setPayload(VBuffer&& buffer) {
+void Response::setPayload(VBuffer&& buffer, size_t payloadOffset) {
   _slices.clear();
+  _payloadOffset = payloadOffset;
   _payload = std::move(buffer);
 }
 

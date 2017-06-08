@@ -33,8 +33,8 @@ namespace http {
 
 using namespace arangodb::fuerte::detail;
 
-HttpConnection::HttpConnection(ConnectionConfiguration const& configuration)
-    : _communicator(LoopProvider::getProvider().getHttpLoop())
+HttpConnection::HttpConnection(EventLoopService& eventLoopService, ConnectionConfiguration const& configuration)
+    : _communicator(eventLoopService.httpCommunicator())
     , _configuration(configuration)
     {
       _communicator->addUser();

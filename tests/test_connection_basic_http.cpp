@@ -38,7 +38,7 @@ class ConnectionBasicHttpF : public ::testing::Test {
     try {
       f::ConnectionBuilder cbuilder;
       cbuilder.host(_server);
-      _connection = cbuilder.connect();
+      _connection = cbuilder.connect(_eventLoopService);
     } catch(std::exception const& ex) {
       std::cout << "SETUP OF FIXTURE FAILED" << std::endl;
       throw ex;
@@ -52,6 +52,7 @@ class ConnectionBasicHttpF : public ::testing::Test {
   std::shared_ptr<f::Connection> _connection;
 
  private:
+  f::EventLoopService _eventLoopService;
   std::string _server;
   std::string _port;
 
@@ -82,7 +83,7 @@ TEST_F(ConnectionBasicHttpF, ApiVersionASync){
     ASSERT_TRUE(version[0] == '3');
   };
   _connection->sendRequest(std::move(request),onError,onSuccess);
-  fu::run();
+  //fu::run();
 }
 
 // TEST_F(ConnectionBasicHttpF, ApiVersionSync20){
@@ -114,7 +115,7 @@ TEST_F(ConnectionBasicHttpF, ApiVersionASync20){
   for(int i = 0; i < 20; i++){
     _connection->sendRequest(req,onError,onSuccess);
   }
-  fu::run();
+  //fu::run();
 }
 
 // TEST_F(ConnectionBasicHttpF, SimpleCursorSync){
@@ -184,5 +185,5 @@ TEST_F(ConnectionBasicHttpF, ApiVersionASync20){
 //   _connection->sendRequest(std::move(requestLong),onError,onSuccess);
 //   _connection->sendRequest(std::move(requestShort),onError,onSuccess);
 //
-//   fu::run();
+//   //fu::run();
 // }

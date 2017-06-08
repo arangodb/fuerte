@@ -32,15 +32,19 @@ static VpackInit init;
 class LoopProvider;
 class VstConnection;
 
+EventLoopService::EventLoopService(unsigned int threadCount)
+    : EventLoopService(threadCount, std::make_shared<asio_io_service>(),
+                       std::make_shared<http::HttpCommunicator>()) {}
+
 // io_service::work is a inner class and we need to declare it forward
-struct Work {
+/*struct Work {
   Work(boost::asio::io_service& serv):_work(serv){}
   ::boost::asio::io_service::work _work;
-};
+};*/
 
 
 // Loop ///////////////////////////////////////////////////////////////
-
+/*
 Loop::Loop()
   :_serviceSharedPtr(new ::boost::asio::io_service)
   ,_service(_serviceSharedPtr.get())
@@ -190,7 +194,6 @@ void LoopProvider::resetIoService(){
     _asioLoop->reset();
   }
 }
-}}}
 
 
 
@@ -225,3 +228,6 @@ void LoopProvider::resetIoService(){
 //   _running = false;
 // }
 //
+*/
+
+}}}

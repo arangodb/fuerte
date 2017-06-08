@@ -55,6 +55,7 @@
         "algorithm": "cpp",
         "random": "cpp",
         "bitset": "cpp",
-        "future": "cpp"
+        "future": "cpp",
+        "ios": "cpp"
     }
 }

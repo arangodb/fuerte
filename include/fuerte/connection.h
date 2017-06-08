@@ -25,6 +25,7 @@
 
 #include "types.h"
 #include "connection_interface.h"
+#include "loop.h"
 
 #include <memory>
 #include <string>
@@ -67,7 +68,8 @@ class Connection : public std::enable_shared_from_this<Connection> {
     }
 
   private:
-    Connection(detail::ConnectionConfiguration const& conf);
+    Connection(EventLoopService& eventLoopService, detail::ConnectionConfiguration const& conf);
+    EventLoopService& _eventLoopService;
     std::shared_ptr<ConnectionInterface>  _realConnection;
     detail::ConnectionConfiguration _configuration;
 };
@@ -89,8 +91,8 @@ class ConnectionBuilder {
     //  host(s);
     //};
 
-    std::shared_ptr<Connection> connect(){
-      return std::shared_ptr<Connection>( new Connection(_conf)) ;
+    std::shared_ptr<Connection> connect(EventLoopService& eventLoopService) { 
+      return std::shared_ptr<Connection>(new Connection(eventLoopService, _conf)) ;
     }
 
     ConnectionBuilder& async(bool b){ _conf._async = b; return *this; }
