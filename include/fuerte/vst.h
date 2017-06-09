@@ -81,7 +81,7 @@ struct ChunkHeader {
   inline bool isFirst() const { return ((_chunkX & 0x01) == 1); }
   // index returns the index of this chunk in the message.
   inline uint32_t index() const { 
-    if ((_chunkX && 0x01) == 1) {
+    if ((_chunkX & 0x01) == 1) {
       return 0;
     }
     return _chunkX >> 1;
@@ -89,7 +89,7 @@ struct ChunkHeader {
   // numberOfChunks return the number of chunks that make up the entire message.
   // This function is only valid for first chunks.
   inline uint32_t numberOfChunks() const { 
-    if ((_chunkX && 0x01) == 1) {
+    if ((_chunkX & 0x01) == 1) {
       return _chunkX >> 1;
     }
     return 0; // Not known
