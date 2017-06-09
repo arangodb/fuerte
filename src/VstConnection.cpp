@@ -230,7 +230,7 @@ void VstConnection::asyncConnectCallback(BoostEC const& error, bt::resolver::ite
     throw std::runtime_error("unable to connect -- " + error.message() );
   } else {
     // Connection established
-    FUERTE_LOG_CALLBACKS << "connected" << std::endl;
+    FUERTE_LOG_CALLBACKS << "TCP socket connected" << std::endl;
     if(_configuration._ssl) {
       startSSLHandshake();
     } else {
@@ -241,7 +241,7 @@ void VstConnection::asyncConnectCallback(BoostEC const& error, bt::resolver::ite
 
 // socket connection is up (with optional SSL), now initiate the VST protocol.
 void VstConnection::finishInitialization(){
-  FUERTE_LOG_CALLBACKS << "finish initialization" << std::endl;
+  FUERTE_LOG_CALLBACKS << "finishInitialization" << std::endl;
 
   const char* vstHeader;
   switch (_vstVersion) {
@@ -264,7 +264,7 @@ void VstConnection::finishInitialization(){
                       _connected = false;
                       shutdownConnection();
                     } else {
-                      FUERTE_LOG_CALLBACKS << "finish initialization; VST header sent" << std::endl;
+                      FUERTE_LOG_CALLBACKS << "VST connection established; starting send/read loop" << std::endl;
                       _connectionState++;
                       _connected = true;
                       startSending();
@@ -299,7 +299,7 @@ void VstConnection::startSSLHandshake() {
 
 // readNextBytes reads the next bytes from the server.
 void VstConnection::readNextBytes(int initialConnectionState) {
-  FUERTE_LOG_VSTTRACE << "readNextBytes" << std::endl;
+  FUERTE_LOG_VSTTRACE << "readNextBytes: initialConnectionState=" << initialConnectionState << std::endl;
   FUERTE_LOG_CALLBACKS << "-";
 
   // Terminate the read loop if our connection state has changed.
@@ -330,7 +330,7 @@ void VstConnection::readNextBytes(int initialConnectionState) {
   auto self = shared_from_this();
   ba::async_read(*_socket
                 ,_receiveBuffer
-                ,ba::transfer_at_least(4)
+                ,ba::transfer_at_least(1)
                 ,[this, self, initialConnectionState](const boost::system::error_code& error, std::size_t transferred){
                    asyncReadCallback(error, transferred, initialConnectionState);
                  }
@@ -341,50 +341,48 @@ void VstConnection::readNextBytes(int initialConnectionState) {
 
 // asyncReadCallback is called when readNextBytes is resulting in some data.
 void VstConnection::asyncReadCallback(const boost::system::error_code& error, std::size_t transferred, int initialConnectionState) {
-  FUERTE_LOG_CALLBACKS << "asyncReadCallback begin" ;
   if (error) {
-    FUERTE_LOG_CALLBACKS << "Error while reading form socket";
+    FUERTE_LOG_CALLBACKS << "asyncReadCallback: Error while reading form socket";
     FUERTE_LOG_ERROR << error.message() << std::endl;
-    restartConnection();
-  }
 
-  FUERTE_LOG_CALLBACKS << "R(" << transferred << ")" ;
-
-  if (_connectionState != initialConnectionState) {
-    FUERTE_LOG_VSTTRACE << "asyncReadCallback: connectionState changed, stopping read loop" << std::endl;
+    // We'll stop the read loop 
     _reading = false;
-    return;
-  }
 
-  // Inspect the data we've received so far.
-  auto receivedBuf = _receiveBuffer.data(); // no copy
-  auto cursor = boost::asio::buffer_cast<const uint8_t*>(receivedBuf);
-  auto available = boost::asio::buffer_size(receivedBuf);
-  while (vst::isChunkComplete(cursor, available)) {
-    // Read chunk 
-    ChunkHeader chunk;
-    switch (_vstVersion) {
-      case VST1_0:
-        chunk = vst::readChunkHeaderVST1_0(cursor);
-        break;
-      case VST1_1:
-        chunk = vst::readChunkHeaderVST1_1(cursor);
-        break;
-      default:
-        throw std::logic_error("Unknown VST version");
+    // Restart connection 
+    restartConnection();
+  } else {
+    FUERTE_LOG_CALLBACKS << "asyncReadCallback: received " << transferred << " bytes" << std::endl;
+
+    // Inspect the data we've received so far.
+    auto receivedBuf = _receiveBuffer.data(); // no copy
+    auto cursor = boost::asio::buffer_cast<const uint8_t*>(receivedBuf);
+    auto available = boost::asio::buffer_size(receivedBuf);
+    while (vst::isChunkComplete(cursor, available)) {
+      // Read chunk 
+      ChunkHeader chunk;
+      switch (_vstVersion) {
+        case VST1_0:
+          chunk = vst::readChunkHeaderVST1_0(cursor);
+          break;
+        case VST1_1:
+          chunk = vst::readChunkHeaderVST1_1(cursor);
+          break;
+        default:
+          throw std::logic_error("Unknown VST version");
+      }
+
+      // Process chunk 
+      processChunk(chunk);
+
+      // Remove consumed data from receive buffer.
+      _receiveBuffer.consume(chunk.chunkLength());
+      cursor += chunk.chunkLength();
+      available -= chunk.chunkLength();
     }
 
-    // Process chunk 
-    processChunk(chunk);
-
-    // Remove consumed data from receive buffer.
-    _receiveBuffer.consume(chunk.chunkLength());
-    cursor += chunk.chunkLength();
-    available -= chunk.chunkLength();
+    // Continue reading data
+    readNextBytes(initialConnectionState);
   }
-
-  // Continue reading data
-  readNextBytes(initialConnectionState);
 }
 
 // Process the given incoming chunk.
@@ -400,23 +398,21 @@ void VstConnection::processChunk(ChunkHeader &chunk) {
   }
 
   // We've found the matching RequestItem.
-  FUERTE_LOG_VSTTRACE << "processChunk: found RequestItem: addChunk" << std::endl;
   item->addChunk(chunk);
 
   // Try to assembly chunks in RequestItem to complete response.
-  FUERTE_LOG_VSTTRACE << "processChunk: found RequestItem: assemble" << std::endl;
   auto completeBuffer = item->assemble();
   if (completeBuffer) {
+    FUERTE_LOG_VSTTRACE << "processChunk: complete response received" << std::endl;
     // Message is complete 
     // Remove message from store 
     _messageStore.removeByID(item->_messageID);
 
     // Create response
-    FUERTE_LOG_VSTTRACE << "processChunk: found RequestItem: createResponse" << std::endl;
     auto response = createResponse(*item, completeBuffer);
 
     // Notify listeners
-    FUERTE_LOG_VSTTRACE << "processChunk: found RequestItem: onSuccess" << std::endl;
+    FUERTE_LOG_VSTTRACE << "processChunk: notifying RequestItem onSuccess callback" << std::endl;
     item->_onSuccess(std::move(item->_request), std::move(response));
   }
 }
@@ -439,12 +435,12 @@ std::unique_ptr<Response> VstConnection::createResponse(RequestItem& item, std::
 
 // writes data from task queue to network using boost::asio::async_write
 void VstConnection::sendNextRequest(int initialConnectionState) {
-  FUERTE_LOG_CALLBACKS << "sendNextRequest" << std::endl;
+  FUERTE_LOG_VSTTRACE << "sendNextRequest" << std::endl;
   FUERTE_LOG_TRACE << "+" ;
 
   // Has connection state changed, then stop.
   if (_connectionState != initialConnectionState) {
-    FUERTE_LOG_CALLBACKS << "sendNextRequest: connection state changed, stopping send loop" << std::endl;
+    FUERTE_LOG_VSTTRACE << "sendNextRequest: connection state changed, stopping send loop" << std::endl;
     _sending = false;
     return;
   }
@@ -453,7 +449,7 @@ void VstConnection::sendNextRequest(int initialConnectionState) {
   auto next = _sendQueue.front();
   if (!next) {
     // send queue is empty
-    FUERTE_LOG_CALLBACKS << "sendNextRequest: sendQueue empty" << std::endl;
+    FUERTE_LOG_VSTTRACE << "sendNextRequest: sendQueue empty" << std::endl;
     _sending = false;
     return;
   }
@@ -467,7 +463,7 @@ void VstConnection::sendNextRequest(int initialConnectionState) {
   // Make sure we're listening for a response 
   startReading();
 
-  FUERTE_LOG_CALLBACKS << "sendNextRequest: preparing to send next" << std::endl;
+  FUERTE_LOG_VSTTRACE << "sendNextRequest: preparing to send next" << std::endl;
 
   // make sure we are connected and handshake has been done
   auto self = shared_from_this();
@@ -485,7 +481,7 @@ void VstConnection::sendNextRequest(int initialConnectionState) {
       asyncWriteCallback(error, transferred, next, initialConnectionState);
     });
 
-  FUERTE_LOG_CALLBACKS << "sendNextRequest: done" << std::endl;
+  FUERTE_LOG_VSTTRACE << "sendNextRequest: done" << std::endl;
 }
 
 // callback of async_write function that is called in sendNextRequest.

@@ -175,7 +175,7 @@ TEST_F(ConnectionBasicVstF, ShortAndLongASync){
   {
     fu::VBuilder builder;
     builder.openObject();
-    builder.add("query", fu::VValue("RETURN SLEEP(10)"));
+    builder.add("query", fu::VValue("RETURN SLEEP(2)"));
     builder.close();
     requestLong->addVPack(builder.slice());
   }

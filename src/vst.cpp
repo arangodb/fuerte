@@ -24,6 +24,7 @@
 #include <fuerte/types.h>
 #include <fuerte/vst.h>
 #include <sstream>
+#include "portable_endian.h"
 
 #include <velocypack/Validator.h>
 #include <velocypack/HexDump.h>
@@ -270,10 +271,10 @@ std::size_t isChunkComplete(uint8_t const * const begin, std::size_t const lengt
   // read chunk length
   uint32_t lengthThisChunk = le32toh(*reinterpret_cast<const uint32_t*>(begin));
   if (lengthAvailable < lengthThisChunk) {
-    FUERTE_LOG_VSTTRACE << "\nchunk incomplete: " << lengthAvailable << "/" << lengthThisChunk << "(available/len)" << std::endl;
+    FUERTE_LOG_VSTCHUNKTRACE << "\nchunk incomplete: " << lengthAvailable << "/" << lengthThisChunk << "(available/len)" << std::endl;
     return 0;
   }
-  FUERTE_LOG_VSTTRACE << "\nchunk complete: " << lengthThisChunk << " bytes" << std::endl;
+  FUERTE_LOG_VSTCHUNKTRACE << "\nchunk complete: " << lengthThisChunk << " bytes" << std::endl;
   return lengthThisChunk;
 }
 
@@ -295,7 +296,7 @@ ChunkHeader readChunkHeaderVST1_0(uint8_t const * const bufferBegin) {
 
   size_t contentLength = header._chunkLength - hdrLen;
   header._data = boost::asio::const_buffer(hdr+hdrLen, contentLength);
-  FUERTE_LOG_VSTTRACE << "readChunkHeaderVST1_0: got " << contentLength << " data bytes after " << hdrLen << " header bytes" << std::endl;
+  FUERTE_LOG_VSTCHUNKTRACE << "readChunkHeaderVST1_0: got " << contentLength << " data bytes after " << hdrLen << " header bytes" << std::endl;
 
   return header;
 }
@@ -311,6 +312,7 @@ ChunkHeader readChunkHeaderVST1_1(uint8_t const * const bufferBegin) {
   header._messageLength = le64toh(*reinterpret_cast<const uint64_t*>(hdr+16));
   size_t contentLength = header._chunkLength - maxChunkHeaderSize;
   header._data = boost::asio::const_buffer(hdr+maxChunkHeaderSize, contentLength);
+  FUERTE_LOG_VSTCHUNKTRACE << "readChunkHeaderVST1_1: got " << contentLength << " data bytes after " << std::endl;
 
   return header;
 }
@@ -421,7 +423,7 @@ void RequestItem::addChunk(ChunkHeader& chunk) {
   // Copy _data to response buffer 
   auto contentStart = boost::asio::buffer_cast<const uint8_t*>(chunk._data);
   chunk._responseContentLength = boost::asio::buffer_size(chunk._data);
-  FUERTE_LOG_VSTTRACE << "RequestItem::addChunk: adding " << chunk._responseContentLength << " bytes to buffer" << std::endl;
+  FUERTE_LOG_VSTCHUNKTRACE << "RequestItem::addChunk: adding " << chunk._responseContentLength << " bytes to buffer" << std::endl;
   chunk._responseChunkContentOffset = _responseChunkContent.byteSize();
   _responseChunkContent.append(contentStart, chunk._responseContentLength);
   // Release _data in chunk 
@@ -431,7 +433,7 @@ void RequestItem::addChunk(ChunkHeader& chunk) {
   // Gather number of chunk info 
   if (chunk.isFirst()) {
     _responseNumberOfChunks = chunk.numberOfChunks();
-    FUERTE_LOG_VSTTRACE << "RequestItem::addChunk: set #chunks to " << _responseNumberOfChunks << std::endl;
+    FUERTE_LOG_VSTCHUNKTRACE << "RequestItem::addChunk: set #chunks to " << _responseNumberOfChunks << std::endl;
   }
 }
 
@@ -442,21 +444,21 @@ static bool chunkByIndex (const ChunkHeader& a, const ChunkHeader& b) { return (
 std::unique_ptr<VBuffer> RequestItem::assemble() {
   if (_responseNumberOfChunks == 0) {
 		// We don't have the first chunk yet
-    FUERTE_LOG_VSTTRACE << "RequestItem::assemble: don't have first chunk" << std::endl;
+    FUERTE_LOG_VSTCHUNKTRACE << "RequestItem::assemble: don't have first chunk" << std::endl;
 		return nullptr;
 	}
 	if (_responseChunks.size() < _responseNumberOfChunks) {
 		// Not all chunks have arrived yet
-    FUERTE_LOG_VSTTRACE << "RequestItem::assemble: not all chunks have arrived" << std::endl;
+    FUERTE_LOG_VSTCHUNKTRACE << "RequestItem::assemble: not all chunks have arrived" << std::endl;
 		return nullptr;
 	}
 
   // We now have all chunks. Sort them by index.
-  FUERTE_LOG_VSTTRACE << "RequestItem::assemble: sort chunks" << std::endl;
+  FUERTE_LOG_VSTCHUNKTRACE << "RequestItem::assemble: sort chunks" << std::endl;
   std::sort (_responseChunks.begin(), _responseChunks.end(), chunkByIndex);
 
   // Combine chunk content 
-  FUERTE_LOG_VSTTRACE << "RequestItem::assemble: build response buffer" << std::endl;
+  FUERTE_LOG_VSTCHUNKTRACE << "RequestItem::assemble: build response buffer" << std::endl;
   auto buffer = std::unique_ptr<VBuffer>(new VBuffer());
   for (auto it = std::begin(_responseChunks); it!=std::end(_responseChunks); ++it) {
     buffer->append(_responseChunkContent.data() + it->_responseChunkContentOffset, it->_responseContentLength);

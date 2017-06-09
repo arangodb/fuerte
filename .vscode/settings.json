@@ -65,6 +65,9 @@
         "map": "cpp",
         "set": "cpp",
         "stack": "cpp",
-        "unordered_set": "cpp"
+        "unordered_set": "cpp",
+        "__hash_table": "cpp",
+        "__tree": "cpp",
+        "valarray": "cpp"
     }
 }

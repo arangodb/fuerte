@@ -4,6 +4,7 @@ RUN apt-get update && \
 		build-essential \
         cmake \
 		libssl-dev \
-        libcurl4-openssl-dev
+        libcurl4-openssl-dev \
+		gdb
 
 ENTRYPOINT "/bin/bash"

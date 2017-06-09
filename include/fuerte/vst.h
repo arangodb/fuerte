@@ -29,15 +29,12 @@
 #include <memory>
 #include <stdexcept>
 #include <unordered_map>
+#include <mutex>
 
 #include <boost/asio/buffer.hpp>
 
 #include <fuerte/message.h>
 #include "FuerteLogger.h"
-
-namespace std {
-  class mutex;
-}
 
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
