@@ -21,6 +21,8 @@ option(FUERTE_EXAMPLES "Build EXAMPLES" OFF)
 # Dependencies
 
 find_package(OpenSSL REQUIRED)
+include_directories(${OPENSSL_INCLUDE_DIR})
+
 find_package(Threads REQUIRED)
 
 set(CMAKE_BOOST_COMPONENTS "system" "thread")
