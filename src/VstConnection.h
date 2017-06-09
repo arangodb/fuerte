@@ -36,6 +36,7 @@
 #include <boost/asio/deadline_timer.hpp>
 
 #include <fuerte/connection_interface.h>
+#include <fuerte/helper.h>
 #include <fuerte/loop.h>
 #include <fuerte/vst.h>
 
@@ -106,21 +107,22 @@ private:
   void startConnect(boost::asio::ip::tcp::resolver::iterator);
   void asyncConnectCallback(boost::system::error_code const& ec, boost::asio::ip::tcp::resolver::iterator);
 
-  // does handshake and starts async read and write
-  void startHandshake();
+  // start intiating an SSL connection (on top of an established TCP socket)
+  void startSSLHandshake();
 
+  // socket connection is up (with optional SSL), now initiate the VST protocol.
   void finishInitialization();
 
   // activate the receiver loop (if needed)
   inline void startReading() {
-    if (!_reading.exchange(true)) readNextBytes();
+    if (!_reading.exchange(true)) readNextBytes(_connectionState);
   }
   // reads data from socket with boost::asio::async_read
-  void readNextBytes();
+  void readNextBytes(int initialConnectionState);
   // handler for boost::asio::async_read that extracs chunks form the network
   // takes complete chunks form the socket and starts a new read action. After
   // triggering the next read it processes the received data.
-  void asyncReadCallback(boost::system::error_code const&, std::size_t transferred);
+  void asyncReadCallback(boost::system::error_code const&, std::size_t transferred, int initialConnectionState);
   // Process the given incoming chunk.
   void processChunk(ChunkHeader &chunk);
   // Create a response object for given RequestItem & received response buffer.
@@ -128,12 +130,12 @@ private:
 
   // activate the sender loop (if needed)
   inline void startSending() {
-    if (!_sending.exchange(true)) sendNextRequest();
+    if (!_sending.exchange(true)) sendNextRequest(_connectionState);
   }
   // writes data from task queue to network using boost::asio::async_write
-  void sendNextRequest();
+  void sendNextRequest(int initialConnectionState);
   // handler for boost::asio::async_wirte that calls startWrite as long as there is new data
-  void asyncWriteCallback(boost::system::error_code const&, std::size_t transferred, std::shared_ptr<RequestItem>);
+  void asyncWriteCallback(boost::system::error_code const&, std::size_t transferred, std::shared_ptr<RequestItem>, int initialConnectionState);
 
 private:
   VSTVersion _vstVersion;
@@ -149,14 +151,12 @@ private:
   ::boost::asio::ip::tcp::endpoint _peer;
   ::boost::asio::deadline_timer _deadline;
   // reset
-  ::std::atomic_bool _connected;
-  ::std::atomic_bool _pleaseStop;
-  ::std::atomic_bool _reading;
-  ::std::atomic_bool _sending;
+  std::atomic_bool _connected;
+  std::atomic_int _connectionState; // Send/Receive loop will stop if this changes
+  std::atomic_bool _reading;
+  std::atomic_bool _sending;
   //queues
   ::boost::asio::streambuf _receiveBuffer; // async read can not run concurrent
-  ::std::mutex _mapMutex;
-  ::std::map<MessageID,std::shared_ptr<RequestItem>> _messageMap;
 
   // SendQueue encapsulates a thread safe queue containing RequestItem's that 
   // need sending to the server.
@@ -207,8 +207,78 @@ private:
     std::mutex _mutex;
     std::deque<std::shared_ptr<RequestItem>> _queue;
   };
-
   SendQueue _sendQueue;
+
+  // MessageStore keeps a thread safe list of all requests that are "in-flight".
+  class MessageStore {
+   public:
+    // add a given item to the store (indexed by its ID).
+    void add(std::shared_ptr<RequestItem> item) {
+      std::lock_guard<std::mutex> lockMap(_mutex);
+      _map.emplace(item->_messageID, item);
+    }
+
+    // findByID returns the item with given ID or nullptr is no such ID is
+    // found in the store.
+    std::shared_ptr<RequestItem> findByID(MessageID id) {
+      std::lock_guard<std::mutex> lockMap(_mutex);
+      auto found = _map.find(id);
+      if (found == _map.end()) {
+        // ID not found
+        return std::shared_ptr<RequestItem>();
+      }
+      return found->second;
+    }
+
+    // removeByID removes the item with given ID from the store.
+    void removeByID(MessageID id) {
+      std::lock_guard<std::mutex> lockMap(_mutex);
+      _map.erase(id);
+    }
+
+    // Notify all items that their being cancelled (by calling their onError)
+    // and remove all items from the store.
+    void cancelAll() {
+      std::lock_guard<std::mutex> lockMap(_mutex);
+      for (auto& item : _map) {
+        item.second->_onError(errorToInt(ErrorCondition::VstCanceldDuringReset),
+                              std::move(item.second->_request), nullptr);
+      }
+      _map.clear();
+    }
+
+    // size returns the number of elements in the store.
+    size_t size() {
+      std::lock_guard<std::mutex> lockMap(_mutex);
+      return _map.size();
+    }
+
+    // empty returns true when there are no elements in the store, false
+    // otherwise.
+    bool empty(bool unlocked = false) {
+      if (unlocked) {
+        return _map.empty();
+      } else {
+        std::lock_guard<std::mutex> lockMap(_mutex);
+        return _map.empty();
+      }
+    }
+
+    // mutex provides low level access to the mutex, used for shared locking.
+    std::mutex& mutex() { return _mutex; }
+
+    // keys returns a string representation of all MessageID's in the store.
+    std::string keys() {
+      std::lock_guard<std::mutex> lockMap(_mutex);
+      return mapToKeys(_map);
+    }
+
+   private:
+    std::mutex _mutex;
+    std::map<MessageID, std::shared_ptr<RequestItem>> _map;
+  };
+  MessageStore _messageStore;
+
 };
 }
 }}}
