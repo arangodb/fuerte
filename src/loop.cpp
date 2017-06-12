@@ -32,9 +32,37 @@ static VpackInit init;
 class LoopProvider;
 class VstConnection;
 
+GlobalService::GlobalService() { 
+  FUERTE_LOG_DEBUG << "GlobalService init" << std::endl;
+  ::curl_global_init(CURL_GLOBAL_ALL); 
+}
+GlobalService::~GlobalService() { 
+  FUERTE_LOG_DEBUG << "GlobalService cleanup" << std::endl;
+  ::curl_global_cleanup(); 
+}
+
 EventLoopService::EventLoopService(unsigned int threadCount)
-    : EventLoopService(threadCount, std::make_shared<asio_io_service>(),
-                       std::make_shared<http::HttpCommunicator>()) {}
+    : EventLoopService(threadCount, std::make_shared<asio_io_service>()) {}
+
+// Initialize an EventLoopService with a given number of threads and a given
+// io_service.
+EventLoopService::EventLoopService(
+    unsigned int threadCount,
+    const std::shared_ptr<asio_io_service>& io_service)
+    : EventLoopService(threadCount, io_service,
+                       std::make_shared<http::HttpCommunicator>(io_service)) {}
+
+// run is called for each thread. It calls io_service.run() and
+// invokes the curl handlers.
+// You only need to invoke this if you want a custom event loop service.
+void EventLoopService::run() {
+  try {
+    io_service_->run();
+  } catch (std::exception const& ex) {
+    handleRunException(ex);
+  }
+}
+
 
 // io_service::work is a inner class and we need to declare it forward
 /*struct Work {

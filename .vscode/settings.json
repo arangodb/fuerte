@@ -68,6 +68,7 @@
         "unordered_set": "cpp",
         "__hash_table": "cpp",
         "__tree": "cpp",
-        "valarray": "cpp"
+        "valarray": "cpp",
+        "__functional_03": "cpp"
     }
 }

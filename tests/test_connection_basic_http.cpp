@@ -24,6 +24,7 @@
 #include <fuerte/loop.h>
 #include <fuerte/helper.h>
 
+#include <condition_variable>
 
 namespace f = ::arangodb::fuerte;
 
@@ -71,18 +72,31 @@ namespace fu = ::arangodb::fuerte;
 // }
 
 TEST_F(ConnectionBasicHttpF, ApiVersionASync){
+  std::mutex mutex;
+  std::condition_variable conditionVar;
+  bool done = false;
+
   auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
-  fu::OnErrorCallback onError = [](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
+  auto onError = [&](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
     ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
+    done = true;
+    conditionVar.notify_one();
   };
-  fu::OnSuccessCallback onSuccess = [](std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
+  auto onSuccess = [&](std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
     auto slice = res->slices().front();
     auto version = slice.get("version").copyString();
     auto server = slice.get("server").copyString();
     ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
     ASSERT_TRUE(version[0] == '3');
+    done = true;
+    conditionVar.notify_one();
   };
   _connection->sendRequest(std::move(request),onError,onSuccess);
+
+  {
+    std::unique_lock<std::mutex> lock(mutex);
+    conditionVar.wait(lock, [&]{ return done; });
+  }
   //fu::run();
 }
 

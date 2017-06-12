@@ -42,44 +42,11 @@ namespace http {
 
 std::mutex HttpCommunicator::_curlLock;
 
-HttpCommunicator::HttpCommunicator() : _curl(nullptr), _useCount(0) {
-  curl_global_init(CURL_GLOBAL_ALL);
-  _curl = curl_multi_init();
-
-#ifdef _WIN32
-  int err = dumb_socketpair(_socks, 0);
-  if (err != 0) {
-    throw std::runtime_error("Couldn't setup sockets. Error was: " +
-                             std::to_string(err));
-  }
-  _wakeup.fd = _socks[0];
-#else
-  int result = pipe(_fds);
-  if (result != 0) {
-    throw std::runtime_error("Couldn't setup pipe. Return code was: " +
-                             std::to_string(result));
-  }
-
-  long flags = fcntl(_fds[0], F_GETFL, 0);
-
-  if (flags < 0) {
-    throw std::runtime_error(
-        "Couldn't set pipe to non-blocking. Return code was: " +
-        std::to_string(flags));
-  }
-
-  flags = fcntl(_fds[0], F_SETFL, flags | O_NONBLOCK);
-
-  if (flags < 0) {
-    throw std::runtime_error(
-        "Couldn't set pipe to non-blocking. Return code was: " +
-        std::to_string(flags));
-  }
-
-  _wakeup.fd = _fds[0];
-#endif
-
-  _wakeup.events = CURL_WAIT_POLLIN | CURL_WAIT_POLLPRI;
+HttpCommunicator::HttpCommunicator(
+    const std::shared_ptr<asio_io_service>& io_service)
+    : _useCount(0) {
+  _curlm.reset(new CurlMultiAsio(
+      *io_service, boost::bind(&HttpCommunicator::handleResult, this, _1, _2)));
 }
 
 HttpCommunicator::~HttpCommunicator() {
@@ -90,8 +57,7 @@ HttpCommunicator::~HttpCommunicator() {
                          << " outstanding requests!"
                          << std::endl;
   }
-  ::curl_multi_cleanup(_curl);
-  ::curl_global_cleanup();
+  _curlm.reset();
 }
 
 // -----------------------------------------------------------------------------
@@ -103,75 +69,18 @@ uint64_t HttpCommunicator::queueRequest(Destination destination,
                                     Callbacks callbacks) {
   FUERTE_LOG_HTTPTRACE << "queueRequest - start - at address: " << request.get() << std::endl;
   static std::atomic<uint64_t> ticketId(0);
-      //std::chrono::duration_cast<std::chrono::microseconds>(
-      //    std::chrono::steady_clock::now().time_since_epoch())
-      //    .count();
+
+  // Prepare a new request
+  auto id = ++ticketId;
   NewRequest newRequest;
   newRequest._destination = destination;
   newRequest._fuRequest = std::move(request);
+  newRequest._fuRequest->messageID = id;
   newRequest._callbacks = callbacks;
 
-  {
-    std::lock_guard<std::mutex> guard(_newRequestsLock);
-    uint64_t thisId = ++ticketId;
-    newRequest._fuRequest->messageID = thisId;
-    _newRequests.emplace_back(std::move(newRequest));
-    FUERTE_LOG_HTTPTRACE << "queueRequest - end" << std::endl;
-    return thisId;
-  }
-}
+  createRequestInProgress(std::move(newRequest));
 
-int HttpCommunicator::workOnce() {
-  std::lock_guard<std::mutex> guard(_curlLock);
-
-  FUERTE_LOG_DEBUG << "fuerte - HttpCommunicator: work once" << std::endl;
-  std::vector<NewRequest> newRequests;
-
-  {
-    std::lock_guard<std::mutex> guard(_newRequestsLock);
-    newRequests.swap(_newRequests);
-  }
-
-  for (auto&& newRequest : newRequests) {
-    createRequestInProgress(std::move(newRequest));
-
-    FUERTE_LOG_HTTPTRACE << "CREATE REQUEST\n";
-  }
-
-  _mc = curl_multi_perform(_curl, &_stillRunning);
-
-  if (_mc != CURLM_OK) {
-    throw std::runtime_error(
-        "Invalid curl multi result while performing! Result was " +
-        std::to_string(_mc));
-  }
-
-  // handle all messages received
-  CURLMsg* msg = nullptr;
-  int msgsLeft = 0;
-
-  while ((msg = curl_multi_info_read(_curl, &msgsLeft))) {
-    if (msg->msg == CURLMSG_DONE) {
-      CURL* handle = msg->easy_handle;
-
-      handleResult(handle, msg->data.result);
-    }
-  }
-
-  return _stillRunning;
-}
-
-void HttpCommunicator::wait() {
-  static int const MAX_WAIT_MSECS = 1000;  // wait max. 1 seconds
-
-  int numFds;  // not used here
-  int res = curl_multi_wait(_curl, &_wakeup, 1, MAX_WAIT_MSECS, &numFds);
-
-  if (res != CURLM_OK) {
-    throw std::runtime_error(
-        "Invalid curl multi result while waiting! Result was " +
-        std::to_string(res));
-  }
+  return id;
 }
 
 // -----------------------------------------------------------------------------
@@ -438,13 +347,11 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
   handleInProgress->_rip->_startTime = std::chrono::steady_clock::now();
   _handlesInProgress.emplace(rip->_request._fuRequest->messageID,
                              std::move(handleInProgress));
-  curl_multi_add_handle(_curl, handle);
+
+  _curlm->addRequest(handle);
 }
 
 void HttpCommunicator::handleResult(CURL* handle, CURLcode rc) {
-  // remove request in progress
-  curl_multi_remove_handle(_curl, handle);
-
   RequestInProgress* rip = nullptr;
   curl_easy_getinfo(handle, CURLINFO_PRIVATE, &rip);
 

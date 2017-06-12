@@ -53,6 +53,22 @@ namespace http{
 typedef ::boost::asio::io_service asio_io_service;
 typedef ::boost::asio::io_service::work asio_work;
 
+// GlobalService is intended to be instantiated once for the entire 
+// lifetime of a program using fuerte. 
+// It initializes all global state, needed by fuerte.
+class GlobalService {
+ public:
+  // get GlobalService singelton.
+  static GlobalService& get() {
+    static GlobalService service;
+    return service;
+  }
+
+  private:
+   GlobalService();
+   ~GlobalService();
+};
+
 // EventLoopService implements multi-threaded event loops for
 // boost io_service as well as curl HTTP.
 class EventLoopService {
@@ -64,9 +80,14 @@ class EventLoopService {
   EventLoopService(unsigned int threadCount = 1);
   // Initialize an EventLoopService with a given number of threads and a given io_service.
   EventLoopService(unsigned int threadCount,
+                   const std::shared_ptr<asio_io_service>& io_service);
+  // Initialize an EventLoopService with a given number of threads and a given io_service.
+  EventLoopService(unsigned int threadCount,
                    const std::shared_ptr<asio_io_service>& io_service,
                    const std::shared_ptr<http::HttpCommunicator>& httpCommunicator)
-      : io_service_(io_service), 
+      :
+      global_service_(GlobalService::get()),
+      io_service_(io_service), 
       working_(new asio_work(*io_service)),
       httpCommunicator_(httpCommunicator) {
     while (threadCount > 0) {
@@ -85,13 +106,12 @@ class EventLoopService {
   // run is called for each thread. It calls io_service.run() and
   // invokes the curl handlers.
   // You only need to invoke this if you want a custom event loop service.
-  void run() {
-    try {
-      io_service_->run();
-    } catch (std::exception const& ex) {
-      std::cerr << "exception: " << ex.what() << std::endl;
-      exit(EXIT_FAILURE);
-    }
+  void run();
+
+  // handleRunException is called when an exception is thrown in run.
+  virtual void handleRunException(std::exception const& ex) {
+    std::cerr << "exception: " << ex.what() << std::endl;
+    exit(EXIT_FAILURE);
   }
 
   // io_service returns a reference to the boost io_service.
@@ -100,6 +120,7 @@ class EventLoopService {
   std::shared_ptr<http::HttpCommunicator>& httpCommunicator() { return httpCommunicator_; }
 
  private:
+  GlobalService& global_service_;
   std::shared_ptr<asio_io_service> io_service_;
   std::shared_ptr<http::HttpCommunicator> httpCommunicator_;
   std::unique_ptr<asio_work> working_;  // Used to keep the io-service alive.

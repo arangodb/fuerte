@@ -24,6 +24,7 @@
 #ifndef ARANGO_CXX_DRIVER_HTTP_COMMUNICATOR_H
 #define ARANGO_CXX_DRIVER_HTTP_COMMUNICATOR_H 1
 
+#include <fuerte/loop.h>
 #include <fuerte/message.h>
 #include <fuerte/types.h>
 #include <fuerte/FuerteLogger.h>
@@ -33,6 +34,8 @@
 #include <mutex>
 
 #include <atomic>
+
+#include "CurlMultiAsio.h"
 
 namespace arangodb {
 namespace fuerte {
@@ -72,14 +75,12 @@ class Options {
 
 class HttpCommunicator {
  public:
-  HttpCommunicator();
+  HttpCommunicator(const std::shared_ptr<asio_io_service>& io_service);
   ~HttpCommunicator();
 
  public:
   uint64_t queueRequest(Destination, std::unique_ptr<Request>, Callbacks);
-  int workOnce();
-  void wait();
-  bool used(){ return _useCount; }
+  bool used() { return _useCount; }
   uint64_t addUser(){ return ++_useCount; }
   uint64_t delUser(){ return --_useCount; }
   int requestsLeft(){ return _stillRunning; }
@@ -167,23 +168,14 @@ class HttpCommunicator {
   std::string createSafeDottedCurlUrl(std::string const& originalUrl);
 
  private:
-  std::mutex _newRequestsLock;
   static std::mutex _curlLock;
-  std::vector<NewRequest> _newRequests;
+  std::unique_ptr<CurlMultiAsio> _curlm;
 
   std::unordered_map<uint64_t, std::unique_ptr<CurlHandle>> _handlesInProgress;
-  CURLM* _curl;
-  CURLMcode _mc;
-  curl_waitfd _wakeup;
   std::atomic<uint64_t> _useCount;
   int _stillRunning;
-
-#ifdef _WIN32
-  SOCKET _socks[2];
-#else
-  int _fds[2];
-#endif
 };
+
 }
 }
 }
