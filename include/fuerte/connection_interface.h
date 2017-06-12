@@ -18,6 +18,7 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author Jan Christoph Uhde
+/// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #ifndef ARANGO_CXX_DRIVER_CONNECTION_INTERFACE
@@ -32,13 +33,18 @@ class ConnectionInterface {
   // an interface so that the curl and asio implementaion can be hideen
   // via pointer to implementaton
 public:
-  ConnectionInterface(){}
-  virtual ~ConnectionInterface(){}
-  virtual std::unique_ptr<Response> sendRequest(std::unique_ptr<Request>) = 0;
+  ConnectionInterface() {}
+  virtual ~ConnectionInterface() {}
+
+  // Run a synchronous request
+  virtual std::unique_ptr<Response> sendRequest(std::unique_ptr<Request>);
+  // Start an asynchronous request
   virtual MessageID sendRequest(std::unique_ptr<Request>, OnErrorCallback, OnSuccessCallback) = 0;
+  // Return the number of unfinished requests.
   virtual std::size_t requestsLeft() = 0;
-  virtual void start(){}
-  virtual void restart(){}
+  
+  virtual void start() {}
+  virtual void restart() {}
 };
 
 }}}

@@ -51,6 +51,11 @@ class CurlMultiAsio {
   // It configures callbacks needed to connect the sockets.
   void addRequest(CURL *easyHandle);
 
+  // Return the number of unfinished requests.
+  int requestsLeft() {
+    return _requests_left;
+  }
+
  private:
   typedef struct {
     int action;
@@ -103,6 +108,7 @@ class CurlMultiAsio {
   boost::asio::deadline_timer _timer;
   std::mutex _map_mutex;
   std::map<curl_socket_t, boost::asio::ip::tcp::socket*> _socket_map;
+  int _requests_left;
 };
 
 }

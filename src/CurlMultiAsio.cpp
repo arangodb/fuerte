@@ -38,11 +38,29 @@ namespace fuerte {
 inline namespace v1 {
 namespace http {
 
+// Convert a CURL action to a string
+inline const char* curlWhat(int what) {
+  switch (what) {
+    case CURL_POLL_IN:
+      return "IN";
+    case CURL_POLL_OUT:
+      return "OUT";
+    case CURL_POLL_INOUT:
+      return "INOUT";
+    case CURL_POLL_REMOVE:
+      return "REMOVE";
+    default:
+      return "?";
+  }
+}
+ 
+
 // Initialize out CURL MULTI and prepare callbacks.
 CurlMultiAsio::CurlMultiAsio(boost::asio::io_service& io_service, CurlMultiAsio::RequestDoneCallback request_done_cb) :
   _io_service(io_service),
   _request_done_cb(request_done_cb),
-  _timer(io_service) {
+  _timer(io_service),
+  _requests_left(0) {
 
   // Create CURLMULTI
   _multi = curl_multi_init();
@@ -156,13 +174,14 @@ void CurlMultiAsio::assertCurlOK(const char *where, CURLMcode code)
   }
 }
  
-/* Check for completed transfers, and remove their easy handles */ 
+// Check for completed transfers, and perform callback on them.
 void CurlMultiAsio::check_multi_info(int still_running)
 {
   CURLMsg *msg;
   int msgs_left;
  
-  FUERTE_LOG_HTTPTRACE << "REMAINING: " << still_running;
+  _requests_left = still_running;
+  FUERTE_LOG_HTTPTRACE << "check_multi_info: still_running=" << still_running << std::endl;
  
   while ((msg = curl_multi_info_read(_multi, &msgs_left))) {
     if (msg->msg == CURLMSG_DONE) {
@@ -171,10 +190,11 @@ void CurlMultiAsio::check_multi_info(int still_running)
 
       char *eff_url;
       curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &eff_url);
-      FUERTE_LOG_HTTPTRACE << "DONE: " << eff_url << " => (" << result << ") " << std::endl;
+      FUERTE_LOG_HTTPTRACE << "curl message done: " << eff_url << " => result=" << result << std::endl;
 
       // Remove handle from multi
-      curl_multi_remove_handle(_multi, easy);
+      auto rc = curl_multi_remove_handle(_multi, easy);
+      assertCurlOK("check_multi_info: curl_multi_remove_handle", rc);
 
       // Invoke callback
       _request_done_cb(easy, result);
@@ -185,7 +205,7 @@ void CurlMultiAsio::check_multi_info(int still_running)
 // Called by asio when there is an action on a socket
 void CurlMultiAsio::event_cb(curl_socket_t s, int action,
                              const boost::system::error_code& error, CurlMultiAsio::SocketInfo* socketp) {
-  FUERTE_LOG_HTTPTRACE << "event_cb: action=" << action << std::endl;
+  FUERTE_LOG_HTTPTRACE << "event_cb: action=" << curlWhat(action) << std::endl;
 
   {
     std::unique_lock<std::mutex> lock(_map_mutex);
@@ -211,7 +231,7 @@ void CurlMultiAsio::event_cb(curl_socket_t s, int action,
     }
 
     // keep on watching.
-    // the socket may have been closed and/or fdp may have been changed
+    // the socket may have been closed and/or action may have been changed
     // in curl_multi_socket_action(), so check them both
     if (!error && (socketp->action == action || socketp->action == CURL_POLL_INOUT)) {
       boost::asio::ip::tcp::socket* tcp_socket;
@@ -240,8 +260,9 @@ void CurlMultiAsio::event_cb(curl_socket_t s, int action,
 
 void CurlMultiAsio::set_socket(CurlMultiAsio::SocketInfo *socketp, curl_socket_t s, CURL *easy, int action, int oldAction)
 {
-  FUERTE_LOG_HTTPTRACE << "setsock: socket=" << s << ", action=" << action << " socketp=" << socketp << std::endl;
+  FUERTE_LOG_HTTPTRACE << "setsock: socket=" << s << ", action=" << curlWhat(action) << " socketp=" << socketp << std::endl;
 
+  // Lookup tcp_socket for the given curl socket.
   boost::asio::ip::tcp::socket * tcp_socket = nullptr;
   {
     std::unique_lock<std::mutex> lock(_map_mutex);
@@ -253,7 +274,7 @@ void CurlMultiAsio::set_socket(CurlMultiAsio::SocketInfo *socketp, curl_socket_t
     tcp_socket = it->second;
   }
  
- 
+  // Store action for later
   socketp->action = action;
  
   if (action == CURL_POLL_IN) {
@@ -311,19 +332,16 @@ int CurlMultiAsio::socket_cb(CURL *easy,      /* easy handle */
                     void *userp,     /* private callback pointer */
                     CurlMultiAsio::SocketInfo *socketp)  /* private socket pointer */
 {
-  FUERTE_LOG_HTTPTRACE << "socket_cb: socket=" << s << ", what=" << what << ", socketp=" << socketp << std::endl;
-  const char *whatstr[] = { "none", "IN", "OUT", "INOUT", "REMOVE"};
- 
-  FUERTE_LOG_HTTPTRACE << "socket callback: s=" << s << "easy=" << easy << " what=" << whatstr[what] << std::endl;
+  FUERTE_LOG_HTTPTRACE << "socket_cb: socket=" << s << ", what=" << curlWhat(what) << std::endl;
  
   if (what == CURL_POLL_REMOVE) {
     remove_socket(socketp, s, easy);
   } else {
     if (!socketp) {
-      FUERTE_LOG_HTTPTRACE << "Adding data: " << whatstr[what] << std::endl;
+      FUERTE_LOG_HTTPTRACE << "Adding data: " << curlWhat(what) << std::endl;
       add_socket(s, easy, what);
     } else {
-      FUERTE_LOG_HTTPTRACE << "Changing action from " << whatstr[socketp->action] << " to " << whatstr[what] << std::endl;
+      FUERTE_LOG_HTTPTRACE << "Changing action from " << curlWhat(socketp->action) << " to " << curlWhat(what) << std::endl;
       set_socket(socketp, s, easy, what, socketp->action);
     }
   }
@@ -362,7 +380,7 @@ curl_socket_t CurlMultiAsio::open_socket(curlsocktype purpose, struct curl_socka
     }
   }
 
-  FUERTE_LOG_HTTPTRACE << "open_socket done" << std::endl;
+  FUERTE_LOG_HTTPTRACE << "open_socket done; returning socket " << sockfd << std::endl;
  
   return sockfd;
 }

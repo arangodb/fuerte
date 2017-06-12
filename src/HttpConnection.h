@@ -20,6 +20,7 @@
 /// @author Frank Celler
 /// @author Jan Uhde
 /// @author John Bufton
+/// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #ifndef ARANGO_CXX_DRIVER_HTTP_CONNECTION_H
@@ -35,27 +36,27 @@ namespace arangodb {
 namespace fuerte {
 inline namespace v1 {
 namespace http {
+
+// HttpConnection implements a client->server connection using the HTTP protocol.
 class HttpConnection : public ConnectionInterface {
  public:
   explicit HttpConnection(EventLoopService&, detail::ConnectionConfiguration const&);
   ~HttpConnection();
 
  public:
-  MessageID sendRequest(std::unique_ptr<Request>, OnErrorCallback,
-                   OnSuccessCallback) override;
+  // Start an asynchronous request.
+  MessageID sendRequest(std::unique_ptr<Request>, OnErrorCallback, OnSuccessCallback) override;
 
-  std::unique_ptr<Response> sendRequest(std::unique_ptr<Request>) override {
-    throw std::runtime_error("not implemented");
-    return std::unique_ptr<Response>(nullptr);
-  }
-
+  // Return the number of unfinished requests.
   std::size_t requestsLeft() override {
     return _communicator->requestsLeft();
   }
+
  private:
   std::shared_ptr<HttpCommunicator> _communicator;
   detail::ConnectionConfiguration _configuration;
 };
+
 }
 }
 }

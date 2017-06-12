@@ -45,6 +45,7 @@ add_subdirectory(3rdParty/curlpp2)
 
 ## fuerte
 add_library(fuerte STATIC
+    src/connection_interface.cpp
     src/types.cpp
     src/message.cpp
     src/vst.cpp

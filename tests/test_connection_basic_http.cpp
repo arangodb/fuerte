@@ -100,18 +100,18 @@ TEST_F(ConnectionBasicHttpF, ApiVersionASync){
   //fu::run();
 }
 
-// TEST_F(ConnectionBasicHttpF, ApiVersionSync20){
-//   auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
-//   fu::Request req = *request;
-//   for(int i = 0; i < 20; i++){
-//     auto result = _connection->sendRequest(req);
-//     auto slice = result->slices().front();
-//     auto version = slice.get("version").copyString();
-//     auto server = slice.get("server").copyString();
-//     ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
-//     ASSERT_TRUE(version[0] == '3');
-//   }
-// }
+TEST_F(ConnectionBasicHttpF, ApiVersionSync20){
+  auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
+  fu::Request req = *request;
+  for(int i = 0; i < 20; i++){
+    auto result = _connection->sendRequest(req);
+    auto slice = result->slices().front();
+    auto version = slice.get("version").copyString();
+    auto server = slice.get("server").copyString();
+    ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
+    ASSERT_TRUE(version[0] == '3');
+  }
+}
 
 TEST_F(ConnectionBasicHttpF, ApiVersionASync20){
   auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");

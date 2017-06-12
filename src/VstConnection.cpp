@@ -85,47 +85,6 @@ std::size_t VstConnection::requestsLeft() {
   return _sendQueue.size() + _messageStore.size();
 };
 
-std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
-  FUERTE_LOG_VSTTRACE << "start sync request" << std::endl;
-  // TODO - we expect the loop to be running even for sync requests
-  // maybe we could call poll on the ioservice in this function if
-  // it is not running.
-  std::mutex mutex;
-  std::condition_variable conditionVar;
-  bool done = false;
-
-  auto rv = std::unique_ptr<Response>(nullptr);
-  auto onError  = [&](::arangodb::fuerte::v1::Error error, RequestUP request, ResponseUP response){
-    FUERTE_LOG_VSTTRACE << "sendRequest (sync): onError" << std::endl;
-    rv = std::move(response);
-    done = true;
-    conditionVar.notify_one();
-  };
-
-  auto onSuccess  = [&](RequestUP request, ResponseUP response){
-    FUERTE_LOG_VSTTRACE << "sendRequest (sync): onSuccess" << std::endl;
-    rv = std::move(response);
-    done = true;
-    conditionVar.notify_one();
-  };
-
-  {
-    std::unique_lock<std::mutex> lock(mutex);
-    sendRequest(std::move(request),onError,onSuccess);
-    /*if(!_asioLoop->_running){
-      FUERTE_LOG_VSTTRACE << "sendRequest (sync): before run" << std::endl;
-      _asioLoop->run_ready();
-      //arangodb::fuerte::run(); // run
-      FUERTE_LOG_VSTTRACE << "sendRequest (sync): after run" << std::endl;
-    }*/
-    FUERTE_LOG_VSTTRACE << "sendRequest (sync): before wait" << std::endl;
-    conditionVar.wait(lock, [&]{ return done; });
-  }
-  FUERTE_LOG_VSTTRACE << "sendRequest (sync): done" << std::endl;
-  return std::move(rv);
-}
-
-
 VstConnection::VstConnection(EventLoopService& eventLoopService, ConnectionConfiguration const& configuration)
     : _vstVersion(VST1_0)
     , _messageID(0)

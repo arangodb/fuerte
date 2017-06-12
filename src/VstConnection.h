@@ -85,10 +85,6 @@ public:
                        ,OnErrorCallback
                        ,OnSuccessCallback) override;
 
-  // synchronous operation for sending Requests implemented using the
-  // asynchronous operation and a condition variable
-  std::unique_ptr<Response> sendRequest(std::unique_ptr<Request>) override;
-
 private:
   // SOCKET HANDLING /////////////////////////////////////////////////////////
   void initSocket();

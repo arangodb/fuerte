@@ -20,6 +20,7 @@
 /// @author Andreas Streichardt
 /// @author Frank Celler
 /// @author Jan Christoph Uhde
+/// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "HttpCommunicator.h"
@@ -36,6 +37,7 @@ namespace arangodb {
 namespace fuerte {
 inline namespace v1 {
 namespace http {
+  
 // -----------------------------------------------------------------------------
 // --SECTION--                                      constructors and destructors
 // -----------------------------------------------------------------------------

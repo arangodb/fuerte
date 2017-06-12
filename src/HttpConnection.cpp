@@ -20,6 +20,7 @@
 /// @author Frank Celler
 /// @author Jan Uhde
 /// @author John Bufton
+/// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "HttpConnection.h"
@@ -33,16 +34,14 @@ namespace http {
 
 using namespace arangodb::fuerte::detail;
 
-HttpConnection::HttpConnection(EventLoopService& eventLoopService, ConnectionConfiguration const& configuration)
-    : _communicator(eventLoopService.httpCommunicator())
-    , _configuration(configuration)
-    {
-      _communicator->addUser();
-    }
-
-HttpConnection::~HttpConnection(){
-      _communicator->delUser();
+HttpConnection::HttpConnection(EventLoopService& eventLoopService,
+                               ConnectionConfiguration const& configuration)
+    : _communicator(eventLoopService.httpCommunicator()),
+      _configuration(configuration) {
+  _communicator->addUser();
 }
+
+HttpConnection::~HttpConnection() { _communicator->delUser(); }
 
 MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request,
                                  OnErrorCallback onError,
@@ -71,6 +70,7 @@ MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request,
   return _communicator->queueRequest(destination, std::move(request), callbacks);
   //create usefulid
 }
+
 }
 }
 }

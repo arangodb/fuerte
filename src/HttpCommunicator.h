@@ -19,6 +19,7 @@
 ///
 /// @author Andreas Streichardt
 /// @author Frank Celler
+/// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #ifndef ARANGO_CXX_DRIVER_HTTP_COMMUNICATOR_H
@@ -83,7 +84,7 @@ class HttpCommunicator {
   bool used() { return _useCount; }
   uint64_t addUser(){ return ++_useCount; }
   uint64_t delUser(){ return --_useCount; }
-  int requestsLeft(){ return _stillRunning; }
+  int requestsLeft() { return _curlm->requestsLeft(); }
 
  private:
   struct NewRequest {
