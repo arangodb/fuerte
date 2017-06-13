@@ -40,6 +40,8 @@
 #include <fuerte/loop.h>
 #include <fuerte/vst.h>
 
+#include "MessageStore.h"
+
 // naming in this file will be closer to asio for internal functions and types
 // functions that are exposed to other classes follow ArangoDB conding conventions
 
@@ -204,76 +206,8 @@ private:
     std::deque<std::shared_ptr<RequestItem>> _queue;
   };
   SendQueue _sendQueue;
-
-  // MessageStore keeps a thread safe list of all requests that are "in-flight".
-  class MessageStore {
-   public:
-    // add a given item to the store (indexed by its ID).
-    void add(std::shared_ptr<RequestItem> item) {
-      std::lock_guard<std::mutex> lockMap(_mutex);
-      _map.emplace(item->_messageID, item);
-    }
-
-    // findByID returns the item with given ID or nullptr is no such ID is
-    // found in the store.
-    std::shared_ptr<RequestItem> findByID(MessageID id) {
-      std::lock_guard<std::mutex> lockMap(_mutex);
-      auto found = _map.find(id);
-      if (found == _map.end()) {
-        // ID not found
-        return std::shared_ptr<RequestItem>();
-      }
-      return found->second;
-    }
-
-    // removeByID removes the item with given ID from the store.
-    void removeByID(MessageID id) {
-      std::lock_guard<std::mutex> lockMap(_mutex);
-      _map.erase(id);
-    }
-
-    // Notify all items that their being cancelled (by calling their onError)
-    // and remove all items from the store.
-    void cancelAll() {
-      std::lock_guard<std::mutex> lockMap(_mutex);
-      for (auto& item : _map) {
-        item.second->_onError(errorToInt(ErrorCondition::CanceledDuringReset),
-                              std::move(item.second->_request), nullptr);
-      }
-      _map.clear();
-    }
-
-    // size returns the number of elements in the store.
-    size_t size() {
-      std::lock_guard<std::mutex> lockMap(_mutex);
-      return _map.size();
-    }
-
-    // empty returns true when there are no elements in the store, false
-    // otherwise.
-    bool empty(bool unlocked = false) {
-      if (unlocked) {
-        return _map.empty();
-      } else {
-        std::lock_guard<std::mutex> lockMap(_mutex);
-        return _map.empty();
-      }
-    }
-
-    // mutex provides low level access to the mutex, used for shared locking.
-    std::mutex& mutex() { return _mutex; }
-
-    // keys returns a string representation of all MessageID's in the store.
-    std::string keys() {
-      std::lock_guard<std::mutex> lockMap(_mutex);
-      return mapToKeys(_map);
-    }
-
-   private:
-    std::mutex _mutex;
-    std::map<MessageID, std::shared_ptr<RequestItem>> _map;
-  };
-  MessageStore _messageStore;
+  
+  MessageStore<RequestItem> _messageStore;
 
 };
 }

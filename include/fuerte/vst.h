@@ -138,6 +138,11 @@ struct RequestItem {
   VBuffer _responseChunkContent;      // Buffer containing content of received chunks. (this is not in sorted order!)
   size_t _responseNumberOfChunks;     // The number of chunks we're expecting (0==not know yet).
 
+  inline MessageID messageID() { return _messageID; }
+  inline void invokeOnError(Error e, std::unique_ptr<Request> req, std::unique_ptr<Response> res) { 
+    _onError(e, std::move(req), std::move(res));
+  }
+
   // prepareForNetwork prepares the internal structures for writing the request 
   // to the network.
   void prepareForNetwork(VSTVersion);

@@ -38,6 +38,7 @@
 #include <atomic>
 
 #include "CurlMultiAsio.h"
+#include "MessageStore.h"
 
 namespace arangodb {
 namespace fuerte {
@@ -125,11 +126,17 @@ class HttpCommunicator {
       }
     }
 
+    // Prevent copying
     RequestItem(RequestItem const& other) = delete;
     RequestItem& operator=(RequestItem const& other) = delete;
 
     // return the CURL EASY handle.
     inline CURL* handle() const { return _handle; }
+
+    inline MessageID messageID() { return _request._fuRequest->messageID; }
+    inline void invokeOnError(Error e, std::unique_ptr<Request> req, std::unique_ptr<Response> res) { 
+      _request._callbacks._onError(e, std::move(req), std::move(res));
+    }
 
    public:
     NewRequest _request;
@@ -145,75 +152,7 @@ class HttpCommunicator {
     CURL* _handle;
   };
 
-    // MessageStore keeps a thread safe list of all requests that are "in-flight".
-  class MessageStore {
-   public:
-    // add a given item to the store (indexed by its ID).
-    void add(std::shared_ptr<RequestItem> item) {
-      std::lock_guard<std::mutex> lockMap(_mutex);
-      _map.emplace(item->_request._fuRequest->messageID, item);
-    }
-
-    // findByID returns the item with given ID or nullptr is no such ID is
-    // found in the store.
-    std::shared_ptr<RequestItem> findByID(MessageID id) {
-      std::lock_guard<std::mutex> lockMap(_mutex);
-      auto found = _map.find(id);
-      if (found == _map.end()) {
-        // ID not found
-        return std::shared_ptr<RequestItem>();
-      }
-      return found->second;
-    }
-
-    // removeByID removes the item with given ID from the store.
-    void removeByID(MessageID id) {
-      std::lock_guard<std::mutex> lockMap(_mutex);
-      _map.erase(id);
-    }
-
-    // Notify all items that their being cancelled (by calling their onError)
-    // and remove all items from the store.
-    void cancelAll() {
-      std::lock_guard<std::mutex> lockMap(_mutex);
-      for (auto& item : _map) {
-        item.second->_request._callbacks._onError(errorToInt(ErrorCondition::CanceledDuringReset),
-                              std::move(item.second->_request._fuRequest), nullptr);
-      }
-      _map.clear();
-    }
-
-    // size returns the number of elements in the store.
-    size_t size() {
-      std::lock_guard<std::mutex> lockMap(_mutex);
-      return _map.size();
-    }
-
-    // empty returns true when there are no elements in the store, false
-    // otherwise.
-    bool empty(bool unlocked = false) {
-      if (unlocked) {
-        return _map.empty();
-      } else {
-        std::lock_guard<std::mutex> lockMap(_mutex);
-        return _map.empty();
-      }
-    }
-
-    // mutex provides low level access to the mutex, used for shared locking.
-    std::mutex& mutex() { return _mutex; }
-
-    // keys returns a string representation of all MessageID's in the store.
-    std::string keys() {
-      std::lock_guard<std::mutex> lockMap(_mutex);
-      return mapToKeys(_map);
-    }
-
-   private:
-    std::mutex _mutex;
-    std::map<MessageID, std::shared_ptr<RequestItem>> _map;
-  };
-  MessageStore _messageStore;
+  MessageStore<RequestItem> _messageStore;
 
  private:
   static size_t readBody(void*, size_t, size_t, void*);
@@ -233,7 +172,6 @@ class HttpCommunicator {
   std::string createSafeDottedCurlUrl(std::string const& originalUrl);
 
  private:
-  //static std::mutex _curlLock;
   std::shared_ptr<CurlMultiAsio> _curlm;
 
   std::atomic<uint64_t> _useCount;

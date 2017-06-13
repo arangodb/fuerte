@@ -47,6 +47,10 @@ class CurlMultiAsio : public std::enable_shared_from_this<CurlMultiAsio> {
   CurlMultiAsio(boost::asio::io_service& io_service, RequestDoneCallback request_done_cb);
   ~CurlMultiAsio();
 
+  // Prevent copying
+  CurlMultiAsio(CurlMultiAsio const& other) = delete;
+  CurlMultiAsio& operator=(CurlMultiAsio const& other) = delete;
+
   // addRequest connect a prepare CURL EASY request to our CURL MULTI instance.
   // It configures callbacks needed to connect the sockets.
   void addRequest(CURL *easyHandle);
@@ -106,6 +110,7 @@ class CurlMultiAsio : public std::enable_shared_from_this<CurlMultiAsio> {
   RequestDoneCallback _request_done_cb;
   std::recursive_mutex _multi_mutex;
   CURLM* _multi;
+  std::mutex _timer_mutex;
   boost::asio::deadline_timer _timer;
   std::mutex _map_mutex;
   std::map<curl_socket_t, boost::asio::ip::tcp::socket*> _socket_map;

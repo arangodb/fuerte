@@ -49,6 +49,8 @@ inline const char* curlWhat(int what) {
       return "INOUT";
     case CURL_POLL_REMOVE:
       return "REMOVE";
+    case 0:
+      return "NONE";
     default:
       return "?";
   }
@@ -77,7 +79,12 @@ CurlMultiAsio::CurlMultiAsio(boost::asio::io_service& io_service, CurlMultiAsio:
 
 // Cleanup
 CurlMultiAsio::~CurlMultiAsio() {
+  {
+    std::lock_guard<std::mutex> lock(_timer_mutex);
+    _timer.cancel();
+  }
   if (_multi) {
+    std::lock_guard<std::recursive_mutex> lock(_multi_mutex);
     curl_multi_cleanup(_multi);
   }
 }
@@ -93,7 +100,7 @@ void CurlMultiAsio::addRequest(CURL *easyHandle) {
  
   FUERTE_LOG_HTTPTRACE << "Adding easy " << easyHandle << " to our multi" << std::endl;
   {
-    std::unique_lock<std::recursive_mutex> lock(_multi_mutex);
+    std::lock_guard<std::recursive_mutex> lock(_multi_mutex);
     auto rc = curl_multi_add_handle(_multi, easyHandle);
     assertCurlOK("addRequest", rc);
   }
@@ -103,6 +110,7 @@ void CurlMultiAsio::addRequest(CURL *easyHandle) {
 int CurlMultiAsio::multi_timer_cb(CURLM *multi, long timeout_ms, void *userp) 
 {
   FUERTE_LOG_HTTPTRACE << "multi_timer_cb: timeout_ms " << timeout_ms << std::endl;
+  std::lock_guard<std::mutex> lock(_timer_mutex);
 
   // cancel running timer
   _timer.cancel();
@@ -129,19 +137,20 @@ int CurlMultiAsio::multi_timer_cb(CURLM *multi, long timeout_ms, void *userp)
 // Called by asio when our timeout expires
 void CurlMultiAsio::timer_cb(const boost::system::error_code & error)
 {
-  if(!error) {
-    FUERTE_LOG_HTTPTRACE << "timer_cb: " << std::endl;
- 
-    int still_running;
-    {
-      std::unique_lock<std::recursive_mutex> lock(_multi_mutex);
-      FUERTE_LOG_HTTPTRACE << "timer_cb: before curl_multi_socket_action" << std::endl;
-      auto rc = curl_multi_socket_action(_multi, CURL_SOCKET_TIMEOUT, 0, &still_running);
-      FUERTE_LOG_HTTPTRACE << "timer_cb: after curl_multi_socket_action" << std::endl;
-      assertCurlOK("timer_cb: curl_multi_socket_action", rc);
-    }
-    check_multi_info(still_running);
+  if (error) {
+    FUERTE_LOG_HTTPTRACE << "timer_cb: error=" << error << std::endl;
+    return;
   }
+
+  int still_running;
+  {
+    std::lock_guard<std::recursive_mutex> lock(_multi_mutex);
+    FUERTE_LOG_HTTPTRACE << "timer_cb: before curl_multi_socket_action" << std::endl;
+    auto rc = curl_multi_socket_action(_multi, CURL_SOCKET_TIMEOUT, 0, &still_running);
+    FUERTE_LOG_HTTPTRACE << "timer_cb: after curl_multi_socket_action still_running=" << still_running << std::endl;
+    assertCurlOK("timer_cb: curl_multi_socket_action", rc);
+  }
+  check_multi_info(still_running);
 }
  
 // Throw an exception if the given code is not equal to CURLM_OK.
@@ -222,10 +231,11 @@ void CurlMultiAsio::check_multi_info(int still_running)
 // Called by asio when there is an action on a socket
 void CurlMultiAsio::event_cb(curl_socket_t s, int action,
                              const boost::system::error_code& error, CurlMultiAsio::SocketInfo* socketp) {
-  FUERTE_LOG_HTTPTRACE << "event_cb: action=" << curlWhat(action) << std::endl;
+  FUERTE_LOG_HTTPTRACE << "event_cb: action=" << curlWhat(action) << " socketp=" << socketp << std::endl;
 
   {
-    std::unique_lock<std::mutex> lock(_map_mutex);
+    // Find socket to work on
+    std::lock_guard<std::mutex> lock(_map_mutex);
     if (_socket_map.find(s) == _socket_map.end()) {
       FUERTE_LOG_HTTPTRACE << "event_cb: socket already closed" << std::endl;
       return;
@@ -239,7 +249,7 @@ void CurlMultiAsio::event_cb(curl_socket_t s, int action,
     }
     int still_running;
     {
-      std::unique_lock<std::recursive_mutex> lock(_multi_mutex);
+      std::lock_guard<std::recursive_mutex> lock(_multi_mutex);
       auto rc = curl_multi_socket_action(_multi, s, action, &still_running);
       assertCurlOK("event_cb: curl_multi_socket_action", rc);
     }
@@ -247,7 +257,10 @@ void CurlMultiAsio::event_cb(curl_socket_t s, int action,
 
     if (still_running <= 0) {
       FUERTE_LOG_HTTPTRACE << "last transfer done, kill timeout" << std::endl;
-      _timer.cancel();
+      {
+        std::lock_guard<std::mutex> lock(_timer_mutex);
+        _timer.cancel();
+      }
     }
 
     // keep on watching.
@@ -256,7 +269,7 @@ void CurlMultiAsio::event_cb(curl_socket_t s, int action,
     if (!error && (socketp->action == action || socketp->action == CURL_POLL_INOUT)) {
       boost::asio::ip::tcp::socket* tcp_socket;
       {
-        std::unique_lock<std::mutex> lock(_map_mutex);
+        std::lock_guard<std::mutex> lock(_map_mutex);
         auto it = _socket_map.find(s);
         if (it == _socket_map.end()) {
           // Socket no longer found
@@ -281,12 +294,12 @@ void CurlMultiAsio::event_cb(curl_socket_t s, int action,
 
 void CurlMultiAsio::set_socket(CurlMultiAsio::SocketInfo *socketp, curl_socket_t s, CURL *easy, int action, int oldAction)
 {
-  FUERTE_LOG_HTTPTRACE << "set_socket: socket=" << s << ", action=" << curlWhat(action) << " socketp=" << socketp << std::endl;
+  FUERTE_LOG_HTTPTRACE << "set_socket: socket=" << s << ", action=" << curlWhat(action) << ", oldAction=" << curlWhat(oldAction) << " socketp=" << socketp << std::endl;
 
   // Lookup tcp_socket for the given curl socket.
   boost::asio::ip::tcp::socket * tcp_socket = nullptr;
   {
-    std::unique_lock<std::mutex> lock(_map_mutex);
+    std::lock_guard<std::mutex> lock(_map_mutex);
     auto it = _socket_map.find(s);
     if(it == _socket_map.end()) {
       FUERTE_LOG_HTTPTRACE << "socket " << s << " is a c-ares socket, ignoring" << std::endl;
@@ -299,30 +312,32 @@ void CurlMultiAsio::set_socket(CurlMultiAsio::SocketInfo *socketp, curl_socket_t
   socketp->action = action;
  
   auto self = shared_from_this();
-  if (action == CURL_POLL_IN) {
-    FUERTE_LOG_HTTPTRACE << "watching for socket to become readable" << std::endl;
-    if (oldAction != CURL_POLL_IN && oldAction != CURL_POLL_INOUT) {
-      tcp_socket->async_read_some(boost::asio::null_buffers(),
-                                  boost::bind(&CurlMultiAsio::event_cb, self, s, CURL_POLL_IN, _1, socketp));
-    }
-  }
-  else if (action == CURL_POLL_OUT) {
-    FUERTE_LOG_HTTPTRACE << "watching for socket to become writable" << std::endl;
-    if (oldAction != CURL_POLL_OUT && oldAction != CURL_POLL_INOUT) {
-      tcp_socket->async_write_some(boost::asio::null_buffers(),
-                                   boost::bind(&CurlMultiAsio::event_cb, self, s, CURL_POLL_OUT, _1, socketp));
-    }
-  }
-  else if (action == CURL_POLL_INOUT) {
-    FUERTE_LOG_HTTPTRACE << "watching for socket to become readable & writable" << std::endl;
-    if (oldAction != CURL_POLL_IN && oldAction != CURL_POLL_INOUT) {
-      tcp_socket->async_read_some(boost::asio::null_buffers(),
-                                  boost::bind(&CurlMultiAsio::event_cb, self, s, CURL_POLL_IN, _1, socketp));
-    }
-    if (oldAction != CURL_POLL_OUT && oldAction != CURL_POLL_INOUT) {
-      tcp_socket->async_write_some(boost::asio::null_buffers(),
-                                   boost::bind(&CurlMultiAsio::event_cb, self, s, CURL_POLL_OUT, _1, socketp));
-    }
+  switch (action) {
+    case CURL_POLL_IN:
+      FUERTE_LOG_HTTPTRACE << "watching for socket to become readable" << std::endl;
+      if (oldAction != CURL_POLL_IN && oldAction != CURL_POLL_INOUT) {
+        tcp_socket->async_read_some(boost::asio::null_buffers(),
+                                    boost::bind(&CurlMultiAsio::event_cb, self, s, CURL_POLL_IN, _1, socketp));
+      }
+      break;
+    case CURL_POLL_OUT:
+      FUERTE_LOG_HTTPTRACE << "watching for socket to become writable" << std::endl;
+      if (oldAction != CURL_POLL_OUT && oldAction != CURL_POLL_INOUT) {
+        tcp_socket->async_write_some(boost::asio::null_buffers(),
+                                    boost::bind(&CurlMultiAsio::event_cb, self, s, CURL_POLL_OUT, _1, socketp));
+      }
+      break;
+    case CURL_POLL_INOUT:
+      FUERTE_LOG_HTTPTRACE << "watching for socket to become readable & writable" << std::endl;
+      if (oldAction != CURL_POLL_IN && oldAction != CURL_POLL_INOUT) {
+        tcp_socket->async_read_some(boost::asio::null_buffers(),
+                                    boost::bind(&CurlMultiAsio::event_cb, self, s, CURL_POLL_IN, _1, socketp));
+      }
+      if (oldAction != CURL_POLL_OUT && oldAction != CURL_POLL_INOUT) {
+        tcp_socket->async_write_some(boost::asio::null_buffers(),
+                                    boost::bind(&CurlMultiAsio::event_cb, self, s, CURL_POLL_OUT, _1, socketp));
+      }
+      break;
   }
 }
  
