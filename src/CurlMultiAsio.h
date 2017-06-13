@@ -115,6 +115,16 @@ class CurlMultiAsio : public std::enable_shared_from_this<CurlMultiAsio> {
   std::mutex _map_mutex;
   std::map<curl_socket_t, boost::asio::ip::tcp::socket*> _socket_map;
   int _requests_left;
+
+ private:
+  inline void recordNewAsyncCall() {
+    #if ENABLE_FUERTE_LOG_HTTPTRACE > 0
+      _pendingAsyncCalls++;
+    #endif
+  }
+#if ENABLE_FUERTE_LOG_HTTPTRACE > 0
+  std::atomic<uint64_t> _pendingAsyncCalls;
+#endif
 };
 
 }
