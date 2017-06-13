@@ -29,7 +29,7 @@
 #endif
 
 #ifndef ENABLE_FUERTE_LOG_DEBUG
-  #define ENABLE_FUERTE_LOG_DEBUG 1
+  #define ENABLE_FUERTE_LOG_DEBUG 0
 #endif
 
 #ifndef ENABLE_FUERTE_LOG_TRACE
