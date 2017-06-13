@@ -117,9 +117,10 @@ class CurlMultiAsio : public std::enable_shared_from_this<CurlMultiAsio> {
   int _requests_left;
 
  private:
-  inline void recordNewAsyncCall() {
+  inline void recordNewAsyncCall(const char *where) {
     #if ENABLE_FUERTE_LOG_HTTPTRACE > 0
-      _pendingAsyncCalls++;
+      auto ctr = ++_pendingAsyncCalls;
+      FUERTE_LOG_HTTPTRACE << "Starting async call " << ctr << " in " << where << std::endl;
     #endif
   }
 #if ENABLE_FUERTE_LOG_HTTPTRACE > 0
