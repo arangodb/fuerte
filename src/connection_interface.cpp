@@ -20,6 +20,7 @@
 /// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <condition_variable>
 #include <mutex>
 
 #include <fuerte/connection_interface.h>
