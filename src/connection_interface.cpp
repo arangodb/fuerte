@@ -20,6 +20,8 @@
 /// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <mutex>
+
 #include <fuerte/connection_interface.h>
 #include <fuerte/FuerteLogger.h>
 
