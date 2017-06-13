@@ -40,7 +40,7 @@ inline namespace v1 {
 namespace http {
 
 // CurlMultiAsio makes CURLMULTI play nice in a boost::asio environment.
-class CurlMultiAsio {
+class CurlMultiAsio : public std::enable_shared_from_this<CurlMultiAsio> {
  public:
   using RequestDoneCallback = std::function<void(CURL* easyHandle, CURLcode result)>;
 
@@ -104,6 +104,7 @@ class CurlMultiAsio {
  private:
   boost::asio::io_service& _io_service;
   RequestDoneCallback _request_done_cb;
+  std::recursive_mutex _multi_mutex;
   CURLM* _multi;
   boost::asio::deadline_timer _timer;
   std::mutex _map_mutex;

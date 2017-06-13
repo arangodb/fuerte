@@ -218,7 +218,7 @@ ErrorCondition intToError(Error integral){
       1002, // TimeOut
       1102, // VstReadError
       1103, // VstWriteError
-      1104, // VstCancelledDuringReset
+      1104, // CancelledDuringReset
       3000, // CurlError
   };
   auto pos = std::find(valid.begin(), valid.end(), integral);
@@ -251,7 +251,7 @@ std::string to_string(ErrorCondition error){
       return "Error: reading vst";
     case ErrorCondition::VstWriteError:
       return "Error: writing vst";
-    case ErrorCondition::VstCanceldDuringReset:
+    case ErrorCondition::CanceledDuringReset:
       return "Error: cancel as result of other error";
 
     case ErrorCondition::CurlError:

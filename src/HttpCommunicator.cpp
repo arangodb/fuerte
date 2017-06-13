@@ -37,12 +37,12 @@ namespace arangodb {
 namespace fuerte {
 inline namespace v1 {
 namespace http {
-  
+
 // -----------------------------------------------------------------------------
 // --SECTION--                                      constructors and destructors
 // -----------------------------------------------------------------------------
 
-std::mutex HttpCommunicator::_curlLock;
+//std::mutex HttpCommunicator::_curlLock;
 
 HttpCommunicator::HttpCommunicator(
     const std::shared_ptr<asio_io_service>& io_service)
@@ -52,10 +52,10 @@ HttpCommunicator::HttpCommunicator(
 }
 
 HttpCommunicator::~HttpCommunicator() {
-  FUERTE_LOG_HTTPTRACE << "DESTROYING COMMUNICATOR" << std::endl;
-  if(! _handlesInProgress.empty()){
+  FUERTE_LOG_HTTPTRACE << "Destroying HttpCommunicator" << std::endl;
+  if (!_messageStore.empty()){
     FUERTE_LOG_HTTPTRACE << "DESTROYING CONNECTION WITH: "
-                         << _handlesInProgress.size()
+                         << _messageStore.size()
                          << " outstanding requests!"
                          << std::endl;
   }
@@ -80,7 +80,7 @@ uint64_t HttpCommunicator::queueRequest(Destination destination,
   newRequest._fuRequest->messageID = id;
   newRequest._callbacks = callbacks;
 
-  createRequestInProgress(std::move(newRequest));
+  createRequestIem(std::move(newRequest));
 
   return id;
 }
@@ -91,7 +91,7 @@ uint64_t HttpCommunicator::queueRequest(Destination destination,
 
 int HttpCommunicator::curlDebug(CURL* handle, curl_infotype type, char* data,
                                 size_t size, void* userptr) {
-  RequestInProgress* inprogress = nullptr;
+  RequestItem* inprogress = nullptr;
   curl_easy_getinfo(handle, CURLINFO_PRIVATE, &inprogress);
 
   std::string dataStr(data, size);
@@ -161,7 +161,7 @@ void HttpCommunicator::logHttpHeaders(std::string const& prefix,
 size_t HttpCommunicator::readHeaders(char* buffer, size_t size, size_t nitems,
                                      void* userptr) {
   size_t realsize = size * nitems;
-  RequestInProgress* rip = (struct RequestInProgress*)userptr;
+  RequestItem* rip = (struct RequestItem*)userptr;
 
   std::string const header(buffer, realsize);
   size_t pivot = header.find_first_of(':');
@@ -180,7 +180,7 @@ size_t HttpCommunicator::readBody(void* data, size_t size, size_t nitems,
                                   void* userp) {
   size_t realsize = size * nitems;
 
-  RequestInProgress* rip = (struct RequestInProgress*)userp;
+  RequestItem* rip = (struct RequestItem*)userp;
 
   try {
     rip->_responseBody.append((char*)data, realsize);
@@ -239,47 +239,41 @@ std::string HttpCommunicator::createSafeDottedCurlUrl(
   return url;
 }
 
-void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
+void HttpCommunicator::createRequestIem(NewRequest newRequest) {
   // mop: the curl handle will be managed safely via unique_ptr and hold
   // ownership for rip
-  auto rip = new RequestInProgress(std::move(newRequest));
-  std::unique_ptr<CurlHandle> handleInProgress(new CurlHandle(rip));
-  fuerte::Request* fuRequest = rip->_request._fuRequest.get();
-
-  CURL* handle = handleInProgress->_handle;
+  auto requestItem = std::make_shared<RequestItem>(std::move(newRequest));
+  auto handle = requestItem->handle();
   struct curl_slist* requestHeaders = nullptr;
-
-  if(fuRequest->header.meta){
+  auto fuRequest = requestItem->_request._fuRequest.get();
+  if (fuRequest->header.meta) {
     for (auto const& header : fuRequest->header.meta.get()) {
       std::string thisHeader(header.first + ": " + header.second);
       requestHeaders = curl_slist_append(requestHeaders, thisHeader.c_str());
     }
   }
 
-  std::string url = createSafeDottedCurlUrl(rip->_request._destination);
-  handleInProgress->_rip->_requestHeaders = requestHeaders;
+  std::string url = createSafeDottedCurlUrl(requestItem->_request._destination);
+  requestItem->_requestHeaders = requestHeaders;
   curl_easy_setopt(handle, CURLOPT_HTTPHEADER, requestHeaders);
   curl_easy_setopt(handle, CURLOPT_HEADER, 0L);
   curl_easy_setopt(handle, CURLOPT_URL, url.c_str());
   curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, HttpCommunicator::readBody);
-  curl_easy_setopt(handle, CURLOPT_WRITEDATA, handleInProgress->_rip.get());
-  curl_easy_setopt(handle, CURLOPT_HEADERFUNCTION,
-                   HttpCommunicator::readHeaders);
-  curl_easy_setopt(handle, CURLOPT_HEADERDATA, handleInProgress->_rip.get());
+  curl_easy_setopt(handle, CURLOPT_WRITEDATA, requestItem.get());
+  curl_easy_setopt(handle, CURLOPT_HEADERFUNCTION, &HttpCommunicator::readHeaders);
+  curl_easy_setopt(handle, CURLOPT_HEADERDATA, requestItem.get());
 #if ENABLE_FUERTE_LOG_HTTPRACE > 0
   curl_easy_setopt(handle, CURLOPT_DEBUGFUNCTION, HttpCommunicator::curlDebug);
-  curl_easy_setopt(handle, CURLOPT_DEBUGDATA, handleInProgress->_rip.get());
+  curl_easy_setopt(handle, CURLOPT_DEBUGDATA, requestItem.get());
   curl_easy_setopt(handle, CURLOPT_VERBOSE, 1L);
 #endif
-  curl_easy_setopt(handle, CURLOPT_ERRORBUFFER,
-                   handleInProgress->_rip.get()->_errorBuffer);
+  curl_easy_setopt(handle, CURLOPT_ERRORBUFFER, requestItem->_errorBuffer);
 
   // mop: XXX :S CURLE 51 and 60...
   curl_easy_setopt(handle, CURLOPT_SSL_VERIFYPEER, 0L);
   curl_easy_setopt(handle, CURLOPT_SSL_VERIFYHOST, 0L);
 
-  long connectTimeout =
-      static_cast<long>(rip->_request._options.connectionTimeout);
+  auto connectTimeout = static_cast<long>(requestItem->_request._options.connectionTimeout);
 
   // mop: although curl is offering a MS scale connecttimeout this gets ignored
   // in at least 7.50.3; in doubt change the timeout to _MS below and hardcode
@@ -292,7 +286,7 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
 
   curl_easy_setopt(
       handle, CURLOPT_TIMEOUT_MS,
-      static_cast<long>(rip->_request._options.requestTimeout * 1000));
+      static_cast<long>(requestItem->_request._options.requestTimeout * 1000));
   curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT, connectTimeout);
 
   auto verb = fuRequest->header.restVerb.get();
@@ -346,36 +340,35 @@ void HttpCommunicator::createRequestInProgress(NewRequest newRequest) {
     curl_easy_setopt(handle, CURLOPT_COPYPOSTFIELDS, boost::asio::buffer_cast<const char*>(pay));
   }
 
-  handleInProgress->_rip->_startTime = std::chrono::steady_clock::now();
-  _handlesInProgress.emplace(rip->_request._fuRequest->messageID,
-                             std::move(handleInProgress));
+  requestItem->_startTime = std::chrono::steady_clock::now();
+  _messageStore.add(std::move(requestItem));
 
   _curlm->addRequest(handle);
 }
 
+// CURL request is DONE, handle the results.
 void HttpCommunicator::handleResult(CURL* handle, CURLcode rc) {
-  RequestInProgress* rip = nullptr;
-  curl_easy_getinfo(handle, CURLINFO_PRIVATE, &rip);
-
-  if (rip == nullptr) {
+  RequestItem* requestItem = nullptr;
+  curl_easy_getinfo(handle, CURLINFO_PRIVATE, &requestItem);
+  if (requestItem == nullptr) {
     return;
   }
 
-  std::string prefix("Communicator(" + std::to_string(rip->_request._fuRequest->messageID) +
+  std::string prefix("Communicator(" + std::to_string(requestItem->_request._fuRequest->messageID) +
                      "): ");
 
   FUERTE_LOG_DEBUG << prefix << "curl rc is : " << rc << " after "
                    << std::chrono::duration_cast<std::chrono::duration<double>>(
-                          std::chrono::steady_clock::now() - rip->_startTime)
+                          std::chrono::steady_clock::now() - requestItem->_startTime)
                           .count()
                    << " s\n";
 
-  if (strlen(rip->_errorBuffer) != 0) {
-    FUERTE_LOG_HTTPTRACE << prefix << "curl error details: " << rip->_errorBuffer
+  if (strlen(requestItem->_errorBuffer) != 0) {
+    FUERTE_LOG_HTTPTRACE << prefix << "curl error details: " << requestItem->_errorBuffer
                      << "\n";
   }
 
-  auto request_id = rip->_request._fuRequest->messageID;
+  auto request_id = requestItem->_request._fuRequest->messageID;
   try {
     switch (rc) {
       case CURLE_OK: {
@@ -384,27 +377,23 @@ void HttpCommunicator::handleResult(CURL* handle, CURLcode rc) {
 
         std::unique_ptr<Response> fuResponse(new Response());
         fuResponse->header.responseCode = static_cast<unsigned>(httpStatusCode);
-        fuResponse->messageID = rip->_request._fuRequest->messageID;
-        transformResult(handle, std::move(rip->_responseHeaders),
-                        std::move(rip->_responseBody),
+        fuResponse->messageID = requestItem->_request._fuRequest->messageID;
+        transformResult(handle, std::move(requestItem->_responseHeaders),
+                        std::move(requestItem->_responseBody),
                         dynamic_cast<Response*>(fuResponse.get()));
-
 
         auto response_id = fuResponse->messageID;
 #if ENABLE_FUERTE_LOG_HTTPTRACE > 0
         std::cout << "CALLING ON SUCESS CALLBACK IN HTTP COMMUNICATOR" << std::endl;
         std::cout << "request id: " << request_id << std::endl;
         std::cout << "response id: " << response_id << std::endl;
-        std::cout << "in progress: ";
-        for(auto const& item : _handlesInProgress){
-          std::cout << item.first << " ";
-        }
-        std::cout << std::endl << to_string(*rip->_request._fuRequest);
-        std::cout << to_string(*fuResponse);
+        std::cout << "in progress: " << _messageStore.keys() << std::endl;
+        //std::cout << std::endl << to_string(*rip->_request._fuRequest);
+        //std::cout << to_string(*fuResponse);
 #endif
-        rip->_request._callbacks._onSuccess(std::move(rip->_request._fuRequest),
+        requestItem->_request._callbacks._onSuccess(std::move(requestItem->_request._fuRequest),
                                             std::move(fuResponse));
-        rip->_request._fuRequest = nullptr;
+        requestItem->_request._fuRequest = nullptr;
         break;
       }
 
@@ -413,36 +402,37 @@ void HttpCommunicator::handleResult(CURL* handle, CURLcode rc) {
       case CURLE_COULDNT_RESOLVE_HOST:
       case CURLE_URL_MALFORMAT:
       case CURLE_SEND_ERROR:
-        rip->_request._callbacks._onError(
+        requestItem->_request._callbacks._onError(
             static_cast<Error>(ErrorCondition::CouldNotConnect),
-            std::move(rip->_request._fuRequest), {nullptr});
+            std::move(requestItem->_request._fuRequest), {nullptr});
         break;
 
       case CURLE_OPERATION_TIMEDOUT:
       case CURLE_RECV_ERROR:
       case CURLE_GOT_NOTHING:
-        rip->_request._callbacks._onError(
+        requestItem->_request._callbacks._onError(
             static_cast<Error>(ErrorCondition::Timeout),
-            std::move(rip->_request._fuRequest), {nullptr});
+            std::move(requestItem->_request._fuRequest), {nullptr});
         break;
 
       default:
         FUERTE_LOG_ERROR << "Curl return " << rc << "\n";
-        rip->_request._callbacks._onError(
+        requestItem->_request._callbacks._onError(
             static_cast<Error>(ErrorCondition::CurlError),
-            std::move(rip->_request._fuRequest), {nullptr});
+            std::move(requestItem->_request._fuRequest), {nullptr});
         break;
     }
   } catch (std::exception const& e) {
-    _handlesInProgress.erase(request_id);
+    _messageStore.removeByID(request_id);
     throw e;
   }  catch (...) {
-    _handlesInProgress.erase(request_id);
+    _messageStore.removeByID(request_id);
     throw;
   }
 
-  _handlesInProgress.erase(request_id);
+  _messageStore.removeByID(request_id);
 }
+
 }
 }
 }

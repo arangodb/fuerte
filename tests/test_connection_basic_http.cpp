@@ -61,15 +61,15 @@ class ConnectionBasicHttpF : public ::testing::Test {
 
 namespace fu = ::arangodb::fuerte;
 
-// TEST_F(ConnectionBasicHttpF, ApiVersionSync){
-//   auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
-//   auto result = _connection->sendRequest(std::move(request));
-//   auto slice = result->slices().front();
-//   auto version = slice.get("version").copyString();
-//   auto server = slice.get("server").copyString();
-//   ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
-//   ASSERT_TRUE(version[0] == '3');
-// }
+TEST_F(ConnectionBasicHttpF, ApiVersionSync){
+  auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
+  auto result = _connection->sendRequest(std::move(request));
+  auto slice = result->slices().front();
+  auto version = slice.get("version").copyString();
+  auto server = slice.get("server").copyString();
+  ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
+  ASSERT_TRUE(version[0] == '3');
+}
 
 TEST_F(ConnectionBasicHttpF, ApiVersionASync){
   std::mutex mutex;
@@ -79,7 +79,10 @@ TEST_F(ConnectionBasicHttpF, ApiVersionASync){
   auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
   auto onError = [&](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
     ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
-    done = true;
+    {
+      std::unique_lock<std::mutex> lock(mutex);
+      done = true;
+    }
     conditionVar.notify_one();
   };
   auto onSuccess = [&](std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
@@ -88,7 +91,10 @@ TEST_F(ConnectionBasicHttpF, ApiVersionASync){
     auto server = slice.get("server").copyString();
     ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
     ASSERT_TRUE(version[0] == '3');
-    done = true;
+    {
+      std::unique_lock<std::mutex> lock(mutex);
+      done = true;
+    }
     conditionVar.notify_one();
   };
   _connection->sendRequest(std::move(request),onError,onSuccess);

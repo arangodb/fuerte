@@ -237,7 +237,7 @@ private:
     void cancelAll() {
       std::lock_guard<std::mutex> lockMap(_mutex);
       for (auto& item : _map) {
-        item.second->_onError(errorToInt(ErrorCondition::VstCanceldDuringReset),
+        item.second->_onError(errorToInt(ErrorCondition::CanceledDuringReset),
                               std::move(item.second->_request), nullptr);
       }
       _map.clear();

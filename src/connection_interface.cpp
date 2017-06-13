@@ -38,14 +38,20 @@ std::unique_ptr<Response> ConnectionInterface::sendRequest(std::unique_ptr<Reque
   auto onError  = [&](::arangodb::fuerte::v1::Error error, std::unique_ptr<Request> request, std::unique_ptr<Response> response){
     FUERTE_LOG_TRACE << "sendRequest (sync): onError" << std::endl;
     rv = std::move(response);
-    done = true;
+    {
+      std::unique_lock<std::mutex> lock(mutex);
+      done = true;
+    }
     conditionVar.notify_one();
   };
 
   auto onSuccess  = [&](std::unique_ptr<Request> request, std::unique_ptr<Response> response){
     FUERTE_LOG_TRACE << "sendRequest (sync): onSuccess" << std::endl;
     rv = std::move(response);
-    done = true;
+    {
+      std::unique_lock<std::mutex> lock(mutex);
+      done = true;
+    }
     conditionVar.notify_one();
   };
 

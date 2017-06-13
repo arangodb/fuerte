@@ -75,7 +75,7 @@ enum class ErrorCondition : Error {
   Timeout = 1002,
   VstReadError = 1102,
   VstWriteError =1103,
-  VstCanceldDuringReset = 1104,
+  CanceledDuringReset = 1104,
 
   CurlError = 3000,
 
