@@ -18,13 +18,13 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author Jan Christoph Uhde
+/// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
+
 #include "test_main.h"
 #include <fuerte/fuerte.h>
 #include <fuerte/loop.h>
 #include <fuerte/helper.h>
-
-#include <condition_variable>
 
 namespace f = ::arangodb::fuerte;
 
@@ -72,39 +72,23 @@ TEST_F(ConnectionBasicHttpF, ApiVersionSync){
 }
 
 TEST_F(ConnectionBasicHttpF, ApiVersionASync){
-  std::mutex mutex;
-  std::condition_variable conditionVar;
-  bool done = false;
-
+  f::WaitGroup wg;
   auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
   auto cb = [&](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res) {
+    f::WaitGroupDone done(wg);
     if (error) {
       ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
-      {
-        std::unique_lock<std::mutex> lock(mutex);
-        done = true;
-      }
-      conditionVar.notify_one();
     } else {
       auto slice = res->slices().front();
       auto version = slice.get("version").copyString();
       auto server = slice.get("server").copyString();
       ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
       ASSERT_TRUE(version[0] == '3');
-      {
-        std::unique_lock<std::mutex> lock(mutex);
-        done = true;
-      }
-      conditionVar.notify_one();
     }
   };
+  wg.add();
   _connection->sendRequest(std::move(request), cb);
-
-  {
-    std::unique_lock<std::mutex> lock(mutex);
-    conditionVar.wait(lock, [&]{ return done; });
-  }
-  //fu::run();
+  wg.wait();
 }
 
 TEST_F(ConnectionBasicHttpF, ApiVersionSync20){
@@ -122,7 +106,9 @@ TEST_F(ConnectionBasicHttpF, ApiVersionSync20){
 
 TEST_F(ConnectionBasicHttpF, ApiVersionASync20){
   auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
-  fu::RequestCallback cb = [](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res) {
+  f::WaitGroup wg;
+  fu::RequestCallback cb = [&](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res) {
+    f::WaitGroupDone done(wg);
     if (error) {
       ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
     } else {
@@ -135,8 +121,10 @@ TEST_F(ConnectionBasicHttpF, ApiVersionASync20){
   };
   fu::Request req = *request;
   for(int i = 0; i < 20; i++){
+    wg.add();
     _connection->sendRequest(req, cb);
   }
+  wg.wait();
 }
 
 // TEST_F(ConnectionBasicHttpF, SimpleCursorSync){

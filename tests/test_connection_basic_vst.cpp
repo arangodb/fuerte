@@ -70,8 +70,10 @@ TEST_F(ConnectionBasicVstF, ApiVersionSync){
 }
 
 TEST_F(ConnectionBasicVstF, ApiVersionASync){
+  f::WaitGroup wg;
   auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
-  fu::RequestCallback cb = [](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res) {
+  fu::RequestCallback cb = [&](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res) {
+    f::WaitGroupDone done(wg);
     if (error) {
       ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
     } else {
@@ -82,7 +84,9 @@ TEST_F(ConnectionBasicVstF, ApiVersionASync){
       ASSERT_TRUE(version[0] == '3');
     }
   };
+  wg.add();
   _connection->sendRequest(std::move(request), cb);
+  wg.wait();
 }
 
 TEST_F(ConnectionBasicVstF, ApiVersionSync20){
@@ -153,7 +157,9 @@ TEST_F(ConnectionBasicVstF, CreateDocumentSync){
 }
 
 TEST_F(ConnectionBasicVstF, ShortAndLongASync){
-  fu::RequestCallback cb = [](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res) {
+  f::WaitGroup wg;
+  fu::RequestCallback cb = [&](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res) {
+    f::WaitGroupDone done(wg);
     if (error) {
       ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
     } else {
@@ -180,6 +186,9 @@ TEST_F(ConnectionBasicVstF, ShortAndLongASync){
     requestLong->addVPack(builder.slice());
   }
 
+  wg.add();
   _connection->sendRequest(std::move(requestLong), cb);
+  wg.add();
   _connection->sendRequest(std::move(requestShort), cb);
+  wg.wait();
 }

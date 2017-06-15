@@ -20,11 +20,9 @@
 /// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <condition_variable>
-#include <mutex>
-
 #include <fuerte/connection_interface.h>
 #include <fuerte/FuerteLogger.h>
+#include <fuerte/waitgroup.h>
 
 namespace arangodb {
 namespace fuerte {
@@ -33,31 +31,25 @@ inline namespace v1 {
 std::unique_ptr<Response> ConnectionInterface::sendRequest(std::unique_ptr<Request> request){
   FUERTE_LOG_TRACE << "start sync request" << std::endl;
 
-  std::mutex mutex;
-  std::condition_variable conditionVar;
-  bool done = false;
-
+  WaitGroup wg;
   auto rv = std::unique_ptr<Response>(nullptr);
   ::arangodb::fuerte::v1::Error error = 0;
+
   auto cb = [&](::arangodb::fuerte::v1::Error e, std::unique_ptr<Request> request, std::unique_ptr<Response> response){
+    WaitGroupDone done(wg);
     FUERTE_LOG_TRACE << "sendRequest (sync): onError" << std::endl;
     rv = std::move(response);
     error = e;
-    {
-      std::unique_lock<std::mutex> lock(mutex);
-      done = true;
-    }
-    conditionVar.notify_one();
   };
 
   {
     // Start asynchronous request
-    std::unique_lock<std::mutex> lock(mutex);
+    wg.add();
     sendRequest(std::move(request), cb);
 
     // Wait for request to finish.
     FUERTE_LOG_TRACE << "sendRequest (sync): before wait" << std::endl;
-    conditionVar.wait(lock, [&]{ return done; });
+    wg.wait();
   }
 
   FUERTE_LOG_TRACE << "sendRequest (sync): done" << std::endl;
