@@ -88,6 +88,12 @@ public:
                        ,OnErrorCallback
                        ,OnSuccessCallback) override;
 
+ private: 
+  // Activate the connection.
+  virtual void start() override;
+  // Return the number of unfinished requests.
+  virtual size_t requestsLeft() override;
+
 private:
   // SOCKET HANDLING /////////////////////////////////////////////////////////
   void initSocket();
@@ -95,12 +101,8 @@ private:
   void shutdownConnection();
   void restartConnection();
 
-  virtual void start() override { initSocket(); }
-  //virtual void restart() override { initSocket(); }
-  virtual size_t requestsLeft() override;
-
-  //handler to be posted to loop
-  //this handler call their handle counterpart on completion
+  // resolve the host into a series of endpoints 
+  void startResolveHost();
 
   // establishes connection and initiates handshake
   void startConnect(boost::asio::ip::tcp::resolver::iterator);
@@ -142,8 +144,11 @@ private:
   // TODO FIXME -- fix alignment when done so mutexes are not on the same cacheline etc
   const detail::ConnectionConfiguration _configuration;
   std::atomic_uint_least64_t _messageID;
+  // host resolving 
+  std::shared_ptr<boost::asio::ip::tcp::resolver> _resolver;
   // socket
   const std::shared_ptr<::boost::asio::io_service> _ioService;
+  std::mutex _socket_mutex;
   std::shared_ptr<::boost::asio::ip::tcp::socket> _socket;
   boost::asio::ssl::context _context;
   std::shared_ptr<::boost::asio::ssl::stream<::boost::asio::ip::tcp::socket&>> _sslSocket;

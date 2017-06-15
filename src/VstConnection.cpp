@@ -89,6 +89,7 @@ VstConnection::VstConnection(EventLoopService& eventLoopService, ConnectionConfi
     : _vstVersion(VST1_0)
     , _messageID(0)
     , _ioService(eventLoopService.io_service())
+    , _resolver(nullptr)
     , _socket(nullptr)
     , _context(bs::context::method::sslv23)
     , _sslSocket(nullptr)
@@ -98,29 +99,57 @@ VstConnection::VstConnection(EventLoopService& eventLoopService, ConnectionConfi
 {
     assert(!_readLoop._current);
     assert(!_writeLoop._current);
-    bt::resolver resolver(*_ioService);
+}
 
-    //TODO async resolve - set other endpoints
-    _endpoints = resolver.resolve({configuration._host, configuration._port});
-    if (_endpoints == bt::resolver::iterator()){
-      throw std::runtime_error("unable to resolve endpoints");
-    }
+// Activate this connection.
+void VstConnection::start() {
+  startResolveHost();
+}
 
-    //initSocket(); -- make_shared_from_this not allowed in constructor -- called after creation
+// resolve the host into a series of endpoints 
+void VstConnection::startResolveHost() {
+  // Prepare a resolver
+  _resolver = std::make_shared<bt::resolver>(*_ioService);
+
+  // Resolve the host asynchronous.
+  auto self = shared_from_this();
+  _resolver->async_resolve({_configuration._host, _configuration._port},
+    [this, self](const boost::system::error_code& error, bt::resolver::iterator iterator) {
+      if (error) {
+        FUERTE_LOG_ERROR << "resolve failed: error=" << error << std::endl;
+      } else {
+        FUERTE_LOG_CALLBACKS << "resolve succeeded" << std::endl;
+        _endpoints = iterator;
+        if (_endpoints == bt::resolver::iterator()){
+          FUERTE_LOG_ERROR << "unable to resolve endpoints" << std::endl;
+        } else {
+          initSocket();
+        }
+      }
+    });
 }
 
 // CONNECT RECONNECT //////////////////////////////////////////////////////////
 
 void VstConnection::initSocket() {
+  std::lock_guard<std::mutex> lock(_socket_mutex);
+
+  // socket must be empty before. Check that 
+  assert(!_socket);
+  assert(!_sslSocket);
+
   FUERTE_LOG_CALLBACKS << "begin init" << std::endl;
   _socket.reset(new bt::socket(*_ioService));
   _sslSocket.reset(new bs::stream<bt::socket&>(*_socket, _context));
+  
   auto endpoints = _endpoints; // copy as connect modifies iterator
   startConnect(endpoints);
 }
 
 // close the TCP & SSL socket.
 void VstConnection::shutdownSocket() {
+  std::lock_guard<std::mutex> lock(_socket_mutex);
+
   FUERTE_LOG_CALLBACKS << "begin shutdown socket" << std::endl;
 
   BoostEC error;
