@@ -83,17 +83,14 @@ class EventLoopService {
   // Initialize an EventLoopService with a given number of threads and a new io_service.
   EventLoopService(unsigned int threadCount = 1);
   // Initialize an EventLoopService with a given number of threads and a given io_service.
-  EventLoopService(unsigned int threadCount,
-                   const std::shared_ptr<asio_io_service>& io_service);
   // Initialize an EventLoopService with a given number of threads and a given io_service.
   EventLoopService(unsigned int threadCount,
-                   const std::shared_ptr<asio_io_service>& io_service,
-                   const std::shared_ptr<http::HttpCommunicator>& httpCommunicator)
+                   const std::shared_ptr<asio_io_service>& io_service)
       :
       global_service_(GlobalService::get()),
       io_service_(io_service), 
-      working_(new asio_work(*io_service)),
-      httpCommunicator_(httpCommunicator) {
+      working_(new asio_work(*io_service)) {
+//      httpCommunicator_(httpCommunicator) {
     while (threadCount > 0) {
       auto worker = boost::bind(&EventLoopService::run, this);
       threadGroup_.add_thread(new boost::thread(worker));
@@ -125,12 +122,12 @@ class EventLoopService {
   // io_service returns a reference to the boost io_service.
   std::shared_ptr<asio_io_service>& io_service() { return io_service_; }
   // httpCommunicator returns a reference to the HTTP communicator.
-  std::shared_ptr<http::HttpCommunicator>& httpCommunicator() { return httpCommunicator_; }
+  //std::shared_ptr<http::HttpCommunicator>& httpCommunicator() { return httpCommunicator_; }
 
  private:
   GlobalService& global_service_;
   std::shared_ptr<asio_io_service> io_service_;
-  std::shared_ptr<http::HttpCommunicator> httpCommunicator_;
+  //std::shared_ptr<http::HttpCommunicator> httpCommunicator_;
   std::unique_ptr<asio_work> working_;  // Used to keep the io-service alive.
   boost::thread_group threadGroup_;     // Used to join on.
 };

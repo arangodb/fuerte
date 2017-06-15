@@ -50,7 +50,6 @@ add_library(fuerte STATIC
     src/CurlMultiAsio.cpp
     src/database.cpp
     src/helper.cpp
-    src/HttpCommunicator.cpp
     src/HttpConnection.cpp
     src/loop.cpp
     src/message.cpp
