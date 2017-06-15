@@ -69,7 +69,7 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
   // not to block until all writing is done
   if (_connected) {
     FUERTE_LOG_VSTTRACE << "start sending & reading" << std::endl;
-    startSending();
+    startWriting();
   } else {
     FUERTE_LOG_VSTTRACE << "sendRequest (async): not connected" << std::endl;
   }
@@ -93,9 +93,6 @@ VstConnection::VstConnection(EventLoopService& eventLoopService, ConnectionConfi
     , _context(bs::context::method::sslv23)
     , _sslSocket(nullptr)
     , _connected(false)
-    , _connectionState(0)
-    , _reading(false)
-    , _sending(false)
     , _configuration(configuration)
 {
     bt::resolver resolver(*_ioService);
@@ -138,10 +135,9 @@ void VstConnection::shutdownSocket() {
 // shutdown the connection and cancel all pending messages.
 void VstConnection::shutdownConnection() {
   FUERTE_LOG_CALLBACKS << "shutdownConnection" << std::endl;
-  // Change state, so the send & read loop will terminate.
-  _connectionState++;
 
-  // Stop the read loop 
+  // Stop the read & write loop 
+  stopWriting();
   stopReading();
 
   // Close socket
@@ -226,9 +222,8 @@ void VstConnection::finishInitialization(){
                       shutdownConnection();
                     } else {
                       FUERTE_LOG_CALLBACKS << "VST connection established; starting send/read loop" << std::endl;
-                      _connectionState++;
                       _connected = true;
-                      startSending();
+                      startWriting();
                       startReading();
                     }
                   }
@@ -256,7 +251,9 @@ void VstConnection::startSSLHandshake() {
 
 }
 
-// READING WRITING / NORMAL OPERATIONS  ///////////////////////////////////////
+// ------------------------------------
+// Reading data
+// ------------------------------------
 
 // activate the receiver loop (if needed)
 void VstConnection::startReading() {
@@ -435,16 +432,45 @@ std::unique_ptr<Response> VstConnection::createResponse(RequestItem& item, std::
   return response;
 }
 
-// writes data from task queue to network using boost::asio::async_write
-void VstConnection::sendNextRequest(int initialConnectionState) {
-  FUERTE_LOG_VSTTRACE << "sendNextRequest" << std::endl;
-  FUERTE_LOG_TRACE << "+" ;
+// ------------------------------------
+// Writing data
+// ------------------------------------
 
-  // Has connection state changed, then stop.
-  if (_connectionState != initialConnectionState) {
-    FUERTE_LOG_VSTTRACE << "sendNextRequest: connection state changed, stopping send loop" << std::endl;
-    _sending = false;
-    return;
+// activate the sender loop (if needed)
+void VstConnection::startWriting() {
+  WriteLoop *newLoop;
+  {
+    std::lock_guard<std::mutex> lock(_current_write_loop_mutex);
+    if (_current_write_loop) {
+      // There is already a read loop, do nothing 
+      return;
+    }
+    // There is no current write loop, create one 
+    _current_write_loop = std::make_shared<WriteLoop>(shared_from_this(), _socket);
+    newLoop = _current_write_loop.get();
+  }
+  // Start the new loop
+  newLoop->start();
+}
+
+// Stop the current write loop
+void VstConnection::stopWriting() {
+  {
+    std::lock_guard<std::mutex> lock(_current_write_loop_mutex);
+    _current_write_loop.reset();
+  }
+}
+
+// called by a WriteLoop to request for the next request that will be written.
+// If there is no more work, nullptr is returned and the given loop must stop.
+std::shared_ptr<RequestItem> VstConnection::getNextRequestToSend(const WriteLoop* writeLoop) {
+  // Claim exclusive access 
+  std::lock_guard<std::mutex> lock(_current_write_loop_mutex);
+
+  // Is the rwriteead loop still the current write loop?
+  if (_current_write_loop.get() != writeLoop) {
+    FUERTE_LOG_VSTTRACE << "shouldStopWriting: no longer current loop: loop=" << writeLoop << std::endl;
+    return std::shared_ptr<RequestItem>(nullptr);
   }
 
   // Get next request from send queue.
@@ -452,8 +478,8 @@ void VstConnection::sendNextRequest(int initialConnectionState) {
   if (!next) {
     // send queue is empty
     FUERTE_LOG_VSTTRACE << "sendNextRequest: sendQueue empty" << std::endl;
-    _sending = false;
-    return;
+    _current_write_loop.reset();
+    return std::shared_ptr<RequestItem>(nullptr);
   }
 
   // Add item to message store 
@@ -462,8 +488,32 @@ void VstConnection::sendNextRequest(int initialConnectionState) {
   // Remove item from send queue 
   _sendQueue.removeFirst();
 
+  // Return message
+  return next;
+}
+
+// start the write loop 
+void VstConnection::WriteLoop::start() {
+  auto wasStarted = _started.exchange(true);
+  if (!wasStarted) {
+    sendNextRequest();
+  }
+}
+
+// writes data from task queue to network using boost::asio::async_write
+void VstConnection::WriteLoop::sendNextRequest() {
+  FUERTE_LOG_VSTTRACE << "sendNextRequest" << std::endl;
+  FUERTE_LOG_TRACE << "+" ;
+
+  // Get next request to send.
+  auto next = _connection->getNextRequestToSend(this);
+  if (!next) {
+    // No more work for me.
+    return;
+  }
+
   // Make sure we're listening for a response 
-  startReading();
+  _connection->startReading();
 
   FUERTE_LOG_VSTTRACE << "sendNextRequest: preparing to send next" << std::endl;
 
@@ -479,31 +529,29 @@ void VstConnection::sendNextRequest(int initialConnectionState) {
 #endif*/
   ba::async_write(*_socket, 
     next->_requestBuffers,
-    [this, self, next, initialConnectionState](BoostEC const& error, std::size_t transferred) {
-      asyncWriteCallback(error, transferred, next, initialConnectionState);
+    [this, self, next](BoostEC const& error, std::size_t transferred) {
+      asyncWriteCallback(error, transferred, next);
     });
 
   FUERTE_LOG_VSTTRACE << "sendNextRequest: done" << std::endl;
 }
 
 // callback of async_write function that is called in sendNextRequest.
-void VstConnection::asyncWriteCallback(BoostEC const& error, std::size_t transferred, RequestItemSP item, int initialConnectionState) {
+void VstConnection::WriteLoop::asyncWriteCallback(BoostEC const& error, std::size_t transferred, RequestItemSP item) {
   if (error) {
     // Send failed
     FUERTE_LOG_CALLBACKS << "asyncWriteCallback: error " << error.message() << std::endl;
     FUERTE_LOG_ERROR << error.message() << std::endl;
 
     // Item has failed, remove from message store
-    _messageStore.removeByID(item->_messageID);
+    _connection->_messageStore.removeByID(item->_messageID);
 
     // let user know that this request caused the error
     item->_onError(errorToInt(ErrorCondition::VstWriteError), std::move(item->_request), nullptr);
 
-    // We'll stop now (and connection state will change in restartConnection).
-    _sending = false;
-
     // Stop current connection and try to restart a new one.
-    restartConnection();
+    // This will reset the current write loop.
+    _connection->restartConnection();
   } else {
     // Send succeeded
     FUERTE_LOG_CALLBACKS << "asyncWriteCallback: send succeeded, " << transferred << " bytes transferred" << std::endl;
@@ -513,7 +561,7 @@ void VstConnection::asyncWriteCallback(BoostEC const& error, std::size_t transfe
 
     // Continue with next request (if any)
     FUERTE_LOG_CALLBACKS << "asyncWriteCallback: send next request (if any)" << std::endl;
-    sendNextRequest(initialConnectionState);
+    sendNextRequest();
   }
 }
 }}}}

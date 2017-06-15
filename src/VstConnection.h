@@ -126,14 +126,15 @@ private:
   // Create a response object for given RequestItem & received response buffer.
   std::unique_ptr<Response> createResponse(RequestItem& item, std::unique_ptr<VBuffer>& responseBuffer);
 
-  // activate the sender loop (if needed)
-  inline void startSending() {
-    if (!_sending.exchange(true)) sendNextRequest(_connectionState);
-  }
-  // writes data from task queue to network using boost::asio::async_write
-  void sendNextRequest(int initialConnectionState);
-  // handler for boost::asio::async_wirte that calls startWrite as long as there is new data
-  void asyncWriteCallback(boost::system::error_code const&, std::size_t transferred, std::shared_ptr<RequestItem>, int initialConnectionState);
+  class WriteLoop;
+
+  // activate the sending loop (if needed)
+  void startWriting();
+  // release the WriteLoop so it will terminate.
+  void stopWriting();
+  // called by a WriteLoop to request for the next request that will be written.
+  // If there is no more work, nullptr is returned and the given loop must stop.
+  std::shared_ptr<RequestItem> getNextRequestToSend(const WriteLoop*);
 
 private:
   VSTVersion _vstVersion;
@@ -149,11 +150,10 @@ private:
   ::boost::asio::ip::tcp::endpoint _peer;
   // reset
   std::atomic_bool _connected;
-  std::atomic_int _connectionState; // Send/Receive loop will stop if this changes
-  std::atomic_bool _reading;
-  std::atomic_bool _sending;
   std::mutex _current_read_loop_mutex;
   std::shared_ptr<ReadLoop> _current_read_loop;
+  std::mutex _current_write_loop_mutex;
+  std::shared_ptr<WriteLoop> _current_write_loop;
   //queues
 
   // SendQueue encapsulates a thread safe queue containing RequestItem's that 
@@ -233,6 +233,31 @@ private:
     std::shared_ptr<VstConnection> _connection;
     std::shared_ptr<::boost::asio::ip::tcp::socket> _socket;
     ::boost::asio::streambuf _receiveBuffer; // async read can not run concurrent
+    std::atomic_bool _started;
+    ::boost::asio::deadline_timer _deadline;
+  };
+
+  // Encapsulate a single write loop on a given socket for a given connection.
+  class WriteLoop : public std::enable_shared_from_this<WriteLoop> {
+   public:
+    WriteLoop(const std::shared_ptr<VstConnection>& connection, const std::shared_ptr<::boost::asio::ip::tcp::socket>& socket) 
+      : _connection(connection), _socket(socket), _started(false), _deadline(*(connection->_ioService)) {}
+    ~WriteLoop() {
+      _deadline.cancel();
+    }
+
+    // Start the write loop.
+    void start();
+
+   private:
+    // writes data from task queue to network using boost::asio::async_write
+    void sendNextRequest();
+    // handler for boost::asio::async_wirte that calls startWrite as long as there is new data
+    void asyncWriteCallback(boost::system::error_code const&, std::size_t transferred, std::shared_ptr<RequestItem>);
+
+   private:
+    std::shared_ptr<VstConnection> _connection;
+    std::shared_ptr<::boost::asio::ip::tcp::socket> _socket;
     std::atomic_bool _started;
     ::boost::asio::deadline_timer _deadline;
   };
