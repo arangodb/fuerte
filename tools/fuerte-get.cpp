@@ -142,22 +142,20 @@ int main(int argc, char* argv[]) {
   EventLoopService eventLoopService;
   auto connection = builder.connect(eventLoopService);
 
-  auto resCallback = [](std::unique_ptr<Request> request,
-                        std::unique_ptr<Response> response) {
-    std::cout << "--------------------------------------------------------------------------" << std::endl;
-    std::cout << "received result:\n"
-              << (response ? fu::to_string(*response) : "no response")
-              << std::endl;
-  };
-
-  auto errCallback = [](uint32_t err, std::unique_ptr<Request> request,
-                        std::unique_ptr<Response> response) {
-    std::cout << "--------------------------------------------------------------------------" << std::endl;
-    std::cout << "received error: " << err << std::endl
-              << to_string(request->header)
-              << "request payload:"
-              << (response ? fu::to_string(*response) : "no response")
-              << std::endl;
+  auto cb = [](uint32_t err, std::unique_ptr<Request> request, std::unique_ptr<Response> response) {
+    if (err) {
+      std::cout << "--------------------------------------------------------------------------" << std::endl;
+      std::cout << "received error: " << err << std::endl
+                << to_string(request->header)
+                << "request payload:"
+                << (response ? fu::to_string(*response) : "no response")
+                << std::endl;
+    } else {
+      std::cout << "--------------------------------------------------------------------------" << std::endl;
+      std::cout << "received result:\n"
+                << (response ? fu::to_string(*response) : "no response")
+                << std::endl;
+    }
   };
 
   arangodb::fuerte::VBuilder vbuilder;
@@ -171,7 +169,7 @@ int main(int argc, char* argv[]) {
       std::cout << "Sending Request (messageid will be replaced)"
                 << fu::to_string(*request) << std::endl;
 
-      auto id = connection->sendRequest(std::move(request), errCallback, resCallback);
+      auto id = connection->sendRequest(std::move(request), cb);
       std::cout << "Request was assigned ID: " << id << std::endl;
     } catch (std::exception const& ex) {
       std::cerr << "exception: " << ex.what() << std::endl;

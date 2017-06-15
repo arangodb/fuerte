@@ -77,27 +77,28 @@ TEST_F(ConnectionBasicHttpF, ApiVersionASync){
   bool done = false;
 
   auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
-  auto onError = [&](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
-    ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
-    {
-      std::unique_lock<std::mutex> lock(mutex);
-      done = true;
+  auto cb = [&](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res) {
+    if (error) {
+      ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
+      {
+        std::unique_lock<std::mutex> lock(mutex);
+        done = true;
+      }
+      conditionVar.notify_one();
+    } else {
+      auto slice = res->slices().front();
+      auto version = slice.get("version").copyString();
+      auto server = slice.get("server").copyString();
+      ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
+      ASSERT_TRUE(version[0] == '3');
+      {
+        std::unique_lock<std::mutex> lock(mutex);
+        done = true;
+      }
+      conditionVar.notify_one();
     }
-    conditionVar.notify_one();
   };
-  auto onSuccess = [&](std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
-    auto slice = res->slices().front();
-    auto version = slice.get("version").copyString();
-    auto server = slice.get("server").copyString();
-    ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
-    ASSERT_TRUE(version[0] == '3');
-    {
-      std::unique_lock<std::mutex> lock(mutex);
-      done = true;
-    }
-    conditionVar.notify_one();
-  };
-  _connection->sendRequest(std::move(request),onError,onSuccess);
+  _connection->sendRequest(std::move(request), cb);
 
   {
     std::unique_lock<std::mutex> lock(mutex);
@@ -121,21 +122,21 @@ TEST_F(ConnectionBasicHttpF, ApiVersionSync20){
 
 TEST_F(ConnectionBasicHttpF, ApiVersionASync20){
   auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
-  fu::OnErrorCallback onError = [](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
-    ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
-  };
-  fu::OnSuccessCallback onSuccess = [](std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
-    auto slice = res->slices().front();
-    auto version = slice.get("version").copyString();
-    auto server = slice.get("server").copyString();
-    ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
-    ASSERT_TRUE(version[0] == '3');
+  fu::RequestCallback cb = [](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res) {
+    if (error) {
+      ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
+    } else {
+      auto slice = res->slices().front();
+      auto version = slice.get("version").copyString();
+      auto server = slice.get("server").copyString();
+      ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
+      ASSERT_TRUE(version[0] == '3');
+    }
   };
   fu::Request req = *request;
   for(int i = 0; i < 20; i++){
-    _connection->sendRequest(req,onError,onSuccess);
+    _connection->sendRequest(req, cb);
   }
-  //fu::run();
 }
 
 // TEST_F(ConnectionBasicHttpF, SimpleCursorSync){

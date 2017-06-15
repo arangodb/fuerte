@@ -22,14 +22,18 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "VstConnection.h"
+
+#include <condition_variable>
+
 #include <boost/asio/connect.hpp>
 #include <boost/asio/read.hpp>
 #include <boost/asio/write.hpp>
-#include <condition_variable>
+
 #include <fuerte/FuerteLogger.h>
 #include <fuerte/helper.h>
 #include <fuerte/loop.h>
 #include <fuerte/message.h>
+#include <fuerte/types.h>
 #include <fuerte/vst.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
@@ -48,17 +52,14 @@ typedef std::unique_ptr<Response> ResponseUP;
 
 // sendRequest prepares a RequestItem for the given parameters
 // and adds it to the send queue.
-MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
-                                    ,OnErrorCallback onError
-                                    ,OnSuccessCallback onSuccess) {
+MessageID VstConnection::sendRequest(std::unique_ptr<Request> request, RequestCallback cb) {
 
   //check if id is already used and fail
   request->messageID = ++_messageID;
   auto item = std::make_shared<RequestItem>();
 
   item->_messageID = request->messageID;
-  item->_onError = onError;
-  item->_onSuccess = onSuccess;
+  item->_callback = cb;
   item->_request = std::move(request);
   item->prepareForNetwork(_vstVersion);
 
@@ -448,7 +449,7 @@ void VstConnection::processChunk(ChunkHeader &chunk) {
 
     // Notify listeners
     FUERTE_LOG_VSTTRACE << "processChunk: notifying RequestItem onSuccess callback" << std::endl;
-    item->_onSuccess(std::move(item->_request), std::move(response));
+    item->_callback(0, std::move(item->_request), std::move(response));
   }
 }
 
@@ -585,7 +586,7 @@ void VstConnection::WriteLoop::asyncWriteCallback(BoostEC const& error, std::siz
     _connection->_messageStore.removeByID(item->_messageID);
 
     // let user know that this request caused the error
-    item->_onError(errorToInt(ErrorCondition::VstWriteError), std::move(item->_request), nullptr);
+    item->_callback(errorToInt(ErrorCondition::VstWriteError), std::move(item->_request), nullptr);
 
     // Stop current connection and try to restart a new one.
     // This will reset the current write loop.

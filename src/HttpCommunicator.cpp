@@ -32,6 +32,7 @@
 #include <cassert>
 
 #include <fuerte/helper.h>
+#include <fuerte/types.h>
 
 namespace arangodb {
 namespace fuerte {
@@ -68,7 +69,7 @@ HttpCommunicator::~HttpCommunicator() {
 
 uint64_t HttpCommunicator::queueRequest(Destination destination,
                                     std::unique_ptr<Request> request,
-                                    Callbacks callbacks) {
+                                    RequestCallback callback) {
   FUERTE_LOG_HTTPTRACE << "queueRequest - start - at address: " << request.get() << std::endl;
   static std::atomic<uint64_t> ticketId(0);
 
@@ -78,7 +79,7 @@ uint64_t HttpCommunicator::queueRequest(Destination destination,
   newRequest._destination = destination;
   newRequest._fuRequest = std::move(request);
   newRequest._fuRequest->messageID = id;
-  newRequest._callbacks = callbacks;
+  newRequest._callback = callback;
 
   createRequestIem(std::move(newRequest));
 
@@ -391,8 +392,7 @@ void HttpCommunicator::handleResult(CURL* handle, CURLcode rc) {
         //std::cout << std::endl << to_string(*rip->_request._fuRequest);
         //std::cout << to_string(*fuResponse);
 #endif
-        requestItem->_request._callbacks._onSuccess(std::move(requestItem->_request._fuRequest),
-                                            std::move(fuResponse));
+        requestItem->_request._callback(0, std::move(requestItem->_request._fuRequest), std::move(fuResponse));
         requestItem->_request._fuRequest = nullptr;
         break;
       }
@@ -402,23 +402,20 @@ void HttpCommunicator::handleResult(CURL* handle, CURLcode rc) {
       case CURLE_COULDNT_RESOLVE_HOST:
       case CURLE_URL_MALFORMAT:
       case CURLE_SEND_ERROR:
-        requestItem->_request._callbacks._onError(
-            static_cast<Error>(ErrorCondition::CouldNotConnect),
+        requestItem->_request._callback(static_cast<Error>(ErrorCondition::CouldNotConnect),
             std::move(requestItem->_request._fuRequest), {nullptr});
         break;
 
       case CURLE_OPERATION_TIMEDOUT:
       case CURLE_RECV_ERROR:
       case CURLE_GOT_NOTHING:
-        requestItem->_request._callbacks._onError(
-            static_cast<Error>(ErrorCondition::Timeout),
+        requestItem->_request._callback(static_cast<Error>(ErrorCondition::Timeout),
             std::move(requestItem->_request._fuRequest), {nullptr});
         break;
 
       default:
         FUERTE_LOG_ERROR << "Curl return " << rc << "\n";
-        requestItem->_request._callbacks._onError(
-            static_cast<Error>(ErrorCondition::CurlError),
+        requestItem->_request._callback(static_cast<Error>(ErrorCondition::CurlError),
             std::move(requestItem->_request._fuRequest), {nullptr});
         break;
     }

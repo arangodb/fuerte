@@ -45,7 +45,7 @@ class HttpConnection : public ConnectionInterface {
 
  public:
   // Start an asynchronous request.
-  MessageID sendRequest(std::unique_ptr<Request>, OnErrorCallback, OnSuccessCallback) override;
+  MessageID sendRequest(std::unique_ptr<Request>, RequestCallback) override;
 
   // Return the number of unfinished requests.
   std::size_t requestsLeft() override {

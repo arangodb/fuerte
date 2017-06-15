@@ -43,8 +43,9 @@ using Error = std::uint32_t;
 using MessageID = uint64_t; //id that identifies a vst::request
 using Ticket = MessageID;
 
-using OnSuccessCallback = std::function<void(std::unique_ptr<Request>, std::unique_ptr<Response>)>;
-using OnErrorCallback = std::function<void(Error, std::unique_ptr<Request>, std::unique_ptr<Response>)>;
+// RequestCallback is called for finished connection requests.
+// If the given Error is zero, the request succeeded, otherwise an error occurred.
+using RequestCallback = std::function<void(Error, std::unique_ptr<Request>, std::unique_ptr<Response>)>;
 
 using VBuffer = arangodb::velocypack::Buffer<uint8_t>;
 using VSlice = arangodb::velocypack::Slice;

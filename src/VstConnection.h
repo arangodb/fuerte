@@ -85,9 +85,7 @@ public:
   // this item is then moved to the request queue
   // and a write action is triggerd when there is
   // no other write in progress
-  MessageID sendRequest(std::unique_ptr<Request>
-                       ,OnErrorCallback
-                       ,OnSuccessCallback) override;
+  MessageID sendRequest(std::unique_ptr<Request>, RequestCallback) override;
 
  private: 
   // Activate the connection.

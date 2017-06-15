@@ -58,15 +58,15 @@ class Connection : public std::enable_shared_from_this<Connection> {
 
     // Send a request to the server and return immediately.
     // When a response is received or an error occurs, the corresponding callback is called.
-    MessageID sendRequest(std::unique_ptr<Request> r, OnErrorCallback e, OnSuccessCallback c){
-      return _realConnection->sendRequest(std::move(r), e, c);
+    MessageID sendRequest(std::unique_ptr<Request> r, RequestCallback cb){
+      return _realConnection->sendRequest(std::move(r), cb);
     }
 
     // Send a request to the server and return immediately.
     // When a response is received or an error occurs, the corresponding callback is called.
-    MessageID sendRequest(Request const& r, OnErrorCallback e, OnSuccessCallback c){
+    MessageID sendRequest(Request const& r, RequestCallback cb){
       std::unique_ptr<Request> copy(new Request(r));
-      return _realConnection->sendRequest(std::move(copy), e, c);
+      return _realConnection->sendRequest(std::move(copy), cb);
     }
 
     // Return the number of requests that have not yet finished.

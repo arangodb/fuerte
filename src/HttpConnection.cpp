@@ -43,11 +43,7 @@ HttpConnection::HttpConnection(EventLoopService& eventLoopService,
 
 HttpConnection::~HttpConnection() { _communicator->delUser(); }
 
-MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request,
-                                 OnErrorCallback onError,
-                                 OnSuccessCallback onSuccess){
-  Callbacks callbacks(onSuccess, onError);
-
+MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request, RequestCallback callback) {
   std::string dbString = (request->header.database) ? std::string("/_db/") + request->header.database.get() : std::string("");
   Destination destination = (_configuration._ssl ? "https://" : "http://")
                           + _configuration._host
@@ -67,7 +63,7 @@ MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request,
     }
   }
   #warning TODO authentication
-  return _communicator->queueRequest(destination, std::move(request), callbacks);
+  return _communicator->queueRequest(destination, std::move(request), callback);
   //create usefulid
 }
 

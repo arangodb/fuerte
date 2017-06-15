@@ -39,7 +39,7 @@ public:
   // Run a synchronous request
   virtual std::unique_ptr<Response> sendRequest(std::unique_ptr<Request>);
   // Start an asynchronous request
-  virtual MessageID sendRequest(std::unique_ptr<Request>, OnErrorCallback, OnSuccessCallback) = 0;
+  virtual MessageID sendRequest(std::unique_ptr<Request>, RequestCallback) = 0;
   // Return the number of unfinished requests.
   virtual std::size_t requestsLeft() = 0;
 

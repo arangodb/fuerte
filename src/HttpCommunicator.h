@@ -45,22 +45,6 @@ namespace fuerte {
 inline namespace v1 {
 namespace http {
 typedef std::string Destination;
-// -----------------------------------------------------------------------------
-// --SECTION--                                                   class Callbacks
-// -----------------------------------------------------------------------------
-
-class Callbacks {
- public:
-  Callbacks() {}
-
-  Callbacks(OnSuccessCallback onSuccess, OnErrorCallback onError)
-      : _onSuccess(onSuccess), _onError(onError) {}
-
- public:
-  OnSuccessCallback _onSuccess;
-  OnErrorCallback _onError;
-};
-
 
 // -----------------------------------------------------------------------------
 // --SECTION--                                                     class Options
@@ -82,7 +66,7 @@ class HttpCommunicator {
   ~HttpCommunicator();
 
  public:
-  uint64_t queueRequest(Destination, std::unique_ptr<Request>, Callbacks);
+  uint64_t queueRequest(Destination, std::unique_ptr<Request>, RequestCallback);
   bool used() { return _useCount; }
   uint64_t addUser(){ return ++_useCount; }
   uint64_t delUser(){ return --_useCount; }
@@ -93,7 +77,7 @@ class HttpCommunicator {
   struct NewRequest {
     Destination _destination;
     std::unique_ptr<Request> _fuRequest;
-    Callbacks _callbacks;
+    RequestCallback _callback;
     Options _options;
   };
 
@@ -135,7 +119,7 @@ class HttpCommunicator {
 
     inline MessageID messageID() { return _request._fuRequest->messageID; }
     inline void invokeOnError(Error e, std::unique_ptr<Request> req, std::unique_ptr<Response> res) { 
-      _request._callbacks._onError(e, std::move(req), std::move(res));
+      _request._callback(e, std::move(req), std::move(res));
     }
 
    public:

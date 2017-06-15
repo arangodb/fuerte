@@ -39,7 +39,7 @@ std::unique_ptr<Response> ConnectionInterface::sendRequest(std::unique_ptr<Reque
 
   auto rv = std::unique_ptr<Response>(nullptr);
   ::arangodb::fuerte::v1::Error error = 0;
-  auto onError  = [&](::arangodb::fuerte::v1::Error e, std::unique_ptr<Request> request, std::unique_ptr<Response> response){
+  auto cb = [&](::arangodb::fuerte::v1::Error e, std::unique_ptr<Request> request, std::unique_ptr<Response> response){
     FUERTE_LOG_TRACE << "sendRequest (sync): onError" << std::endl;
     rv = std::move(response);
     error = e;
@@ -50,20 +50,10 @@ std::unique_ptr<Response> ConnectionInterface::sendRequest(std::unique_ptr<Reque
     conditionVar.notify_one();
   };
 
-  auto onSuccess  = [&](std::unique_ptr<Request> request, std::unique_ptr<Response> response){
-    FUERTE_LOG_TRACE << "sendRequest (sync): onSuccess" << std::endl;
-    rv = std::move(response);
-    {
-      std::unique_lock<std::mutex> lock(mutex);
-      done = true;
-    }
-    conditionVar.notify_one();
-  };
-
   {
     // Start asynchronous request
     std::unique_lock<std::mutex> lock(mutex);
-    sendRequest(std::move(request),onError,onSuccess);
+    sendRequest(std::move(request), cb);
 
     // Wait for request to finish.
     FUERTE_LOG_TRACE << "sendRequest (sync): before wait" << std::endl;

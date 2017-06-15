@@ -71,18 +71,18 @@ TEST_F(ConnectionBasicVstF, ApiVersionSync){
 
 TEST_F(ConnectionBasicVstF, ApiVersionASync){
   auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
-  fu::OnErrorCallback onError = [](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
-    ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
+  fu::RequestCallback cb = [](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res) {
+    if (error) {
+      ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
+    } else {
+      auto slice = res->slices().front();
+      auto version = slice.get("version").copyString();
+      auto server = slice.get("server").copyString();
+      ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
+      ASSERT_TRUE(version[0] == '3');
+    }
   };
-  fu::OnSuccessCallback onSuccess = [](std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
-    auto slice = res->slices().front();
-    auto version = slice.get("version").copyString();
-    auto server = slice.get("server").copyString();
-    ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
-    ASSERT_TRUE(version[0] == '3');
-  };
-  _connection->sendRequest(std::move(request),onError,onSuccess);
-  //fu::run();
+  _connection->sendRequest(std::move(request), cb);
 }
 
 TEST_F(ConnectionBasicVstF, ApiVersionSync20){
@@ -100,21 +100,21 @@ TEST_F(ConnectionBasicVstF, ApiVersionSync20){
 
 TEST_F(ConnectionBasicVstF, ApiVersionASync20){
   auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
-  fu::OnErrorCallback onError = [](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
-    ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
-  };
-  fu::OnSuccessCallback onSuccess = [](std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
-    auto slice = res->slices().front();
-    auto version = slice.get("version").copyString();
-    auto server = slice.get("server").copyString();
-    ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
-    ASSERT_TRUE(version[0] == '3');
+  fu::RequestCallback cb = [](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res) {
+    if (error) {
+      ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
+    } else {
+      auto slice = res->slices().front();
+      auto version = slice.get("version").copyString();
+      auto server = slice.get("server").copyString();
+      ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
+      ASSERT_TRUE(version[0] == '3');
+    }
   };
   fu::Request req = *request;
   for(int i = 0; i < 20; i++){
-    _connection->sendRequest(req,onError,onSuccess);
+    _connection->sendRequest(req, cb);
   }
-  //fu::run();
 }
 
 TEST_F(ConnectionBasicVstF, SimpleCursorSync){
@@ -153,13 +153,13 @@ TEST_F(ConnectionBasicVstF, CreateDocumentSync){
 }
 
 TEST_F(ConnectionBasicVstF, ShortAndLongASync){
-  fu::OnErrorCallback onError = [](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
-    ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
-  };
-
-  fu::OnSuccessCallback onSuccess = [](std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
-    auto slice = res->slices().front();
-    std::cout << "messageID: " << req->messageID << " " << slice.toJson() << std::endl;
+  fu::RequestCallback cb = [](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res) {
+    if (error) {
+      ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
+    } else {
+      auto slice = res->slices().front();
+      std::cout << "messageID: " << req->messageID << " " << slice.toJson() << std::endl;
+    }
   };
 
   auto requestShort = fu::createRequest(fu::RestVerb::Post, "/_api/cursor");
@@ -180,8 +180,6 @@ TEST_F(ConnectionBasicVstF, ShortAndLongASync){
     requestLong->addVPack(builder.slice());
   }
 
-  _connection->sendRequest(std::move(requestLong),onError,onSuccess);
-  _connection->sendRequest(std::move(requestShort),onError,onSuccess);
-
-  //fu::run();
+  _connection->sendRequest(std::move(requestLong), cb);
+  _connection->sendRequest(std::move(requestShort), cb);
 }
