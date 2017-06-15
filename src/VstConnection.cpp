@@ -89,7 +89,7 @@ VstConnection::VstConnection(EventLoopService& eventLoopService, ConnectionConfi
     : _vstVersion(VST1_0)
     , _messageID(0)
     , _ioService(eventLoopService.io_service())
-    , _resolver(nullptr)
+    , _resolver(new bt::resolver(*eventLoopService.io_service()))
     , _socket(nullptr)
     , _context(bs::context::method::sslv23)
     , _sslSocket(nullptr)
@@ -101,6 +101,12 @@ VstConnection::VstConnection(EventLoopService& eventLoopService, ConnectionConfi
     assert(!_writeLoop._current);
 }
 
+// Deconstruct.
+VstConnection::~VstConnection() {
+  _resolver->cancel();
+  shutdownConnection();
+}
+
 // Activate this connection.
 void VstConnection::start() {
   startResolveHost();
@@ -108,9 +114,6 @@ void VstConnection::start() {
 
 // resolve the host into a series of endpoints 
 void VstConnection::startResolveHost() {
-  // Prepare a resolver
-  _resolver = std::make_shared<bt::resolver>(*_ioService);
-
   // Resolve the host asynchronous.
   auto self = shared_from_this();
   _resolver->async_resolve({_configuration._host, _configuration._port},
@@ -153,9 +156,14 @@ void VstConnection::shutdownSocket() {
   FUERTE_LOG_CALLBACKS << "begin shutdown socket" << std::endl;
 
   BoostEC error;
-  _sslSocket->shutdown(error);
-  _socket->shutdown(bt::socket::shutdown_both,error);
-  _socket->close(error);
+  if (_sslSocket) {
+    _sslSocket->shutdown(error);
+  }
+  if (_socket) {
+    _socket->cancel();
+    _socket->shutdown(bt::socket::shutdown_both, error);
+    _socket->close(error);
+  }
   _sslSocket = nullptr;
   _socket = nullptr;
 }

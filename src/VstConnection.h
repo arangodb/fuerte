@@ -75,6 +75,7 @@ class VstConnection : public std::enable_shared_from_this<VstConnection>, public
 
 public:
   explicit VstConnection(EventLoopService& eventLoopService, detail::ConnectionConfiguration const&);
+  ~VstConnection();
 
 public:
   // this function prepares the request for sending
