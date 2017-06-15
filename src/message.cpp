@@ -21,13 +21,10 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <fuerte/message.h>
-#include <fuerte/vst.h>
 #include <velocypack/Validator.h>
 #include <sstream>
 
-#ifdef FUERTE_CHECKED_MODE
-  #include <fuerte/vst.h>
-#endif
+#include "vst.h"
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 

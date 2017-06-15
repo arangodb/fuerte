@@ -22,9 +22,9 @@
 
 #include <fuerte/helper.h>
 #include <fuerte/types.h>
-#include <fuerte/vst.h>
 #include <sstream>
 #include "portable_endian.h"
+#include "vst.h"
 
 #include <velocypack/Validator.h>
 #include <velocypack/HexDump.h>

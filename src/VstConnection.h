@@ -39,8 +39,8 @@
 #include <fuerte/connection_interface.h>
 #include <fuerte/helper.h>
 #include <fuerte/loop.h>
-#include <fuerte/vst.h>
 
+#include "vst.h"
 #include "MessageStore.h"
 
 // naming in this file will be closer to asio for internal functions and types

@@ -23,8 +23,6 @@
 #ifndef ARANGO_CXX_DRIVER_VST
 #define ARANGO_CXX_DRIVER_VST
 
-#include "types.h"
-
 #include <string>
 #include <memory>
 #include <stdexcept>
@@ -34,16 +32,13 @@
 #include <boost/asio/buffer.hpp>
 
 #include <fuerte/message.h>
-#include "FuerteLogger.h"
+#include <fuerte/types.h>
+#include <fuerte/FuerteLogger.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
 class IncompleteMessage;
 using MessageID = uint64_t;
-enum VSTVersion {
-  VST1_0,
-  VST1_1
-};
 
 static size_t const bufferLength = 4096UL;
 //static size_t const chunkMaxBytes = 1000UL;

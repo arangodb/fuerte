@@ -21,8 +21,6 @@
 /// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "VstConnection.h"
-
 #include <condition_variable>
 
 #include <boost/asio/connect.hpp>
@@ -34,7 +32,9 @@
 #include <fuerte/loop.h>
 #include <fuerte/message.h>
 #include <fuerte/types.h>
-#include <fuerte/vst.h>
+
+#include "VstConnection.h"
+#include "vst.h"
 
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
