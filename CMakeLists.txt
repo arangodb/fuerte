@@ -45,20 +45,21 @@ add_subdirectory(3rdParty/curlpp2)
 
 ## fuerte
 add_library(fuerte STATIC
-    src/connection_interface.cpp
-    src/types.cpp
-    src/message.cpp
-    src/vst.cpp
-    src/loop.cpp
-    src/helper.cpp
+    src/connection.cpp
+    src/ConnectionBuilder.cpp
     src/CurlMultiAsio.cpp
+    src/database.cpp
+    src/helper.cpp
     src/HttpCommunicator.cpp
     src/HttpConnection.cpp
+    src/loop.cpp
+    src/message.cpp
+    src/requests.cpp
+    src/types.cpp
+    src/vst.cpp
     src/VstConnection.cpp
     src/collection.cpp
     src/connection.cpp
-    src/database.cpp
-    src/requests.cpp
 )
 
 if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")

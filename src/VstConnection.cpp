@@ -87,7 +87,8 @@ std::size_t VstConnection::requestsLeft() {
 };
 
 VstConnection::VstConnection(EventLoopService& eventLoopService, ConnectionConfiguration const& configuration)
-    : _vstVersion(configuration._vstVersion)
+    : Connection(eventLoopService, configuration)
+    , _vstVersion(configuration._vstVersion)
     , _messageID(0)
     , _ioService(eventLoopService.io_service())
     , _resolver(new bt::resolver(*eventLoopService.io_service()))
@@ -95,8 +96,7 @@ VstConnection::VstConnection(EventLoopService& eventLoopService, ConnectionConfi
     , _context(bs::context::method::sslv23)
     , _sslSocket(nullptr)
     , _connected(false)
-    , _configuration(configuration)
-    ,_async_calls(0)
+    , _async_calls(0)
 {
     assert(!_readLoop._current);
     assert(!_writeLoop._current);
@@ -206,7 +206,7 @@ void VstConnection::startConnect(bt::resolver::iterator endpointItr){
     // Start the asynchronous connect operation.
     auto self = shared_from_this();
     ba::async_connect(*_socket, endpointItr, 
-      boost::bind(&VstConnection::asyncConnectCallback, self, _1, endpointItr));
+      boost::bind(&VstConnection::asyncConnectCallback, std::dynamic_pointer_cast<VstConnection>(self), _1, endpointItr));
   }
 }
 
@@ -300,7 +300,7 @@ void VstConnection::startReading() {
       return;
     }
     // There is no current read loop, create one 
-    _readLoop._current = std::make_shared<ReadLoop>(shared_from_this(), _socket);
+    _readLoop._current = std::make_shared<ReadLoop>(std::dynamic_pointer_cast<VstConnection>(shared_from_this()), _socket);
     newLoop = _readLoop._current.get();
   }
   // Start the new loop
@@ -483,7 +483,7 @@ void VstConnection::startWriting() {
       return;
     }
     // There is no current write loop, create one 
-    _writeLoop._current = std::make_shared<WriteLoop>(shared_from_this(), _socket);
+    _writeLoop._current = std::make_shared<WriteLoop>(std::dynamic_pointer_cast<VstConnection>(shared_from_this()), _socket);
     newLoop = _writeLoop._current.get();
   }
   // Start the new loop

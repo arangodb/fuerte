@@ -25,7 +25,7 @@
 #define ARANGO_CXX_DRIVER_CONNECTION
 
 #include "types.h"
-#include "connection_interface.h"
+#include "message.h"
 #include "loop.h"
 
 #include <memory>
@@ -39,46 +39,46 @@ class Connection : public std::enable_shared_from_this<Connection> {
   friend class ConnectionBuilder;
 
   public:
-    ~Connection() { FUERTE_LOG_DEBUG << "Destroying Connection" << std::endl; }
-
+    virtual ~Connection();
+    
     std::shared_ptr<Database> getDatabase(std::string const& name);
     std::shared_ptr<Database> createDatabase(std::string const& name);
     bool deleteDatabase(std::string const& name);
 
     // Send a request to the server and wait into a response it received.
-    std::unique_ptr<Response> sendRequest(std::unique_ptr<Request> r){
-      return _realConnection->sendRequest(std::move(r));
-    }
+    std::unique_ptr<Response> sendRequest(std::unique_ptr<Request> r);
 
     // Send a request to the server and wait into a response it received.
     std::unique_ptr<Response> sendRequest(Request const& r){
       std::unique_ptr<Request> copy(new Request(r));
-      return _realConnection->sendRequest(std::move(copy));
+      return sendRequest(std::move(copy));
     }
 
     // Send a request to the server and return immediately.
     // When a response is received or an error occurs, the corresponding callback is called.
-    MessageID sendRequest(std::unique_ptr<Request> r, RequestCallback cb){
-      return _realConnection->sendRequest(std::move(r), cb);
-    }
+    virtual MessageID sendRequest(std::unique_ptr<Request> r, RequestCallback cb) = 0;
 
     // Send a request to the server and return immediately.
     // When a response is received or an error occurs, the corresponding callback is called.
-    MessageID sendRequest(Request const& r, RequestCallback cb){
+    MessageID sendRequest(Request const& r, RequestCallback cb) {
       std::unique_ptr<Request> copy(new Request(r));
-      return _realConnection->sendRequest(std::move(copy), cb);
+      return sendRequest(std::move(copy), cb);
     }
 
     // Return the number of requests that have not yet finished.
-    std::size_t requestsLeft(){
-      return _realConnection->requestsLeft();
-    }
+    virtual std::size_t requestsLeft() = 0;
 
   private:
-    Connection(EventLoopService& eventLoopService, detail::ConnectionConfiguration const& conf);
+    // Activate the connection.  
+    virtual void start() {}
+
+  protected:
+    Connection(EventLoopService& eventLoopService, detail::ConnectionConfiguration const& conf) :
+      _eventLoopService(eventLoopService),
+      _configuration(conf) {}
+
     EventLoopService& _eventLoopService;
-    std::shared_ptr<ConnectionInterface> _realConnection;
-    detail::ConnectionConfiguration _configuration;
+    const detail::ConnectionConfiguration _configuration;
 };
 
 
@@ -98,9 +98,8 @@ class ConnectionBuilder {
     //  host(s);
     //};
 
-    std::shared_ptr<Connection> connect(EventLoopService& eventLoopService) { 
-      return std::shared_ptr<Connection>(new Connection(eventLoopService, _conf)) ;
-    }
+    // Create an connection and start opening it.
+    std::shared_ptr<Connection> connect(EventLoopService& eventLoopService);
 
     ConnectionBuilder& async(bool b){ _conf._async = b; return *this; }
     ConnectionBuilder& user(std::string const& u){ _conf._user = u; return *this; }

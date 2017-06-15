@@ -26,7 +26,7 @@
 #ifndef ARANGO_CXX_DRIVER_HTTP_CONNECTION_H
 #define ARANGO_CXX_DRIVER_HTTP_CONNECTION_H 1
 
-#include <fuerte/connection_interface.h>
+#include <fuerte/connection.h>
 #include <fuerte/loop.h>
 #include <stdexcept>
 
@@ -38,10 +38,10 @@ inline namespace v1 {
 namespace http {
 
 // HttpConnection implements a client->server connection using the HTTP protocol.
-class HttpConnection : public ConnectionInterface {
+class HttpConnection : public Connection {
  public:
   explicit HttpConnection(EventLoopService&, detail::ConnectionConfiguration const&);
-  ~HttpConnection();
+  virtual ~HttpConnection();
 
  public:
   // Start an asynchronous request.
@@ -54,7 +54,6 @@ class HttpConnection : public ConnectionInterface {
 
  private:
   std::shared_ptr<HttpCommunicator> _communicator;
-  detail::ConnectionConfiguration _configuration;
 };
 
 }

@@ -36,7 +36,7 @@
 #include <boost/asio/streambuf.hpp>
 #include <boost/asio/deadline_timer.hpp>
 
-#include <fuerte/connection_interface.h>
+#include <fuerte/connection.h>
 #include <fuerte/helper.h>
 #include <fuerte/loop.h>
 
@@ -52,7 +52,7 @@ class Loop;
 
 namespace vst {
 
-class VstConnection : public std::enable_shared_from_this<VstConnection>, public ConnectionInterface {
+class VstConnection : public Connection {
 
 // Connection object that handles sending and receiving of Velocystream
 // Messages.
@@ -75,7 +75,7 @@ class VstConnection : public std::enable_shared_from_this<VstConnection>, public
 
 public:
   explicit VstConnection(EventLoopService& eventLoopService, detail::ConnectionConfiguration const&);
-  ~VstConnection();
+  virtual ~VstConnection();
 
 public:
   // this function prepares the request for sending
@@ -141,7 +141,6 @@ private:
 private:
   const VSTVersion _vstVersion;
   // TODO FIXME -- fix alignment when done so mutexes are not on the same cacheline etc
-  const detail::ConnectionConfiguration _configuration;
   std::atomic_uint_least64_t _messageID;
   // host resolving 
   std::shared_ptr<boost::asio::ip::tcp::resolver> _resolver;
