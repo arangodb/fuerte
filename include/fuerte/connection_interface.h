@@ -42,9 +42,9 @@ public:
   virtual MessageID sendRequest(std::unique_ptr<Request>, OnErrorCallback, OnSuccessCallback) = 0;
   // Return the number of unfinished requests.
   virtual std::size_t requestsLeft() = 0;
-  
+
+  // Activate the connection.  
   virtual void start() {}
-  virtual void restart() {}
 };
 
 }}}

@@ -18,6 +18,7 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author Jan Christoph Uhde
+/// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 
@@ -95,7 +96,7 @@ private:
   void restartConnection();
 
   virtual void start() override { initSocket(); }
-  virtual void restart() override { initSocket(); }
+  //virtual void restart() override { initSocket(); }
   virtual size_t requestsLeft() override;
 
   //handler to be posted to loop
@@ -137,23 +138,28 @@ private:
   std::shared_ptr<RequestItem> getNextRequestToSend(const WriteLoop*);
 
 private:
-  VSTVersion _vstVersion;
+  const VSTVersion _vstVersion;
   // TODO FIXME -- fix alignment when done so mutexes are not on the same cacheline etc
-  detail::ConnectionConfiguration _configuration;
-  ::std::atomic_uint_least64_t _messageID;
+  const detail::ConnectionConfiguration _configuration;
+  std::atomic_uint_least64_t _messageID;
   // socket
-  std::shared_ptr<::boost::asio::io_service> _ioService;
-  ::std::shared_ptr<::boost::asio::ip::tcp::socket> _socket;
-  ::boost::asio::ssl::context _context;
-  ::std::shared_ptr<::boost::asio::ssl::stream<::boost::asio::ip::tcp::socket&>> _sslSocket;
-  ::boost::asio::ip::tcp::resolver::iterator _endpoints;
-  ::boost::asio::ip::tcp::endpoint _peer;
+  const std::shared_ptr<::boost::asio::io_service> _ioService;
+  std::shared_ptr<::boost::asio::ip::tcp::socket> _socket;
+  boost::asio::ssl::context _context;
+  std::shared_ptr<::boost::asio::ssl::stream<::boost::asio::ip::tcp::socket&>> _sslSocket;
+  boost::asio::ip::tcp::resolver::iterator _endpoints;
+  boost::asio::ip::tcp::endpoint _peer;
+  std::atomic<uint64_t> _async_calls;
   // reset
   std::atomic_bool _connected;
-  std::mutex _current_read_loop_mutex;
-  std::shared_ptr<ReadLoop> _current_read_loop;
-  std::mutex _current_write_loop_mutex;
-  std::shared_ptr<WriteLoop> _current_write_loop;
+  struct {
+    std::mutex _mutex;
+    std::shared_ptr<ReadLoop> _current;
+  } _readLoop;
+  struct {
+    std::mutex _mutex;
+    std::shared_ptr<WriteLoop> _current;
+  } _writeLoop;
   //queues
 
   // SendQueue encapsulates a thread safe queue containing RequestItem's that 

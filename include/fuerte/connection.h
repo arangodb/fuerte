@@ -18,6 +18,7 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author Jan Christoph Uhde
+/// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #ifndef ARANGO_CXX_DRIVER_CONNECTION
@@ -38,31 +39,37 @@ class Connection : public std::enable_shared_from_this<Connection> {
   friend class ConnectionBuilder;
 
   public:
-    ~Connection(){ FUERTE_LOG_DEBUG << "Destroying Connection" << std::endl; }
-    void restart() { _realConnection->restart(); }
+    ~Connection() { FUERTE_LOG_DEBUG << "Destroying Connection" << std::endl; }
+
     std::shared_ptr<Database> getDatabase(std::string const& name);
     std::shared_ptr<Database> createDatabase(std::string const& name);
     bool deleteDatabase(std::string const& name);
 
+    // Send a request to the server and wait into a response it received.
     std::unique_ptr<Response> sendRequest(std::unique_ptr<Request> r){
       return _realConnection->sendRequest(std::move(r));
     }
 
+    // Send a request to the server and wait into a response it received.
     std::unique_ptr<Response> sendRequest(Request const& r){
       std::unique_ptr<Request> copy(new Request(r));
       return _realConnection->sendRequest(std::move(copy));
     }
 
-    // callback may be called in parallel - think about possible races!
+    // Send a request to the server and return immediately.
+    // When a response is received or an error occurs, the corresponding callback is called.
     MessageID sendRequest(std::unique_ptr<Request> r, OnErrorCallback e, OnSuccessCallback c){
       return _realConnection->sendRequest(std::move(r), e, c);
     }
 
+    // Send a request to the server and return immediately.
+    // When a response is received or an error occurs, the corresponding callback is called.
     MessageID sendRequest(Request const& r, OnErrorCallback e, OnSuccessCallback c){
       std::unique_ptr<Request> copy(new Request(r));
       return _realConnection->sendRequest(std::move(copy), e, c);
     }
 
+    // Return the number of requests that have not yet finished.
     std::size_t requestsLeft(){
       return _realConnection->requestsLeft();
     }
@@ -70,7 +77,7 @@ class Connection : public std::enable_shared_from_this<Connection> {
   private:
     Connection(EventLoopService& eventLoopService, detail::ConnectionConfiguration const& conf);
     EventLoopService& _eventLoopService;
-    std::shared_ptr<ConnectionInterface>  _realConnection;
+    std::shared_ptr<ConnectionInterface> _realConnection;
     detail::ConnectionConfiguration _configuration;
 };
 
