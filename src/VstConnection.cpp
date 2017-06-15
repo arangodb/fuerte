@@ -87,7 +87,7 @@ std::size_t VstConnection::requestsLeft() {
 };
 
 VstConnection::VstConnection(EventLoopService& eventLoopService, ConnectionConfiguration const& configuration)
-    : _vstVersion(VST1_0)
+    : _vstVersion(configuration._vstVersion)
     , _messageID(0)
     , _ioService(eventLoopService.io_service())
     , _resolver(new bt::resolver(*eventLoopService.io_service()))

@@ -162,6 +162,7 @@ namespace detail {
       , _user("root")
       , _password("foppels")
       , _maxChunkSize(5000ul) // in bytes
+      , _vstVersion(vst::VST1_0)
       {}
 
     TransportType _connType; // vst or http
@@ -172,6 +173,7 @@ namespace detail {
     std::string _user;
     std::string _password;
     std::size_t _maxChunkSize;
+    vst::VSTVersion _vstVersion;
   };
 
 }

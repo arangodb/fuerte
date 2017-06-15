@@ -106,6 +106,7 @@ class ConnectionBuilder {
     ConnectionBuilder& user(std::string const& u){ _conf._user = u; return *this; }
     ConnectionBuilder& password(std::string const& p){ _conf._password = p; return *this; }
     ConnectionBuilder& maxChunkSize(std::size_t c){ _conf._maxChunkSize = c; return *this; }
+    ConnectionBuilder& vstVersion(vst::VSTVersion c){ _conf._vstVersion = c; return *this; }
 
   private:
     detail::ConnectionConfiguration _conf;
