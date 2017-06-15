@@ -97,7 +97,6 @@ VstConnection::VstConnection(EventLoopService& eventLoopService, ConnectionConfi
     , _reading(false)
     , _sending(false)
     , _configuration(configuration)
-    , _deadline(*_ioService)
 {
     bt::resolver resolver(*_ioService);
 
@@ -128,7 +127,6 @@ void VstConnection::shutdownSocket() {
 
   FUERTE_LOG_CALLBACKS << "begin shutdown socket" << std::endl;
 
-  _deadline.cancel();
   BoostEC error;
   _sslSocket->shutdown(error);
   _socket->shutdown(bt::socket::shutdown_both,error);
@@ -142,6 +140,9 @@ void VstConnection::shutdownConnection() {
   FUERTE_LOG_CALLBACKS << "shutdownConnection" << std::endl;
   // Change state, so the send & read loop will terminate.
   _connectionState++;
+
+  // Stop the read loop 
+  stopReading();
 
   // Close socket
   shutdownSocket();
@@ -164,7 +165,8 @@ void VstConnection::startConnect(bt::resolver::iterator endpointItr){
     FUERTE_LOG_CALLBACKS << "trying to connect to: " << endpointItr->endpoint() << "..." << std::endl;
 
     // Set a deadline for the connect operation.
-    _deadline.expires_from_now(boost::posix_time::seconds(60));
+    //_deadline.expires_from_now(boost::posix_time::seconds(60));
+    // TODO wait for connect timeout
 
     // Start the asynchronous connect operation.
     auto self = shared_from_this();
@@ -256,59 +258,100 @@ void VstConnection::startSSLHandshake() {
 
 // READING WRITING / NORMAL OPERATIONS  ///////////////////////////////////////
 
-// readNextBytes reads the next bytes from the server.
-void VstConnection::readNextBytes(int initialConnectionState) {
-  FUERTE_LOG_VSTTRACE << "readNextBytes: initialConnectionState=" << initialConnectionState << std::endl;
-  FUERTE_LOG_CALLBACKS << "-";
-
-  // Terminate the read loop if our connection state has changed.
-  if (_connectionState != initialConnectionState) {
-    FUERTE_LOG_VSTTRACE << "readNextBytes: connectionState changed, stopping read loop" << std::endl;
-    _reading = false;
-    return;
-  }
-
-  // Terminate the read loop if there is no more work for it.
+// activate the receiver loop (if needed)
+void VstConnection::startReading() {
+  ReadLoop *newLoop;
   {
-    std::unique_lock<std::mutex> queueLock(_sendQueue.mutex(), std::defer_lock);
-    std::unique_lock<std::mutex> mapLock(_messageStore.mutex(), std::defer_lock);
-    std::lock(queueLock, mapLock);
-    if (_messageStore.empty(true) && _sendQueue.empty(true)) {
-      _reading = false;
-      FUERTE_LOG_VSTTRACE << "readNextBytes: no more pending messages/requests, stopping read loop" << std::endl;
+    std::lock_guard<std::mutex> lock(_current_read_loop_mutex);
+    if (_current_read_loop) {
+      // There is already a read loop, do nothing 
       return;
     }
+    // There is no current read loop, create one 
+    _current_read_loop = std::make_shared<ReadLoop>(shared_from_this(), _socket);
+    newLoop = _current_read_loop.get();
+  }
+  // Start the new loop
+  newLoop->start();
+}
+
+// Stop the current read loop
+void VstConnection::stopReading() {
+  {
+    std::lock_guard<std::mutex> lock(_current_read_loop_mutex);
+    _current_read_loop.reset();
+  }
+}
+
+// called by a ReadLoop to decide if it must stop.
+// returns true when the given loop should stop.
+bool VstConnection::shouldStopReading(const ReadLoop* readLoop) {
+  // Claim exclusive access 
+  std::unique_lock<std::mutex> readLoopLock(_current_read_loop_mutex, std::defer_lock);
+  std::unique_lock<std::mutex> queueLock(_sendQueue.mutex(), std::defer_lock);
+  std::unique_lock<std::mutex> mapLock(_messageStore.mutex(), std::defer_lock);
+  std::lock(readLoopLock, queueLock, mapLock);
+
+  // Is the read loop still the current read loop?
+  if (_current_read_loop.get() != readLoop) {
+    FUERTE_LOG_VSTTRACE << "shouldStopReading: no longer current loop: loop=" << readLoop << std::endl;
+    return true;
+  }
+
+  // Is there any work left for the read loop?
+  if (_messageStore.empty(true) && _sendQueue.empty(true)) {
+    // No more work 
+    _current_read_loop.reset();
+    FUERTE_LOG_VSTTRACE << "shouldStopReading: no more pending messages/requests, stopping read loop: loop=" << readLoop << std::endl;
+    return true;
+  }
+
+  // Continue read loop
+  return false;
+}
+
+// start the read loop 
+void VstConnection::ReadLoop::start() {
+  auto wasStarted = _started.exchange(true);
+  if (!wasStarted) {
+    readNextBytes();
+  }
+}
+
+// readNextBytes reads the next bytes from the server.
+void VstConnection::ReadLoop::readNextBytes() {
+  FUERTE_LOG_VSTTRACE << "readNextBytes: this=" << this << std::endl;
+  FUERTE_LOG_CALLBACKS << "-";
+
+  // Ask the connection if we should terminate.
+  if (_connection->shouldStopReading(this)) {
+    FUERTE_LOG_VSTTRACE << "readNextBytes: stopping read loop" << std::endl;
+    return;    
   }
 
   // Start reading data from the network.
   _deadline.expires_from_now(boost::posix_time::seconds(30));
+  // TODO async_wait for timeout 
+
   FUERTE_LOG_CALLBACKS << "r";
 #if ENABLE_FUERTE_LOG_CALLBACKS > 0
-  std::cout << "_messageMap = " << _messageStore.keys() << std::endl;
+  std::cout << "_messageMap = " << _connection->_messageStore.keys() << std::endl;
 #endif
   auto self = shared_from_this();
-  ba::async_read(*_socket
-                ,_receiveBuffer
-                ,ba::transfer_at_least(1)
-                ,[this, self, initialConnectionState](const boost::system::error_code& error, std::size_t transferred){
-                   asyncReadCallback(error, transferred, initialConnectionState);
-                 }
-                );
+  ba::async_read(*_socket, _receiveBuffer, ba::transfer_at_least(1),
+    boost::bind(&ReadLoop::asyncReadCallback, self, _1, _2));
 
   FUERTE_LOG_VSTTRACE << "readNextBytes: done" << std::endl;
 }
 
 // asyncReadCallback is called when readNextBytes is resulting in some data.
-void VstConnection::asyncReadCallback(const boost::system::error_code& error, std::size_t transferred, int initialConnectionState) {
+void VstConnection::ReadLoop::asyncReadCallback(const boost::system::error_code& error, std::size_t transferred) {
   if (error) {
     FUERTE_LOG_CALLBACKS << "asyncReadCallback: Error while reading form socket";
     FUERTE_LOG_ERROR << error.message() << std::endl;
 
-    // We'll stop the read loop 
-    _reading = false;
-
-    // Restart connection 
-    restartConnection();
+    // Restart connection, this will trigger a release of the readloop.
+    _connection->restartConnection(); 
   } else {
     FUERTE_LOG_CALLBACKS << "asyncReadCallback: received " << transferred << " bytes" << std::endl;
 
@@ -319,7 +362,7 @@ void VstConnection::asyncReadCallback(const boost::system::error_code& error, st
     while (vst::isChunkComplete(cursor, available)) {
       // Read chunk 
       ChunkHeader chunk;
-      switch (_vstVersion) {
+      switch (_connection->_vstVersion) {
         case VST1_0:
           chunk = vst::readChunkHeaderVST1_0(cursor);
           break;
@@ -331,7 +374,7 @@ void VstConnection::asyncReadCallback(const boost::system::error_code& error, st
       }
 
       // Process chunk 
-      processChunk(chunk);
+      _connection->processChunk(chunk);
 
       // Remove consumed data from receive buffer.
       _receiveBuffer.consume(chunk.chunkLength());
@@ -340,7 +383,7 @@ void VstConnection::asyncReadCallback(const boost::system::error_code& error, st
     }
 
     // Continue reading data
-    readNextBytes(initialConnectionState);
+    readNextBytes();
   }
 }
 

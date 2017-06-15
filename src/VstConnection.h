@@ -111,16 +111,16 @@ private:
   // socket connection is up (with optional SSL), now initiate the VST protocol.
   void finishInitialization();
 
+  class ReadLoop;
+
   // activate the receiver loop (if needed)
-  inline void startReading() {
-    if (!_reading.exchange(true)) readNextBytes(_connectionState);
-  }
-  // reads data from socket with boost::asio::async_read
-  void readNextBytes(int initialConnectionState);
-  // handler for boost::asio::async_read that extracs chunks form the network
-  // takes complete chunks form the socket and starts a new read action. After
-  // triggering the next read it processes the received data.
-  void asyncReadCallback(boost::system::error_code const&, std::size_t transferred, int initialConnectionState);
+  void startReading();
+  // release the ReadLoop so it will terminate.
+  void stopReading();
+  // called by a ReadLoop to decide if it must stop.
+  // returns true when the given loop should stop.
+  bool shouldStopReading(const ReadLoop*);
+
   // Process the given incoming chunk.
   void processChunk(ChunkHeader &chunk);
   // Create a response object for given RequestItem & received response buffer.
@@ -147,14 +147,14 @@ private:
   ::std::shared_ptr<::boost::asio::ssl::stream<::boost::asio::ip::tcp::socket&>> _sslSocket;
   ::boost::asio::ip::tcp::resolver::iterator _endpoints;
   ::boost::asio::ip::tcp::endpoint _peer;
-  ::boost::asio::deadline_timer _deadline;
   // reset
   std::atomic_bool _connected;
   std::atomic_int _connectionState; // Send/Receive loop will stop if this changes
   std::atomic_bool _reading;
   std::atomic_bool _sending;
+  std::mutex _current_read_loop_mutex;
+  std::shared_ptr<ReadLoop> _current_read_loop;
   //queues
-  ::boost::asio::streambuf _receiveBuffer; // async read can not run concurrent
 
   // SendQueue encapsulates a thread safe queue containing RequestItem's that 
   // need sending to the server.
@@ -208,6 +208,34 @@ private:
   SendQueue _sendQueue;
   
   MessageStore<RequestItem> _messageStore;
+
+  // Encapsulate a single read loop on a given socket for a given connection.
+  class ReadLoop : public std::enable_shared_from_this<ReadLoop> {
+   public:
+    ReadLoop(const std::shared_ptr<VstConnection>& connection, const std::shared_ptr<::boost::asio::ip::tcp::socket>& socket) 
+      : _connection(connection), _socket(socket), _started(false), _deadline(*(connection->_ioService)) {}
+    ~ReadLoop() {
+      _deadline.cancel();
+    }
+
+    // Start the read loop.
+    void start();
+
+   private:
+    // reads data from socket with boost::asio::async_read
+    void readNextBytes();
+    // handler for boost::asio::async_read that extracs chunks form the network
+    // takes complete chunks form the socket and starts a new read action. After
+    // triggering the next read it processes the received data.
+    void asyncReadCallback(boost::system::error_code const&, std::size_t transferred);
+
+   private:
+    std::shared_ptr<VstConnection> _connection;
+    std::shared_ptr<::boost::asio::ip::tcp::socket> _socket;
+    ::boost::asio::streambuf _receiveBuffer; // async read can not run concurrent
+    std::atomic_bool _started;
+    ::boost::asio::deadline_timer _deadline;
+  };
 
 };
 }
