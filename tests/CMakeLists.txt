@@ -1,8 +1,7 @@
 add_executable(test_main
     test_main.cpp
     test_vst.cpp
-    test_connection_basic_http.cpp
-    test_connection_basic_vst.cpp
+    test_connection_basic.cpp
     test_10000_writes.cpp
 )
 
