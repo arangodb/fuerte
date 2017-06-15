@@ -33,8 +33,6 @@
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
-class Database;
-
 // Connection is the base class for a connection between a client
 // and a server.
 // Different protocols (HTTP, VST) are implemented in derived classes.
@@ -44,10 +42,6 @@ class Connection : public std::enable_shared_from_this<Connection> {
   public:
     virtual ~Connection();
     
-    std::shared_ptr<Database> getDatabase(std::string const& name);
-    std::shared_ptr<Database> createDatabase(std::string const& name);
-    bool deleteDatabase(std::string const& name);
-
     // Send a request to the server and wait into a response it received.
     std::unique_ptr<Response> sendRequest(std::unique_ptr<Request> r);
 
