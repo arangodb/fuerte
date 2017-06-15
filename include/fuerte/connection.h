@@ -35,6 +35,9 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
 
 class Database;
 
+// Connection is the base class for a connection between a client
+// and a server.
+// Different protocols (HTTP, VST) are implemented in derived classes.
 class Connection : public std::enable_shared_from_this<Connection> {
   friend class ConnectionBuilder;
 
@@ -77,10 +80,16 @@ class Connection : public std::enable_shared_from_this<Connection> {
       _eventLoopService(eventLoopService),
       _configuration(conf) {}
 
+    // Invoke the configured ConnectionFailureCallback (if any)
+    void onFailure(Error errorCode, const std::string& errorMessage) {
+      if (_configuration._onFailure) {
+        _configuration._onFailure(errorCode, errorMessage);
+      }
+    }
+
     EventLoopService& _eventLoopService;
     const detail::ConnectionConfiguration _configuration;
 };
-
 
 /** The connection Builder is a class that allows the easy configuration of
  *  connections. We decided to use the builder pattern because the connections
@@ -106,6 +115,7 @@ class ConnectionBuilder {
     ConnectionBuilder& password(std::string const& p){ _conf._password = p; return *this; }
     ConnectionBuilder& maxChunkSize(std::size_t c){ _conf._maxChunkSize = c; return *this; }
     ConnectionBuilder& vstVersion(vst::VSTVersion c){ _conf._vstVersion = c; return *this; }
+    ConnectionBuilder& onFailure(ConnectionFailureCallback c){ _conf._onFailure = c; return *this; }
 
   private:
     detail::ConnectionConfiguration _conf;

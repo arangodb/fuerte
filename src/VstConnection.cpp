@@ -121,11 +121,13 @@ void VstConnection::startResolveHost() {
     [this, self](const boost::system::error_code& error, bt::resolver::iterator iterator) {
       if (error) {
         FUERTE_LOG_ERROR << "resolve failed: error=" << error << std::endl;
+        onFailure(errorToInt(ErrorCondition::CouldNotConnect), "resolved failed: error" + error.message());
       } else {
         FUERTE_LOG_CALLBACKS << "resolve succeeded" << std::endl;
         _endpoints = iterator;
         if (_endpoints == bt::resolver::iterator()){
           FUERTE_LOG_ERROR << "unable to resolve endpoints" << std::endl;
+          onFailure(errorToInt(ErrorCondition::CouldNotConnect), "unable to resolve endpoints");
         } else {
           initSocket();
         }
@@ -219,7 +221,7 @@ void VstConnection::asyncConnectCallback(BoostEC const& error, bt::resolver::ite
     if(endpointItr == bt::resolver::iterator()) {
       FUERTE_LOG_CALLBACKS << "no further endpoint" << std::endl;
     }
-    throw std::runtime_error("unable to connect -- " + error.message() );
+    onFailure(errorToInt(ErrorCondition::CouldNotConnect), "unable to connect -- " + error.message());
   } else {
     // Connection established
     FUERTE_LOG_CALLBACKS << "TCP socket connected" << std::endl;
@@ -255,6 +257,7 @@ void VstConnection::finishInitialization(){
                       FUERTE_LOG_ERROR << error.message() << std::endl;
                       _connected = false;
                       shutdownConnection();
+                      onFailure(errorToInt(ErrorCondition::CouldNotConnect), "unable to initialize connection: error=" + error.message());
                     } else {
                       FUERTE_LOG_CALLBACKS << "VST connection established; starting send/read loop" << std::endl;
                       _connected = true;
@@ -272,18 +275,18 @@ void VstConnection::startSSLHandshake() {
   }
   FUERTE_LOG_CALLBACKS << "starting ssl handshake " << std::endl;
   auto self = shared_from_this();
-  _sslSocket->async_handshake(bs::stream_base::client
-                             ,[this,self](BoostEC const& error){
-                               if(error){
-                                 shutdownSocket();
-                                 FUERTE_LOG_ERROR << error.message() << std::endl;
-                                 throw std::runtime_error("unable to perform ssl handshake");
-                               }
-                               FUERTE_LOG_CALLBACKS << "ssl handshake done" << std::endl ;
-                               finishInitialization();
-                              }
-                            );
-
+  _sslSocket->async_handshake(
+      bs::stream_base::client, [this, self](BoostEC const& error) {
+        if (error) {
+          shutdownSocket();
+          FUERTE_LOG_ERROR << error.message() << std::endl;
+          onFailure(errorToInt(ErrorCondition::CouldNotConnect),
+            "unable to perform ssl handshake: error=" + error.message());
+        } else {
+          FUERTE_LOG_CALLBACKS << "ssl handshake done" << std::endl;
+          finishInitialization();
+        }
+      });
 }
 
 // ------------------------------------

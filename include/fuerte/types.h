@@ -46,6 +46,13 @@ using Ticket = MessageID;
 // RequestCallback is called for finished connection requests.
 // If the given Error is zero, the request succeeded, otherwise an error occurred.
 using RequestCallback = std::function<void(Error, std::unique_ptr<Request>, std::unique_ptr<Response>)>;
+// ConnectionFailureCallback is called when a connection encounters a failure 
+// that is not related to a specific request.
+// Examples are:
+// - Host cannot be resolved
+// - Cannot connect
+// - Connection lost
+using ConnectionFailureCallback = std::function<void(Error errorCode, const std::string& errorMessage)>;
 
 using VBuffer = arangodb::velocypack::Buffer<uint8_t>;
 using VSlice = arangodb::velocypack::Slice;
@@ -174,6 +181,7 @@ namespace detail {
     std::string _password;
     std::size_t _maxChunkSize;
     vst::VSTVersion _vstVersion;
+    ConnectionFailureCallback _onFailure;
   };
 
 }
