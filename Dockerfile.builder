@@ -16,7 +16,7 @@ RUN mkdir -p /usr/code && \
 	mkdir -p build && \
 	cd build && \
 	cmake .. && \
-	make install \
-	rm -Rf /usr/code 
+	make install && \
+	cd / && rm -Rf /usr/code 
 
 ENTRYPOINT "/bin/bash"
