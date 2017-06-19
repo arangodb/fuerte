@@ -409,7 +409,7 @@ void HttpConnection::handleResult(CURL* handle, CURLcode rc) {
         //std::cout << std::endl << to_string(*rip->_request);
         //std::cout << to_string(*fuResponse);
 #endif
-        requestItem->_callback(0, std::move(requestItem->_request), std::move(fuResponse));
+        requestItem->_callback.invoke(0, std::move(requestItem->_request), std::move(fuResponse));
         requestItem->_request = nullptr;
         break;
       }
@@ -419,21 +419,18 @@ void HttpConnection::handleResult(CURL* handle, CURLcode rc) {
       case CURLE_COULDNT_RESOLVE_HOST:
       case CURLE_URL_MALFORMAT:
       case CURLE_SEND_ERROR:
-        requestItem->_callback(static_cast<Error>(ErrorCondition::CouldNotConnect),
-            std::move(requestItem->_request), {nullptr});
+        requestItem->_callback.invoke(static_cast<Error>(ErrorCondition::CouldNotConnect), std::move(requestItem->_request), {nullptr});
         break;
 
       case CURLE_OPERATION_TIMEDOUT:
       case CURLE_RECV_ERROR:
       case CURLE_GOT_NOTHING:
-        requestItem->_callback(static_cast<Error>(ErrorCondition::Timeout),
-            std::move(requestItem->_request), {nullptr});
+        requestItem->_callback.invoke(static_cast<Error>(ErrorCondition::Timeout), std::move(requestItem->_request), {nullptr});
         break;
 
       default:
         FUERTE_LOG_ERROR << "Curl return " << rc << "\n";
-        requestItem->_callback(static_cast<Error>(ErrorCondition::CurlError),
-            std::move(requestItem->_request), {nullptr});
+        requestItem->_callback.invoke(static_cast<Error>(ErrorCondition::CurlError), std::move(requestItem->_request), {nullptr});
         break;
     }
   } catch (std::exception const& e) {

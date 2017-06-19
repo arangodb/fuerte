@@ -453,7 +453,7 @@ void VstConnection::processChunk(ChunkHeader &chunk) {
 
     // Notify listeners
     FUERTE_LOG_VSTTRACE << "processChunk: notifying RequestItem onSuccess callback" << std::endl;
-    item->_callback(0, std::move(item->_request), std::move(response));
+    item->_callback.invoke(0, std::move(item->_request), std::move(response));
   }
 }
 
@@ -590,7 +590,7 @@ void VstConnection::WriteLoop::asyncWriteCallback(BoostEC const& error, std::siz
     _connection->_messageStore.removeByID(item->_messageID);
 
     // let user know that this request caused the error
-    item->_callback(errorToInt(ErrorCondition::VstWriteError), std::move(item->_request), nullptr);
+    item->_callback.invoke(errorToInt(ErrorCondition::VstWriteError), std::move(item->_request), nullptr);
 
     // Stop current connection and try to restart a new one.
     // This will reset the current write loop.

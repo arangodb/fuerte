@@ -35,6 +35,8 @@
 #include <fuerte/types.h>
 #include <fuerte/FuerteLogger.h>
 
+#include "CallOnceRequestCallback.h"
+
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
 class IncompleteMessage;
@@ -121,7 +123,7 @@ inline std::size_t chunkHeaderLength(VSTVersion vstVersion, bool isFirst, bool i
 // Item that represents a Request in flight
 struct RequestItem {
   std::unique_ptr<Request> _request;  // Reference to the request we're processing 
-  RequestCallback _callback;           // Callback for when request is done (in error or succeeded)
+  impl::CallOnceRequestCallback _callback;           // Callback for when request is done (in error or succeeded)
   MessageID _messageID;               // ID of this message
   // Request variables
   std::string _msgHdr;                // VST message header
@@ -134,7 +136,7 @@ struct RequestItem {
 
   inline MessageID messageID() { return _messageID; }
   inline void invokeOnError(Error e, std::unique_ptr<Request> req, std::unique_ptr<Response> res) { 
-    _callback(e, std::move(req), std::move(res));
+    _callback.invoke(e, std::move(req), std::move(res));
   }
 
   // prepareForNetwork prepares the internal structures for writing the request 

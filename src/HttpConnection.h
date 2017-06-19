@@ -40,6 +40,7 @@
 
 #include <curl/curl.h>
 
+#include "CallOnceRequestCallback.h"
 #include "CurlMultiAsio.h"
 #include "MessageStore.h"
 
@@ -115,13 +116,13 @@ class HttpConnection : public Connection {
 
     inline MessageID messageID() { return _request->messageID; }
     inline void invokeOnError(Error e, std::unique_ptr<Request> req, std::unique_ptr<Response> res) { 
-      _callback(e, std::move(req), std::move(res));
+      _callback.invoke(e, std::move(req), std::move(res));
     }
 
    public:
     Destination _destination;
     std::unique_ptr<Request> _request;
-    RequestCallback _callback;
+    impl::CallOnceRequestCallback _callback;
     Options _options;
     std::string _requestBody;
     struct curl_slist* _requestHeaders;
