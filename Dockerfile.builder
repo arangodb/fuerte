@@ -5,6 +5,8 @@ RUN apt-get update && \
         cmake \
 		libssl-dev \
         libcurl4-openssl-dev \
+		libboost-system-dev \
+		libboost-thread-dev \
 		gdb
 
 ENTRYPOINT "/bin/bash"
