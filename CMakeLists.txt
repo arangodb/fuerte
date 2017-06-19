@@ -7,10 +7,10 @@ enable_testing()
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(UNIX)
-    # -fPIC here as curlpp is borken
-   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-endif()
+#if(UNIX)
+#    # -fPIC here as curlpp is borken
+#   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+#endif()
 
 #########################################################################################
 # Configuration
@@ -28,9 +28,10 @@ find_package(Threads REQUIRED)
 set(CMAKE_BOOST_COMPONENTS "system" "thread")
 find_package(Boost REQUIRED COMPONENTS ${CMAKE_BOOST_COMPONENTS})
 
+find_package(CURL REQUIRED)
+
 option(BuildVelocyPackExamples "Build examples" OFF)
 add_subdirectory(3rdParty/velocypack)
-add_subdirectory(3rdParty/curlpp2)
 
 #########################################################################################
 # Main Project
@@ -63,7 +64,7 @@ endif()
 
 target_link_libraries(fuerte PUBLIC
     velocypack
-    curlpp
+    ${CURL_LIBRARIES}
     ${Boost_LIBRARIES}
     ${OPENSSL_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
@@ -71,7 +72,6 @@ target_link_libraries(fuerte PUBLIC
 
 target_include_directories(fuerte PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/curlpp2/include
 )
 
 add_executable(fuerte-get
