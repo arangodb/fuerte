@@ -22,6 +22,8 @@
 
 #pragma once 
 
+#include <algorithm>
+
 #include <fuerte/fuerte.h>
 #include <fuerte/loop.h>
 #include <fuerte/helper.h>
@@ -31,8 +33,9 @@
 namespace f = ::arangodb::fuerte;
 
 typedef struct {
-  const char *_url;
-  const size_t _threads;
+  const char *_url;       // Server URL
+  const size_t _threads;  // #Threads to use for the EventLoopService 
+  const size_t _repeat;   // Number of times to repeat repeatable tests.
 } ConnectionTestParams;
 
 ::std::ostream& operator<<(::std::ostream& os, const ConnectionTestParams& p) {
@@ -64,6 +67,11 @@ class ConnectionTestF : public ::testing::TestWithParam<ConnectionTestParams> {
 
   virtual void TearDown() override {
     _connection.reset();
+  }
+
+  // Number of times to repeat certain tests.
+  inline size_t repeat() {
+    return std::max(GetParam()._repeat, size_t(1));
   }
 
   std::shared_ptr<f::Connection> _connection;
