@@ -103,32 +103,24 @@ TEST_P(ConnectionTestF, SimpleCursorSync){
   builder.add("query", fu::VValue("FOR x IN 1..5 RETURN x"));
   builder.close();
   request->addVPack(builder.slice());
-  auto result = _connection->sendRequest(std::move(request));
-  auto slice = result->slices().front();
+  auto response = _connection->sendRequest(std::move(request));
+  auto slice = response->slices().front();
 
-
-  std::cout << slice.toJson();
-  //auto version = slice.get("version").copyString();
-  //auto server = slice.get("server").copyString();
-  //ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
-  //ASSERT_TRUE(version[0] == '3');
+  ASSERT_TRUE(slice.isObject());
+  auto result = slice.get("result");
+  ASSERT_TRUE(result.isArray());
+  ASSERT_TRUE(result.length() == 5);
 }
 
 TEST_P(ConnectionTestF, CreateDocumentSync){
   auto request = fu::createRequest(fu::RestVerb::Post, "/_api/document/_users");
-  //fu::VBuilder builder;
-  //builder.openObject();
-  //builder.close();
   request->addVPack(fu::VSlice::emptyObjectSlice());
-  auto result = _connection->sendRequest(std::move(request));
-  auto slice = result->slices().front();
+  auto response = _connection->sendRequest(std::move(request));
+  auto slice = response->slices().front();
 
-
-  std::cout << fu::to_string(slice) << std::endl;
-  //auto version = slice.get("version").copyString();
-  //auto server = slice.get("server").copyString();
-  //ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
-  //ASSERT_TRUE(version[0] == '3');
+  ASSERT_TRUE(slice.get("_id").isString());
+  ASSERT_TRUE(slice.get("_key").isString());
+  ASSERT_TRUE(slice.get("_rev").isString());
 }
 
 TEST_P(ConnectionTestF, ShortAndLongASync){
@@ -139,7 +131,9 @@ TEST_P(ConnectionTestF, ShortAndLongASync){
       ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
     } else {
       auto slice = res->slices().front();
-      std::cout << "messageID: " << req->messageID << " " << slice.toJson() << std::endl;
+      ASSERT_TRUE(slice.isObject());
+      ASSERT_TRUE(slice.get("code").isInteger());
+      //std::cout << "messageID: " << req->messageID << " " << slice.toJson() << std::endl;
     }
   };
 

@@ -36,7 +36,7 @@ typedef struct {
 } ConnectionTestParams;
 
 ::std::ostream& operator<<(::std::ostream& os, const ConnectionTestParams& p) {
-  return os << p._url;
+  return os << "url=" << p._url << " threads=" << p._threads;
 }
 
 // ConnectionTestF is a test fixture that can be used for all kinds of connection 
