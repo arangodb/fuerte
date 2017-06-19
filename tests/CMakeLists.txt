@@ -7,7 +7,6 @@ add_executable(test_main
 
 target_link_libraries(test_main
     fuerte
-    velocypack
     gtest
     ${Boost_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}

@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.4)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules")
 
 project(fuerte CXX)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -30,8 +31,8 @@ find_package(Boost REQUIRED COMPONENTS ${CMAKE_BOOST_COMPONENTS})
 
 find_package(CURL REQUIRED)
 
-option(BuildVelocyPackExamples "Build examples" OFF)
-add_subdirectory(3rdParty/velocypack)
+include(FindVelocypack)
+find_package(VELOCYPACK REQUIRED)
 
 #########################################################################################
 # Main Project
@@ -63,7 +64,7 @@ if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
 endif()
 
 target_link_libraries(fuerte PUBLIC
-    velocypack
+    ${VELOCYPACK_LIBRARIES}
     ${CURL_LIBRARIES}
     ${Boost_LIBRARIES}
     ${OPENSSL_LIBRARIES}
