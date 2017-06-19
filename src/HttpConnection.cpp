@@ -57,6 +57,7 @@ HttpConnection::~HttpConnection() {
                          << " outstanding requests!"
                          << std::endl;
   }
+  _messageStore.cancelAll();
   _curlm.reset();
 }
 
@@ -96,13 +97,8 @@ uint64_t HttpConnection::queueRequest(Destination destination,
 
   // Prepare a new request
   auto id = ++ticketId;
-  NewRequest newRequest;
-  newRequest._destination = destination;
-  newRequest._fuRequest = std::move(request);
-  newRequest._fuRequest->messageID = id;
-  newRequest._callback = callback;
-
-  createRequestIem(std::move(newRequest));
+  request->messageID = id;
+  createRequestItem(destination, std::move(request), callback);
 
   return id;
 }
@@ -118,7 +114,7 @@ int HttpConnection::curlDebug(CURL* handle, curl_infotype type, char* data,
 
   std::string dataStr(data, size);
   std::string prefix("Communicator(" +
-                     std::to_string(inprogress->_request._fuRequest->messageID) + "): ");
+                     std::to_string(inprogress->_request->messageID) + "): ");
 
   switch (type) {
     case CURLINFO_TEXT:
@@ -261,13 +257,13 @@ std::string HttpConnection::createSafeDottedCurlUrl(
   return url;
 }
 
-void HttpConnection::createRequestIem(NewRequest newRequest) {
+void HttpConnection::createRequestItem(const Destination& destination, std::unique_ptr<Request> request, RequestCallback callback) {
   // mop: the curl handle will be managed safely via unique_ptr and hold
   // ownership for rip
-  auto requestItem = std::make_shared<RequestItem>(std::move(newRequest));
+  auto requestItem = std::make_shared<RequestItem>(destination, std::move(request), callback);
   auto handle = requestItem->handle();
   struct curl_slist* requestHeaders = nullptr;
-  auto fuRequest = requestItem->_request._fuRequest.get();
+  auto fuRequest = requestItem->_request.get();
   if (fuRequest->header.meta) {
     for (auto const& header : fuRequest->header.meta.get()) {
       std::string thisHeader(header.first + ": " + header.second);
@@ -275,7 +271,7 @@ void HttpConnection::createRequestIem(NewRequest newRequest) {
     }
   }
 
-  std::string url = createSafeDottedCurlUrl(requestItem->_request._destination);
+  std::string url = createSafeDottedCurlUrl(requestItem->_destination);
   requestItem->_requestHeaders = requestHeaders;
   curl_easy_setopt(handle, CURLOPT_HTTPHEADER, requestHeaders);
   curl_easy_setopt(handle, CURLOPT_HEADER, 0L);
@@ -295,7 +291,7 @@ void HttpConnection::createRequestIem(NewRequest newRequest) {
   curl_easy_setopt(handle, CURLOPT_SSL_VERIFYPEER, 0L);
   curl_easy_setopt(handle, CURLOPT_SSL_VERIFYHOST, 0L);
 
-  auto connectTimeout = static_cast<long>(requestItem->_request._options.connectionTimeout);
+  auto connectTimeout = static_cast<long>(requestItem->_options.connectionTimeout);
 
   // mop: although curl is offering a MS scale connecttimeout this gets ignored
   // in at least 7.50.3; in doubt change the timeout to _MS below and hardcode
@@ -308,7 +304,7 @@ void HttpConnection::createRequestIem(NewRequest newRequest) {
 
   curl_easy_setopt(
       handle, CURLOPT_TIMEOUT_MS,
-      static_cast<long>(requestItem->_request._options.requestTimeout * 1000));
+      static_cast<long>(requestItem->_options.requestTimeout * 1000));
   curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT, connectTimeout);
 
   auto verb = fuRequest->header.restVerb.get();
@@ -376,7 +372,7 @@ void HttpConnection::handleResult(CURL* handle, CURLcode rc) {
     return;
   }
 
-  std::string prefix("Communicator(" + std::to_string(requestItem->_request._fuRequest->messageID) +
+  std::string prefix("Communicator(" + std::to_string(requestItem->_request->messageID) +
                      "): ");
 
   FUERTE_LOG_DEBUG << prefix << "curl rc is : " << rc << " after "
@@ -390,7 +386,7 @@ void HttpConnection::handleResult(CURL* handle, CURLcode rc) {
                      << "\n";
   }
 
-  auto request_id = requestItem->_request._fuRequest->messageID;
+  auto request_id = requestItem->_request->messageID;
   try {
     switch (rc) {
       case CURLE_OK: {
@@ -399,7 +395,7 @@ void HttpConnection::handleResult(CURL* handle, CURLcode rc) {
 
         std::unique_ptr<Response> fuResponse(new Response());
         fuResponse->header.responseCode = static_cast<unsigned>(httpStatusCode);
-        fuResponse->messageID = requestItem->_request._fuRequest->messageID;
+        fuResponse->messageID = requestItem->_request->messageID;
         transformResult(handle, std::move(requestItem->_responseHeaders),
                         std::move(requestItem->_responseBody),
                         dynamic_cast<Response*>(fuResponse.get()));
@@ -410,11 +406,11 @@ void HttpConnection::handleResult(CURL* handle, CURLcode rc) {
         std::cout << "request id: " << request_id << std::endl;
         std::cout << "response id: " << response_id << std::endl;
         std::cout << "in progress: " << _messageStore.keys() << std::endl;
-        //std::cout << std::endl << to_string(*rip->_request._fuRequest);
+        //std::cout << std::endl << to_string(*rip->_request);
         //std::cout << to_string(*fuResponse);
 #endif
-        requestItem->_request._callback(0, std::move(requestItem->_request._fuRequest), std::move(fuResponse));
-        requestItem->_request._fuRequest = nullptr;
+        requestItem->_callback(0, std::move(requestItem->_request), std::move(fuResponse));
+        requestItem->_request = nullptr;
         break;
       }
 
@@ -423,21 +419,21 @@ void HttpConnection::handleResult(CURL* handle, CURLcode rc) {
       case CURLE_COULDNT_RESOLVE_HOST:
       case CURLE_URL_MALFORMAT:
       case CURLE_SEND_ERROR:
-        requestItem->_request._callback(static_cast<Error>(ErrorCondition::CouldNotConnect),
-            std::move(requestItem->_request._fuRequest), {nullptr});
+        requestItem->_callback(static_cast<Error>(ErrorCondition::CouldNotConnect),
+            std::move(requestItem->_request), {nullptr});
         break;
 
       case CURLE_OPERATION_TIMEDOUT:
       case CURLE_RECV_ERROR:
       case CURLE_GOT_NOTHING:
-        requestItem->_request._callback(static_cast<Error>(ErrorCondition::Timeout),
-            std::move(requestItem->_request._fuRequest), {nullptr});
+        requestItem->_callback(static_cast<Error>(ErrorCondition::Timeout),
+            std::move(requestItem->_request), {nullptr});
         break;
 
       default:
         FUERTE_LOG_ERROR << "Curl return " << rc << "\n";
-        requestItem->_request._callback(static_cast<Error>(ErrorCondition::CurlError),
-            std::move(requestItem->_request._fuRequest), {nullptr});
+        requestItem->_callback(static_cast<Error>(ErrorCondition::CurlError),
+            std::move(requestItem->_request), {nullptr});
         break;
     }
   } catch (std::exception const& e) {

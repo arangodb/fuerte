@@ -187,9 +187,10 @@ void VstConnection::shutdownConnection() {
 }
 
 void VstConnection::restartConnection(){
+  assert(false);
   FUERTE_LOG_CALLBACKS << "restartConnection" << std::endl;
   shutdownConnection();
-  initSocket();
+  startResolveHost();
 }
 
 // ------------------------------------
@@ -482,7 +483,7 @@ void VstConnection::startWriting() {
   {
     std::lock_guard<std::mutex> lock(_writeLoop._mutex);
     if (_writeLoop._current) {
-      // There is already a read loop, do nothing 
+      // There is already a write loop, do nothing 
       return;
     }
     // There is no current write loop, create one 

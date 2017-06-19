@@ -75,19 +75,13 @@ class HttpConnection : public Connection {
   uint64_t queueRequest(Destination, std::unique_ptr<Request>, RequestCallback);
 
  private:
-  // NewRequest holds all data needed to create a new request.
-  struct NewRequest {
-    Destination _destination;
-    std::unique_ptr<Request> _fuRequest;
-    RequestCallback _callback;
-    Options _options;
-  };
-
   // RequestItem contains all data of a single request that is ongoing.
   class RequestItem {
    public:
-    RequestItem(NewRequest request)
-        : _request(std::move(request)),
+    RequestItem(const Destination& destination, std::unique_ptr<Request> request, RequestCallback callback)
+        : _destination(destination),
+          _request(std::move(request)),
+          _callback(callback),
           _requestHeaders(nullptr),
           _startTime(std::chrono::steady_clock::now()) {
       _errorBuffer[0] = '\0';
@@ -119,13 +113,16 @@ class HttpConnection : public Connection {
     // return the CURL EASY handle.
     inline CURL* handle() const { return _handle; }
 
-    inline MessageID messageID() { return _request._fuRequest->messageID; }
+    inline MessageID messageID() { return _request->messageID; }
     inline void invokeOnError(Error e, std::unique_ptr<Request> req, std::unique_ptr<Response> res) { 
-      _request._callback(e, std::move(req), std::move(res));
+      _callback(e, std::move(req), std::move(res));
     }
 
    public:
-    NewRequest _request;
+    Destination _destination;
+    std::unique_ptr<Request> _request;
+    RequestCallback _callback;
+    Options _options;
     std::string _requestBody;
     struct curl_slist* _requestHeaders;
 
@@ -149,7 +146,7 @@ class HttpConnection : public Connection {
   static void logHttpBody(std::string const&, std::string const&);
 
  private:
-  void createRequestIem(NewRequest);
+  void createRequestItem(const Destination& destination, std::unique_ptr<Request> request, RequestCallback callback);
   void handleResult(CURL*, CURLcode);
   void transformResult(CURL*, mapss&&, std::string const&, Response*);
 

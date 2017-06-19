@@ -207,13 +207,20 @@ void CurlMultiAsio::assertCurlOK(const char *where, CURLMcode code)
 // Check for completed transfers, and perform callback on them.
 void CurlMultiAsio::check_multi_info(int still_running)
 {
-  CURLMsg *msg;
-  int msgs_left;
+  int msgs_left = 0;
  
   _requests_left = still_running;
   FUERTE_LOG_HTTPTRACE << "check_multi_info: still_running=" << still_running << std::endl;
  
-  while ((msg = curl_multi_info_read(_multi, &msgs_left))) {
+  while (true) {
+    CURLMsg* msg;
+    { 
+      std::lock_guard<std::recursive_mutex> lock(_multi_mutex);
+      msg = curl_multi_info_read(_multi, &msgs_left);
+    }
+    if (!msg) {
+      break;
+    }
     if (msg->msg == CURLMSG_DONE) {
       auto easy = msg->easy_handle;
       auto result = msg->data.result;

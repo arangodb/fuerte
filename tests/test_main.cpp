@@ -1,6 +1,7 @@
 #include "test_main.h"
 #include <execinfo.h>
 #include <signal.h>
+#include <stdlib.h>
 
 using namespace std;
 
@@ -29,8 +30,18 @@ void handler(int sig) {
 }
 
 int main(int argc, char** argv) {
-  //signal(SIGSEGV, handler);                // install our handler
-  ::testing::InitGoogleTest(&argc, argv);  // removes google test parameters
-  arguments = parse_args(argc, argv);      // init global Schmutz
-  return RUN_ALL_TESTS();
+  while (true) {
+    //signal(SIGSEGV, handler);                // install our handler
+    ::testing::InitGoogleTest(&argc, argv);  // removes google test parameters
+    arguments = parse_args(argc, argv);      // init global Schmutz
+    auto rc = RUN_ALL_TESTS();
+    if (rc) {
+      // Test failed
+      return rc;
+    }
+    if (getenv("CONTINUOUS_TEST") == nullptr) {
+      // No need for continuous testing, return.
+      return 0;
+    }
+  }
 }
