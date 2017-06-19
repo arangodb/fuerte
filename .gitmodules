@@ -1,12 +1,3 @@
-[submodule "driver/3rdParty/velocypack"]
-	path = driver/3rdParty/velocypack
-	url = https://github.com/arangodb/velocypack
-[submodule "arango-cxx-driver/3rdParty/velocypack"]
-	path = 3rdParty/velocypack
-	url = https://github.com/arangodb/velocypack
 [submodule "arango-cxx-driver/3rdParty/googletest"]
 	path = 3rdParty/googletest
 	url = https://github.com/google/googletest.git
-[submodule "arango-cxx-driver/3rdParty/cmake-for-boost"]
-	path = 3rdParty/cmake-for-boost
-	url = https://github.com/arangodb-helper/cmake-for-boost
