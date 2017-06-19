@@ -26,12 +26,7 @@ include_directories(${OPENSSL_INCLUDE_DIR})
 find_package(Threads REQUIRED)
 
 set(CMAKE_BOOST_COMPONENTS "system" "thread")
-find_package(Boost COMPONENTS ${CMAKE_BOOST_COMPONENTS})
-if(Boost_FOUND)
-    message(STATUS "== Using Boost provided by your system")
-else()
-    add_subdirectory(3rdParty/cmake-for-boost)
-endif()
+find_package(Boost REQUIRED COMPONENTS ${CMAKE_BOOST_COMPONENTS})
 
 option(BuildVelocyPackExamples "Build examples" OFF)
 add_subdirectory(3rdParty/velocypack)
@@ -69,8 +64,7 @@ endif()
 target_link_libraries(fuerte PUBLIC
     velocypack
     curlpp
-    Boost::system
-    Boost::thread
+    ${Boost_LIBRARIES}
     ${OPENSSL_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
 )
