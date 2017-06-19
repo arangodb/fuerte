@@ -34,8 +34,8 @@ find_package(CURL REQUIRED)
 include(FindVelocypack)
 find_package(Velocypack)
 
-if (!VELOCYPACK_FOUND)
-    message(FATAL_ERROR, "Velocypack not found. Clone from https://github.com/arangodb/velocypack and install it")
+if (NOT ${VELOCYPACK_FOUND})
+    message(FATAL_ERROR "Velocypack not found. Clone from https://github.com/arangodb/velocypack and install it")
 endif()
 
 #########################################################################################
