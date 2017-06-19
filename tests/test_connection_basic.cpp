@@ -37,7 +37,7 @@ TEST_P(ConnectionTestF, ApiVersionSync){
   auto version = slice.get("version").copyString();
   auto server = slice.get("server").copyString();
   ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
-  ASSERT_TRUE(version[0] == '3');
+  ASSERT_TRUE(version[0] == _major_arango_version);
 }
 
 TEST_P(ConnectionTestF, ApiVersionASync){
@@ -52,7 +52,7 @@ TEST_P(ConnectionTestF, ApiVersionASync){
       auto version = slice.get("version").copyString();
       auto server = slice.get("server").copyString();
       ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
-      ASSERT_TRUE(version[0] == '3');
+      ASSERT_TRUE(version[0] == _major_arango_version);
     }
   };
   wg.add();
@@ -69,7 +69,7 @@ TEST_P(ConnectionTestF, ApiVersionSync20){
     auto version = slice.get("version").copyString();
     auto server = slice.get("server").copyString();
     ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
-    ASSERT_TRUE(version[0] == '3');
+    ASSERT_TRUE(version[0] == _major_arango_version);
   }
 }
 
@@ -85,7 +85,7 @@ TEST_P(ConnectionTestF, ApiVersionASync20){
       auto version = slice.get("version").copyString();
       auto server = slice.get("server").copyString();
       ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
-      ASSERT_TRUE(version[0] == '3');
+      ASSERT_TRUE(version[0] == _major_arango_version);
     }
   };
   fu::Request req = *request;
@@ -169,8 +169,10 @@ TEST_P(ConnectionTestF, ShortAndLongASync){
 }
 
 const ConnectionTestParams connectionTestParams[] = {
-  {._url= "http://127.0.0.1:8529"},
-  {._url= "vst://127.0.0.1:8529"},
+  {._url= "http://127.0.0.1:8529", ._threads=1},
+  {._url= "vst://127.0.0.1:8529", ._threads=1},
+  {._url= "http://127.0.0.1:8529", ._threads=4},
+  {._url= "vst://127.0.0.1:8529", ._threads=4},
 };
 
 INSTANTIATE_TEST_CASE_P(BasicConnectionTests, ConnectionTestF,

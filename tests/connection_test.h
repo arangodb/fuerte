@@ -32,6 +32,7 @@ namespace f = ::arangodb::fuerte;
 
 typedef struct {
   const char *_url;
+  const size_t _threads;
 } ConnectionTestParams;
 
 ::std::ostream& operator<<(::std::ostream& os, const ConnectionTestParams& p) {
@@ -42,15 +43,19 @@ typedef struct {
 // tests.
 // You can configure it using the ConnectionTestParams struct.
 class ConnectionTestF : public ::testing::TestWithParam<ConnectionTestParams> {
+ public:
+  const char _major_arango_version = '3';
  protected:
-  ConnectionTestF() {}
+  ConnectionTestF() {
+    _eventLoopService = std::unique_ptr<f::EventLoopService>(new f::EventLoopService(GetParam()._threads));
+  }
   virtual ~ConnectionTestF() noexcept {}
 
   virtual void SetUp() override {
     try {
       f::ConnectionBuilder cbuilder;
       cbuilder.host(GetParam()._url);
-      _connection = cbuilder.connect(_eventLoopService);
+      _connection = cbuilder.connect(*_eventLoopService);
     } catch(std::exception const& ex) {
       std::cout << "SETUP OF FIXTURE FAILED" << std::endl;
       throw ex;
@@ -64,6 +69,6 @@ class ConnectionTestF : public ::testing::TestWithParam<ConnectionTestParams> {
   std::shared_ptr<f::Connection> _connection;
 
  private:
-  f::EventLoopService _eventLoopService;
+  std::unique_ptr<f::EventLoopService> _eventLoopService;
 };
 
