@@ -23,16 +23,6 @@
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
-VpackInit::VpackInit() : _translator(new arangodb::velocypack::AttributeTranslator){
-    _translator->add("_key", uint8_t(1));
-    _translator->add("_rev", uint8_t(2));
-    _translator->add("_id", uint8_t(3));
-    _translator->add("_from", uint8_t(4));
-    _translator->add("_to", uint8_t(5));
-    _translator->seal();
-    arangodb::velocypack::Options::Defaults.attributeTranslator = _translator.get();
-}
-
 RestVerb to_RestVerb(std::string const& value) {
   std::string lowercase;
   lowercase.reserve(value.size());

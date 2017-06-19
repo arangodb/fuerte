@@ -104,11 +104,15 @@ class ConnectionBuilder {
     // Create an connection and start opening it.
     std::shared_ptr<Connection> connect(EventLoopService& eventLoopService);
 
-    ConnectionBuilder& async(bool b){ _conf._async = b; return *this; }
+    // Set the username of the connection
     ConnectionBuilder& user(std::string const& u){ _conf._user = u; return *this; }
+    // Set the password of the connection
     ConnectionBuilder& password(std::string const& p){ _conf._password = p; return *this; }
+    // Set the maximum size for chunks (VST only)
     ConnectionBuilder& maxChunkSize(std::size_t c){ _conf._maxChunkSize = c; return *this; }
+    // Set the VST version to use (VST only)
     ConnectionBuilder& vstVersion(vst::VSTVersion c){ _conf._vstVersion = c; return *this; }
+    // Set a callback for connection failures that are not request specific.
     ConnectionBuilder& onFailure(ConnectionFailureCallback c){ _conf._onFailure = c; return *this; }
 
   private:

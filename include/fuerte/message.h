@@ -18,6 +18,7 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author Jan Christoph Uhde
+/// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #ifndef ARANGO_CXX_DRIVER_MESSAGE
@@ -197,8 +198,6 @@ private:
   size_t _payloadOffset;
   std::vector<VSlice> _slices;
 };
-
-//std::unique_ptr<Response> createResponse(unsigned code);
 
 }}}
 #endif

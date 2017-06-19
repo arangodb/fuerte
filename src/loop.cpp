@@ -29,14 +29,14 @@
 #include <fuerte/loop.h>
 #include <fuerte/types.h>
 
+#include "VpackInit.h"
+
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
-static VpackInit init;
-
-class LoopProvider;
 class VstConnection;
 
-GlobalService::GlobalService() { 
+GlobalService::GlobalService() :
+  _vpack_init(new impl::VpackInit()) { 
   FUERTE_LOG_DEBUG << "GlobalService init" << std::endl;
   ::curl_global_init(CURL_GLOBAL_ALL); 
 }

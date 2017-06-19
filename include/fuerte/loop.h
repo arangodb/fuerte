@@ -36,14 +36,16 @@
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
-class Loop;
-
 namespace vst {
   class VstConnection;
 }
 
 namespace http {
   class HttpConnection;
+}
+
+namespace impl {
+  class VpackInit;
 }
 
 // need partial rewrite so it can be better integrated in client applications
@@ -69,6 +71,9 @@ class GlobalService {
   // Prevent copying
   GlobalService(GlobalService const& other) = delete;
   GlobalService& operator=(GlobalService const& other) = delete;
+
+ private:
+  std::unique_ptr<impl::VpackInit> _vpack_init; 
 };
 
 // EventLoopService implements multi-threaded event loops for

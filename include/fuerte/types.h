@@ -18,6 +18,7 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author Jan Christoph Uhde
+/// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 
@@ -40,8 +41,7 @@ class Request;
 class Response;
 
 using Error = std::uint32_t;
-using MessageID = uint64_t; //id that identifies a vst::request
-using Ticket = MessageID;
+using MessageID = uint64_t; // id that identifies a Request.
 
 // RequestCallback is called for finished connection requests.
 // If the given Error is zero, the request succeeded, otherwise an error occurred.
@@ -61,14 +61,6 @@ using VValue = arangodb::velocypack::Value;
 
 using mapss = std::map<std::string,std::string>;
 using NetBuffer = std::string;
-
-//move to some other place
-class VpackInit {
-    std::unique_ptr<arangodb::velocypack::AttributeTranslator> _translator;
-  public:
-    VpackInit();
-};
-
 
 // -----------------------------------------------------------------------------
 // --SECTION--                                         enum class ErrorCondition
@@ -164,17 +156,15 @@ namespace detail {
     ConnectionConfiguration()
       : _connType(TransportType::Vst)
       , _ssl(true)
-      , _async(false)
       , _host("localhost")
-      , _user("root")
-      , _password("foppels")
+      , _user("")
+      , _password("")
       , _maxChunkSize(5000ul) // in bytes
       , _vstVersion(vst::VST1_0)
       {}
 
     TransportType _connType; // vst or http
     bool _ssl;
-    bool _async;
     std::string _host;
     std::string _port;
     std::string _user;
