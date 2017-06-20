@@ -46,9 +46,6 @@ using bt = ::boost::asio::ip::tcp;
 using be = ::boost::asio::ip::tcp::endpoint;
 using BoostEC = ::boost::system::error_code;
 using RequestItemSP = std::shared_ptr<RequestItem>;
-using Lock = std::lock_guard<std::mutex>;
-typedef std::unique_ptr<Request> RequestUP;
-typedef std::unique_ptr<Response> ResponseUP;
 
 // sendRequest prepares a RequestItem for the given parameters
 // and adds it to the send queue.
