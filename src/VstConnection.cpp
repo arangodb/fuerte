@@ -172,7 +172,7 @@ void VstConnection::shutdownSocket() {
 }
 
 // shutdown the connection and cancel all pending messages.
-void VstConnection::shutdownConnection() {
+void VstConnection::shutdownConnection(const ErrorCondition error) {
   FUERTE_LOG_CALLBACKS << "shutdownConnection" << std::endl;
 
   // Stop the read & write loop 
@@ -183,13 +183,19 @@ void VstConnection::shutdownConnection() {
   shutdownSocket();
 
   // Cancel all items and remove them from the message store.
-  _messageStore.cancelAll();
+  _messageStore.cancelAll(error);
 }
 
-void VstConnection::restartConnection(){
-  assert(false);
+void VstConnection::restartConnection(const ErrorCondition error){
+  // Read & write loop must have been reset by now 
+  assert(!_readLoop._current);
+  assert(!_writeLoop._current);
+
   FUERTE_LOG_CALLBACKS << "restartConnection" << std::endl;
-  shutdownConnection();
+  // Terminate connection
+  shutdownConnection(error);
+
+  // Initiate new connection
   startResolveHost();
 }
 
@@ -346,6 +352,23 @@ bool VstConnection::shouldStopReading(const ReadLoop* readLoop) {
   return false;
 }
 
+// Restart the connection if the given ReadLoop is still the current read loop.
+void VstConnection::restartConnection(const ReadLoop* readLoop, const ErrorCondition error) {
+  {
+    // Claim read & write loop mutex, so we can prevent that the ReadLoop & WriteLoop each restart
+    // the connection, resulting in a double restart.
+    std::unique_lock<std::mutex> readLoopLock(_readLoop._mutex, std::defer_lock);
+    std::unique_lock<std::mutex> writeLoopLock(_writeLoop._mutex, std::defer_lock);
+    std::lock(readLoopLock, writeLoopLock);
+    if (_readLoop._current.get() != readLoop) {
+      return;
+    }
+    _readLoop._current.reset();
+    _writeLoop._current.reset();
+  }
+  restartConnection(error);
+}
+
 // start the read loop 
 void VstConnection::ReadLoop::start() {
   auto wasStarted = _started.exchange(true);
@@ -366,14 +389,16 @@ void VstConnection::ReadLoop::readNextBytes() {
   }
 
   // Start reading data from the network.
-  _deadline.expires_from_now(boost::posix_time::seconds(30));
-  // TODO async_wait for timeout 
-
   FUERTE_LOG_CALLBACKS << "r";
 #if ENABLE_FUERTE_LOG_CALLBACKS > 0
   std::cout << "_messageMap = " << _connection->_messageStore.keys() << std::endl;
 #endif
+
+  // Set timeout 
   auto self = shared_from_this();
+  _deadline.expires_from_now(boost::posix_time::seconds(30));
+  _deadline.async_wait(boost::bind(&ReadLoop::deadlineHandler, self, _1));
+
   _connection->_async_calls++;
   ba::async_read(*_socket, _receiveBuffer, ba::transfer_at_least(1),
     boost::bind(&ReadLoop::asyncReadCallback, self, _1, _2));
@@ -383,13 +408,16 @@ void VstConnection::ReadLoop::readNextBytes() {
 
 // asyncReadCallback is called when readNextBytes is resulting in some data.
 void VstConnection::ReadLoop::asyncReadCallback(const boost::system::error_code& error, std::size_t transferred) {
+  // Cancel deadline
+  _deadline.cancel();
+
   auto pendingAsyncCalls = --_connection->_async_calls;
   if (error) {
     FUERTE_LOG_CALLBACKS << "asyncReadCallback: Error while reading form socket";
     FUERTE_LOG_ERROR << error.message() << std::endl;
 
     // Restart connection, this will trigger a release of the readloop.
-    _connection->restartConnection(); 
+    _connection->restartConnection(this, ErrorCondition::VstReadError); 
   } else {
     FUERTE_LOG_CALLBACKS << "asyncReadCallback: received " << transferred << " bytes async-calls=" << pendingAsyncCalls << std::endl;
 
@@ -422,6 +450,15 @@ void VstConnection::ReadLoop::asyncReadCallback(const boost::system::error_code&
 
     // Continue reading data
     readNextBytes();
+  }
+}
+
+// handler for deadline timer
+void VstConnection::ReadLoop::deadlineHandler(const boost::system::error_code& error) {
+  if (!error) {
+    // Stop current connection and try to restart a new one.
+    // This will reset the current write loop.
+    _connection->restartConnection(this, ErrorCondition::Timeout);
   }
 }
 
@@ -533,6 +570,23 @@ std::shared_ptr<RequestItem> VstConnection::getNextRequestToSend(const WriteLoop
   return next;
 }
 
+// Restart the connection if the given WriteLoop is still the current write loop.
+void VstConnection::restartConnection(const WriteLoop* writeLoop, const ErrorCondition error) {
+  {
+    // Claim read & write loop mutex, so we can prevent that the ReadLoop & WriteLoop each restart
+    // the connection, resulting in a double restart.
+    std::unique_lock<std::mutex> readLoopLock(_readLoop._mutex, std::defer_lock);
+    std::unique_lock<std::mutex> writeLoopLock(_writeLoop._mutex, std::defer_lock);
+    std::lock(readLoopLock, writeLoopLock);
+    if (_writeLoop._current.get() != writeLoop) {
+      return;
+    }
+    _readLoop._current.reset();
+    _writeLoop._current.reset();
+  }
+  restartConnection(error);
+}
+
 // start the write loop 
 void VstConnection::WriteLoop::start() {
   auto wasStarted = _started.exchange(true);
@@ -562,6 +616,11 @@ void VstConnection::WriteLoop::sendNextRequest() {
   auto self = shared_from_this();
   assert(next);
   assert(next->_requestBuffers.size());
+
+  // Set timeout 
+  _deadline.expires_from_now(boost::posix_time::seconds(30));
+  _deadline.async_wait(boost::bind(&WriteLoop::deadlineHandler, self, _1));
+
 /*#ifdef FUERTE_CHECKED_MODE
   FUERTE_LOG_VSTTRACE << "Checking outgoing data for message: " << next->_messageID << std::endl;
   auto vstChunkHeader = vst::readChunkHeaderV1_0(data.data());
@@ -580,6 +639,9 @@ void VstConnection::WriteLoop::sendNextRequest() {
 
 // callback of async_write function that is called in sendNextRequest.
 void VstConnection::WriteLoop::asyncWriteCallback(BoostEC const& error, std::size_t transferred, RequestItemSP item) {
+  // Cancel deadline 
+  _deadline.cancel();
+
   auto pendingAsyncCalls = --_connection->_async_calls;
   if (error) {
     // Send failed
@@ -594,7 +656,7 @@ void VstConnection::WriteLoop::asyncWriteCallback(BoostEC const& error, std::siz
 
     // Stop current connection and try to restart a new one.
     // This will reset the current write loop.
-    _connection->restartConnection();
+    _connection->restartConnection(this, ErrorCondition::VstWriteError);
   } else {
     // Send succeeded
     FUERTE_LOG_CALLBACKS << "asyncWriteCallback: send succeeded, " << transferred << " bytes transferred async-calls=" << pendingAsyncCalls << std::endl;
@@ -607,4 +669,14 @@ void VstConnection::WriteLoop::asyncWriteCallback(BoostEC const& error, std::siz
     sendNextRequest();
   }
 }
+
+// handler for deadline timer
+void VstConnection::WriteLoop::deadlineHandler(const boost::system::error_code& error) {
+  if (!error) {
+    // Stop current connection and try to restart a new one.
+    // This will reset the current write loop.
+    _connection->restartConnection(this, ErrorCondition::Timeout);
+  }
+}
+
 }}}}

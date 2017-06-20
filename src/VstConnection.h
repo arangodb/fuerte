@@ -97,8 +97,8 @@ private:
   // SOCKET HANDLING /////////////////////////////////////////////////////////
   void initSocket();
   void shutdownSocket();
-  void shutdownConnection();
-  void restartConnection();
+  void shutdownConnection(const ErrorCondition = ErrorCondition::CanceledDuringReset);
+  void restartConnection(const ErrorCondition = ErrorCondition::CanceledDuringReset);
 
   // resolve the host into a series of endpoints 
   void startResolveHost();
@@ -122,6 +122,8 @@ private:
   // called by a ReadLoop to decide if it must stop.
   // returns true when the given loop should stop.
   bool shouldStopReading(const ReadLoop*);
+  // Restart the connection if the given ReadLoop is still the current read loop.
+  void restartConnection(const ReadLoop*, const ErrorCondition);
 
   // Process the given incoming chunk.
   void processChunk(ChunkHeader &chunk);
@@ -137,6 +139,8 @@ private:
   // called by a WriteLoop to request for the next request that will be written.
   // If there is no more work, nullptr is returned and the given loop must stop.
   std::shared_ptr<RequestItem> getNextRequestToSend(const WriteLoop*);
+  // Restart the connection if the given WriteLoop is still the current read loop.
+  void restartConnection(const WriteLoop*, const ErrorCondition);
 
 private:
   const VSTVersion _vstVersion;
@@ -237,6 +241,8 @@ private:
     // takes complete chunks form the socket and starts a new read action. After
     // triggering the next read it processes the received data.
     void asyncReadCallback(boost::system::error_code const&, std::size_t transferred);
+    // handler for deadline timer
+    void deadlineHandler(const boost::system::error_code& error);
 
    private:
     std::shared_ptr<VstConnection> _connection;
@@ -263,6 +269,8 @@ private:
     void sendNextRequest();
     // handler for boost::asio::async_wirte that calls startWrite as long as there is new data
     void asyncWriteCallback(boost::system::error_code const&, std::size_t transferred, std::shared_ptr<RequestItem>);
+    // handler for deadline timer
+    void deadlineHandler(const boost::system::error_code& error);
 
    private:
     std::shared_ptr<VstConnection> _connection;
