@@ -302,9 +302,8 @@ void HttpConnection::createRequestItem(const Destination& destination, std::uniq
     connectTimeout = 1;
   }
 
-  curl_easy_setopt(
-      handle, CURLOPT_TIMEOUT_MS,
-      static_cast<long>(requestItem->_options.requestTimeout * 1000));
+  auto reqTimeout = std::chrono::duration_cast<std::chrono::milliseconds>(requestItem->_request->timeout());
+  curl_easy_setopt(handle, CURLOPT_TIMEOUT_MS, reqTimeout.count());
   curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT, connectTimeout);
 
   auto verb = fuRequest->header.restVerb.get();

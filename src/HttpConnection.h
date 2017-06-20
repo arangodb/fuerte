@@ -69,7 +69,6 @@ class HttpConnection : public Connection {
  private:
   class Options {
   public:
-    double requestTimeout = 120.0;
     double connectionTimeout = 2.0;
   };
 

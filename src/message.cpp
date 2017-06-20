@@ -193,6 +193,8 @@ ContentType Message::acceptType() const {
 // class Request
 ///////////////////////////////////////////////
 
+std::chrono::milliseconds Request::_defaultTimeout = std::chrono::milliseconds(30*1000);
+
 void Request::acceptType(std::string const& type) {
   header.acceptType(type);
 }

@@ -24,13 +24,15 @@
 #ifndef ARANGO_CXX_DRIVER_MESSAGE
 #define ARANGO_CXX_DRIVER_MESSAGE
 
+#include <chrono>
+#include <map>
+#include <string>
+#include <vector>
+
 #include "types.h"
 
 #include <boost/optional.hpp>
 #include <boost/asio/buffer.hpp>
-#include <string>
-#include <vector>
-#include <map>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
@@ -120,6 +122,7 @@ public:
 
 // Request contains the message send to a server in a request.
 class Request : public Message {
+  static std::chrono::milliseconds _defaultTimeout;
 public:
   Request(MessageHeader&& messageHeader = MessageHeader(), mapss&& headerStrings = mapss())
     : Message(std::move(messageHeader), std::move(headerStrings)),
@@ -127,7 +130,8 @@ public:
       _modified(true),
       _isVpack(boost::none),
       _builder(nullptr),
-      _payloadLength(0)
+      _payloadLength(0),
+      _timeout(std::chrono::duration_cast<std::chrono::milliseconds>(_defaultTimeout))
          {
            header.type = MessageType::Request;
          }
@@ -137,7 +141,8 @@ public:
       _modified(true),
       _isVpack(boost::none),
       _builder(nullptr),
-      _payloadLength(0)
+      _payloadLength(0),
+      _timeout(std::chrono::duration_cast<std::chrono::milliseconds>(_defaultTimeout))
          {
            header.type = MessageType::Request;
          }
@@ -158,12 +163,17 @@ public:
   // accept header accessors
   void acceptType(std::string const& type);
   void acceptType(ContentType type);
-
+  
   ///////////////////////////////////////////////
   // get payload
   ///////////////////////////////////////////////
   virtual std::vector<VSlice>const & slices() override;
   virtual boost::asio::const_buffer payload() const override; 
+
+  // get timeout 
+  inline std::chrono::milliseconds timeout() const { return _timeout; }
+  // set timeout 
+  void timeout(std::chrono::milliseconds timeout) { _timeout = timeout; }
 
 private:
   VBuffer _payload;
@@ -174,6 +184,7 @@ private:
   std::vector<VSlice> _slices;
   std::size_t _payloadLength; // because VPackBuffer has quirks we need
                               // to track the Length manually
+  std::chrono::milliseconds _timeout;
 };
 
 // Response contains the message resulting from a request to a server.

@@ -121,7 +121,7 @@ private:
   void stopReading();
   // called by a ReadLoop to decide if it must stop.
   // returns true when the given loop should stop.
-  bool shouldStopReading(const ReadLoop*);
+  bool shouldStopReading(const ReadLoop*, std::chrono::milliseconds& timeout);
   // Restart the connection if the given ReadLoop is still the current read loop.
   void restartConnection(const ReadLoop*, const ErrorCondition);
 

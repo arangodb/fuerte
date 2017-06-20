@@ -25,6 +25,7 @@
 #define ARANGO_CXX_DRIVER_MESSAGE_STORE_H 1
 
 #include <atomic>
+#include <chrono>
 #include <mutex>
 #include <map>
 #include <deque>
@@ -86,6 +87,23 @@ class MessageStore {
     } else {
       std::lock_guard<std::mutex> lockMap(_mutex);
       return _map.empty();
+    }
+  }
+
+  // minimumTimeout returns the lowest timeout value of all messages in this store.
+  std::chrono::milliseconds minimumTimeout(bool unlocked = false) {
+    if (unlocked) {
+      std::chrono::milliseconds min(2*60*1000); // If there is no message, use a timeout of 2 minutes.
+      for (auto& item : _map) {
+        auto reqTimeout = std::chrono::duration_cast<std::chrono::milliseconds>(item.second->_request->timeout());
+        if (reqTimeout.count() < min.count()) {
+          min = reqTimeout;
+        }
+      }
+      return min;
+    } else {
+      std::lock_guard<std::mutex> lockMap(_mutex);
+      return minimumTimeout(true);
     }
   }
 

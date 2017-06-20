@@ -327,7 +327,7 @@ void VstConnection::stopReading() {
 
 // called by a ReadLoop to decide if it must stop.
 // returns true when the given loop should stop.
-bool VstConnection::shouldStopReading(const ReadLoop* readLoop) {
+bool VstConnection::shouldStopReading(const ReadLoop* readLoop, std::chrono::milliseconds& timeout) {
   // Claim exclusive access 
   std::unique_lock<std::mutex> readLoopLock(_readLoop._mutex, std::defer_lock);
   std::unique_lock<std::mutex> queueLock(_sendQueue.mutex(), std::defer_lock);
@@ -349,6 +349,7 @@ bool VstConnection::shouldStopReading(const ReadLoop* readLoop) {
   }
 
   // Continue read loop
+  timeout = _messageStore.minimumTimeout(true);
   return false;
 }
 
@@ -383,7 +384,8 @@ void VstConnection::ReadLoop::readNextBytes() {
   FUERTE_LOG_CALLBACKS << "-";
 
   // Ask the connection if we should terminate.
-  if (_connection->shouldStopReading(this)) {
+  std::chrono::milliseconds timeout;
+  if (_connection->shouldStopReading(this, timeout)) {
     FUERTE_LOG_VSTTRACE << "readNextBytes: stopping read loop" << std::endl;
     return;    
   }
@@ -396,7 +398,7 @@ void VstConnection::ReadLoop::readNextBytes() {
 
   // Set timeout 
   auto self = shared_from_this();
-  _deadline.expires_from_now(boost::posix_time::seconds(30));
+  _deadline.expires_from_now(boost::posix_time::milliseconds(timeout.count()));
   _deadline.async_wait(boost::bind(&ReadLoop::deadlineHandler, self, _1));
 
   _connection->_async_calls++;
@@ -618,7 +620,8 @@ void VstConnection::WriteLoop::sendNextRequest() {
   assert(next->_requestBuffers.size());
 
   // Set timeout 
-  _deadline.expires_from_now(boost::posix_time::seconds(30));
+  auto reqTimeout = std::chrono::duration_cast<std::chrono::milliseconds>(next->_request->timeout());
+  _deadline.expires_from_now(boost::posix_time::milliseconds(reqTimeout.count()));
   _deadline.async_wait(boost::bind(&WriteLoop::deadlineHandler, self, _1));
 
 /*#ifdef FUERTE_CHECKED_MODE
