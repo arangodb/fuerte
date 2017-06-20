@@ -117,7 +117,7 @@ void VstConnection::startResolveHost() {
   _resolver->async_resolve({_configuration._host, _configuration._port},
     [this, self](const boost::system::error_code& error, bt::resolver::iterator iterator) {
       if (error) {
-        FUERTE_LOG_ERROR << "resolve failed: error=" << error << std::endl;
+        FUERTE_LOG_DEBUG << "resolve failed: error=" << error << std::endl;
         onFailure(errorToInt(ErrorCondition::CouldNotConnect), "resolved failed: error" + error.message());
       } else {
         FUERTE_LOG_CALLBACKS << "resolve succeeded" << std::endl;
@@ -220,7 +220,7 @@ void VstConnection::startConnect(bt::resolver::iterator endpointItr){
 void VstConnection::asyncConnectCallback(BoostEC const& error, bt::resolver::iterator endpointItr) {
   if (error) {
     // Connection failed
-    FUERTE_LOG_ERROR << error.message() << std::endl;
+    FUERTE_LOG_DEBUG << error.message() << std::endl;
     shutdownConnection();
     if(endpointItr == bt::resolver::iterator()) {
       FUERTE_LOG_CALLBACKS << "no further endpoint" << std::endl;

@@ -24,8 +24,9 @@
 #ifndef ARANGO_CXX_DRIVER_WAITGROUP
 #define ARANGO_CXX_DRIVER_WAITGROUP
 
-#include <mutex>
+#include <chrono>
 #include <condition_variable>
+#include <mutex>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
@@ -72,6 +73,18 @@ class WaitGroup {
       return;
     }
     _conditionVar.wait(lock, [&]{ return (_counter == 0); });
+  }
+
+  // wait for all events to have finished or a timeout occurs.
+  // If no events have been added, this will return immediately.
+  // Returns true when all events have finished, false on timeout.
+  template <class Rep, class Period>
+  bool wait_for(const std::chrono::duration<Rep,Period>& rel_time) {
+    std::unique_lock<std::mutex> lock(_mutex);
+    if (_counter == 0) {
+      return true;
+    }
+    return _conditionVar.wait_for(lock, rel_time, [&]{ return (_counter == 0); });
   }
 
  private:

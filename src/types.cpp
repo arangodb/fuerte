@@ -243,6 +243,8 @@ std::string to_string(ErrorCondition error){
       return "Error: writing vst";
     case ErrorCondition::CanceledDuringReset:
       return "Error: cancel as result of other error";
+    case ErrorCondition::MalformedURL:
+      return "Error: malformed URL";
 
     case ErrorCondition::CurlError:
       return "Error: in curl";

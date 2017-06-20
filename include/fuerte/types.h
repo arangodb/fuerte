@@ -74,8 +74,9 @@ enum class ErrorCondition : Error {
   CouldNotConnect = 1001,
   Timeout = 1002,
   VstReadError = 1102,
-  VstWriteError =1103,
+  VstWriteError = 1103,
   CanceledDuringReset = 1104,
+  MalformedURL = 1105,
 
   CurlError = 3000,
 

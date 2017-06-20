@@ -414,9 +414,17 @@ void HttpConnection::handleResult(CURL* handle, CURLcode rc) {
       }
 
       case CURLE_COULDNT_CONNECT:
+        onFailure(static_cast<Error>(ErrorCondition::CouldNotConnect), "connect failed");
+        break;
       case CURLE_SSL_CONNECT_ERROR:
+        onFailure(static_cast<Error>(ErrorCondition::CouldNotConnect), "ssl connect failed");
+        break;
       case CURLE_COULDNT_RESOLVE_HOST:
+        onFailure(static_cast<Error>(ErrorCondition::CouldNotConnect), "resolve host failed");
+        break;
       case CURLE_URL_MALFORMAT:
+        requestItem->_callback.invoke(static_cast<Error>(ErrorCondition::MalformedURL), std::move(requestItem->_request), {nullptr});
+        break;
       case CURLE_SEND_ERROR:
         requestItem->_callback.invoke(static_cast<Error>(ErrorCondition::CouldNotConnect), std::move(requestItem->_request), {nullptr});
         break;
@@ -429,6 +437,7 @@ void HttpConnection::handleResult(CURL* handle, CURLcode rc) {
 
       default:
         FUERTE_LOG_ERROR << "Curl return " << rc << "\n";
+        onFailure(static_cast<Error>(ErrorCondition::CurlError), "unknown curl error");
         requestItem->_callback.invoke(static_cast<Error>(ErrorCondition::CurlError), std::move(requestItem->_request), {nullptr});
         break;
     }
