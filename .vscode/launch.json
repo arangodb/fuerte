@@ -1,6 +1,14 @@
 {
     "version": "0.2.0",
     "configurations": [
+        { 
+            "name": "(lldb) Attach",
+            "type": "cppdbg",
+            "request": "attach",
+            "program": "${workspaceRoot}/.build-dev/tests/test_main",
+            "processId": "${command:pickProcess}",
+            "MIMode": "lldb"
+        },
         {
             "name": "(lldb) Launch",
             "type": "cppdbg",
@@ -9,7 +17,7 @@
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceRoot}",
-            "environment": [],
+            "environment": [{"name":"CONTINUOUS_TEST", "value":"1"}],
             "externalConsole": true,
             "MIMode": "lldb"
         }
