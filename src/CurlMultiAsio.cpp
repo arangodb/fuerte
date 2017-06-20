@@ -253,19 +253,6 @@ void CurlMultiAsio::event_cb(curl_socket_t s, int action,
   FUERTE_LOG_HTTPTRACE << "event_cb: socket=" << s << " action=" << curlWhat(action) << " async-calls=" << ctr << " socketp=" << socketp << std::endl;
 #endif
 
-  /*{
-    // Find socket to work on
-    std::lock_guard<std::mutex> lock(_map_mutex);
-    if (_socket_map.find(s) == _socket_map.end()) {
-      FUERTE_LOG_HTTPTRACE << "event_cb: socket already closed" << std::endl;
-      return;
-    }
-  }*/
-
-  // make sure the event matches what are wanted
-  if (error) {
-    action = CURL_CSELECT_ERR;
-  }
   int still_running;
   {
     std::lock_guard<std::recursive_mutex> lock(_multi_mutex);
