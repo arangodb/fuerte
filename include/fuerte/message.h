@@ -53,8 +53,10 @@ struct MessageHeader {
   ::boost::optional<std::string> path;
   ::boost::optional<mapss> parameter;
   ::boost::optional<mapss> meta;
+  ::boost::optional<std::string> encryption;
   ::boost::optional<std::string> user;
   ::boost::optional<std::string> password;
+  ::boost::optional<std::string> token;
   ::boost::optional<std::size_t> byteSize; //for debugging
 
   // content type accessors

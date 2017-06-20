@@ -112,6 +112,11 @@ private:
 
   // socket connection is up (with optional SSL), now initiate the VST protocol.
   void finishInitialization();
+  // Insert all requests needed for authenticating a new connection at the front of the send queue.
+  void insertAuthenticationRequests();
+
+  // createRequestItem prepares a RequestItem for the given parameters.
+  std::shared_ptr<RequestItem> createRequestItem(std::unique_ptr<Request> request, RequestCallback cb);
 
   class ReadLoop;
 
@@ -156,6 +161,7 @@ private:
   std::shared_ptr<::boost::asio::ssl::stream<::boost::asio::ip::tcp::socket&>> _sslSocket;
   boost::asio::ip::tcp::resolver::iterator _endpoints;
   boost::asio::ip::tcp::endpoint _peer;
+  std::atomic<bool> _permanent_failure;
   std::atomic<uint64_t> _async_calls;
   // reset
   std::atomic_bool _connected;
@@ -177,6 +183,12 @@ private:
     void add(std::shared_ptr<RequestItem>& item) {
       std::lock_guard<std::mutex> lockQueue(_mutex);
       _queue.push_back(item);
+    }
+
+     // insert the given item to the front of the queue.
+    void insert(std::shared_ptr<RequestItem>& item) {
+      std::lock_guard<std::mutex> lockQueue(_mutex);
+      _queue.insert(_queue.begin(), item);
     }
 
     // front returns the first item in the queue.

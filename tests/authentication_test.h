@@ -47,7 +47,6 @@ inline void setupAuthenticationFromEnv(f::ConnectionBuilder& cbuilder) {
     cbuilder.authenticationType(f::AuthenticationType::Basic);
     cbuilder.user(parts[1]);
     cbuilder.password(parts[2]);
-    std::cout << "TEST_AUTHENTICATION basic " << parts[1] << ", " << parts[2] << std::endl;
   } else if (parts[0] == "jwt") {
 		if (parts.size() != 3) {
 			throw std::invalid_argument("Expected username & password for jwt authentication");

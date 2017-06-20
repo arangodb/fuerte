@@ -157,13 +157,22 @@ static std::string createVstMessageHeader(MessageHeader const& header)
   FUERTE_LOG_DEBUG << "MessageHeader.type=" << static_cast<int>(header.type.get()) << std::endl;
   switch (header.type.get()){
     case MessageType::Authentication:
-      //builder.add(VValue(header.encryption.get()));
-      if(!header.user){ throw std::runtime_error("user" + message); }
-      builder.add(VValue(header.user.get()));
-      FUERTE_LOG_DEBUG << "MessageHeader.user=" << header.user.get() << std::endl;
-      if(!header.password){ throw std::runtime_error("password" + message); }
-      builder.add(VValue(header.password.get()));
-      FUERTE_LOG_DEBUG << "MessageHeader.password=" << header.password.get() << std::endl;
+      {
+        // 2 - encryption
+        auto encryption = header.encryption.get();
+        builder.add(VValue(encryption));
+        if (encryption == "plain") {
+          // 3 - user 
+          builder.add(VValue(header.user.get()));
+          // 4 - password
+          builder.add(VValue(header.password.get()));
+        } else if (encryption == "jwt") {
+          // 3 - token 
+          builder.add(VValue(header.token.get()));
+        } else {
+          throw std::invalid_argument("unknown encryption: " + encryption);
+        }
+      }
       break;
 
     case MessageType::Request:

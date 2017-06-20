@@ -50,15 +50,8 @@ using RequestItemSP = std::shared_ptr<RequestItem>;
 // sendRequest prepares a RequestItem for the given parameters
 // and adds it to the send queue.
 MessageID VstConnection::sendRequest(std::unique_ptr<Request> request, RequestCallback cb) {
-
-  //check if id is already used and fail
-  request->messageID = ++_messageID;
-  auto item = std::make_shared<RequestItem>();
-
-  item->_messageID = request->messageID;
-  item->_callback = cb;
-  item->_request = std::move(request);
-  item->prepareForNetwork(_vstVersion);
+  // Create RequestItem from parameters
+  auto item = createRequestItem(std::move(request), cb);
 
   // Add item to send queue
   _sendQueue.add(item);
@@ -74,6 +67,20 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request, RequestCa
 
   FUERTE_LOG_VSTTRACE << "sendRequest (async) done" << std::endl;
   return item->_messageID;
+}
+
+// createRequestItem prepares a RequestItem for the given parameters.
+std::shared_ptr<RequestItem> VstConnection::createRequestItem(std::unique_ptr<Request> request, RequestCallback cb) {
+  // check if id is already used and fail (?)
+  request->messageID = ++_messageID;
+  auto item = std::make_shared<RequestItem>();
+
+  item->_messageID = request->messageID;
+  item->_callback = cb;
+  item->_request = std::move(request);
+  item->prepareForNetwork(_vstVersion);
+
+  return item;
 }
 
 std::size_t VstConnection::requestsLeft() {
@@ -93,6 +100,7 @@ VstConnection::VstConnection(EventLoopService& eventLoopService, ConnectionConfi
     , _context(bs::context::method::sslv23)
     , _sslSocket(nullptr)
     , _connected(false)
+    , _permanent_failure(false)
     , _async_calls(0)
 {
     assert(!_readLoop._current);
@@ -193,7 +201,9 @@ void VstConnection::restartConnection(const ErrorCondition error){
   shutdownConnection(error);
 
   // Initiate new connection
-  startResolveHost();
+  if (!_permanent_failure) {
+    startResolveHost();
+  }
 }
 
 // ------------------------------------
@@ -264,6 +274,7 @@ void VstConnection::finishInitialization(){
                       onFailure(errorToInt(ErrorCondition::CouldNotConnect), "unable to initialize connection: error=" + error.message());
                     } else {
                       FUERTE_LOG_CALLBACKS << "VST connection established; starting send/read loop" << std::endl;
+                      insertAuthenticationRequests();
                       _connected = true;
                       startWriting();
                       startReading();
@@ -291,6 +302,35 @@ void VstConnection::startSSLHandshake() {
           finishInitialization();
         }
       });
+}
+
+// Insert all requests needed for authenticating a new connection at the front of the send queue.
+void VstConnection::insertAuthenticationRequests() {
+  switch (_configuration._authenticationType) {
+    case AuthenticationType::None:
+      // Do nothing
+      break;  
+    case AuthenticationType::Basic:
+      {
+        auto req = std::unique_ptr<Request>(new Request());
+        req->header.type = MessageType::Authentication;
+        req->header.encryption = "plain";
+        req->header.user = _configuration._user;
+        req->header.password = _configuration._password;
+        auto self = shared_from_this();
+        auto item = createRequestItem(std::move(req), [this, self](Error error, std::unique_ptr<Request>, std::unique_ptr<Response>){
+          if (error) {
+            _permanent_failure = true;
+            onFailure(error, "authentication failed");
+          }
+        });
+        _sendQueue.insert(item);
+      }
+      break;
+    case AuthenticationType::Jwt:
+      throw std::invalid_argument("JWT authentication not yet implemented");
+      break;
+  }
 }
 
 // ------------------------------------
@@ -334,6 +374,12 @@ bool VstConnection::shouldStopReading(const ReadLoop* readLoop, std::chrono::mil
   // Is the read loop still the current read loop?
   if (_readLoop._current.get() != readLoop) {
     FUERTE_LOG_VSTTRACE << "shouldStopReading: no longer current loop: loop=" << readLoop << std::endl;
+    return true;
+  }
+
+  // Connection permanently broken?
+  if (_permanent_failure) {
+    FUERTE_LOG_VSTTRACE << "shouldStopReading: permanent failure" << std::endl;
     return true;
   }
 
@@ -544,9 +590,15 @@ std::shared_ptr<RequestItem> VstConnection::getNextRequestToSend(const WriteLoop
   // Claim exclusive access 
   std::lock_guard<std::mutex> lock(_writeLoop._mutex);
 
-  // Is the rwriteead loop still the current write loop?
+  // Is the write loop still the current write loop?
   if (_writeLoop._current.get() != writeLoop) {
     FUERTE_LOG_VSTTRACE << "shouldStopWriting: no longer current loop: loop=" << writeLoop << std::endl;
+    return std::shared_ptr<RequestItem>(nullptr);
+  }
+
+  // Connection permanently broken?
+  if (_permanent_failure) {
+    FUERTE_LOG_VSTTRACE << "shouldStopWriting: permanent failure" << std::endl;
     return std::shared_ptr<RequestItem>(nullptr);
   }
 

@@ -17,7 +17,7 @@
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceRoot}",
-            "environment": [{"name":"CONTINUOUS_TEST", "value":"1"}],
+            "environment": [{"name":"CONTINUOUS_TEST", "value":"1"}, {"name": "TEST_AUTHENTICATION", "value": "basic:root:"}],
             "externalConsole": false,
             "MIMode": "lldb"
         }
