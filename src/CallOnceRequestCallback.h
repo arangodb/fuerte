@@ -23,6 +23,8 @@
 #ifndef ARANGO_CXX_DRIVER_CALL_ONCE_REQUEST_CALLBACK
 #define ARANGO_CXX_DRIVER_CALL_ONCE_REQUEST_CALLBACK
 
+#include <atomic>
+
 #include <fuerte/types.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace impl {
