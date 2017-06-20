@@ -80,9 +80,7 @@ MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request, RequestC
       sep = "&";
     }
   }
-  #warning TODO authentication
   return queueRequest(destination, std::move(request), callback);
-  //create usefulid
 }
 
 // -----------------------------------------------------------------------------
@@ -341,6 +339,24 @@ void HttpConnection::createRequestItem(const Destination& destination, std::uniq
 
     case RestVerb::Illegal:
       throw std::runtime_error("Invalid request type " + to_string(verb));
+      break;
+  }
+
+  // Setup authentication 
+  switch (_configuration._authenticationType) {
+    case AuthenticationType::None:
+      // Do nothing
+      break;
+    case AuthenticationType::Basic:
+      curl_easy_setopt(handle, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+      curl_easy_setopt(handle, CURLOPT_USERNAME, _configuration._user.c_str());
+      curl_easy_setopt(handle, CURLOPT_PASSWORD, _configuration._password.c_str());
+      break;
+    case AuthenticationType::Jwt:
+      throw std::invalid_argument("Jwt authentication is not yet support");
+      break;
+    default:
+      throw std::runtime_error("Invalid authentication type " + to_string(_configuration._authenticationType));
       break;
   }
 

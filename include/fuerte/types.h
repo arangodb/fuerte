@@ -42,6 +42,17 @@ class Response;
 
 using Error = std::uint32_t;
 using MessageID = uint64_t; // id that identifies a Request.
+using StatusCode = uint32_t;
+
+const StatusCode StatusOK = 200;
+const StatusCode StatusCreated = 201;
+const StatusCode StatusAccepted = 202;
+const StatusCode StatusBadRequest = 400;
+const StatusCode StatusUnauthorized = 401;
+const StatusCode StatusForbidden = 403;
+const StatusCode StatusNotFound = 404;
+const StatusCode StatusMethodNotAllowed = 405;
+const StatusCode StatusConflict = 409;
 
 // RequestCallback is called for finished connection requests.
 // If the given Error is zero, the request succeeded, otherwise an error occurred.
@@ -136,6 +147,13 @@ ContentType to_ContentType(std::string const& val);
 std::string to_string(ContentType type);
 
 // -----------------------------------------------------------------------------
+// --SECTION--                                                AuthenticationType
+// -----------------------------------------------------------------------------
+
+enum class AuthenticationType { None, Basic, Jwt };
+std::string to_string(AuthenticationType type);
+
+// -----------------------------------------------------------------------------
 // --SECTION--                                                      Velocystream
 // -----------------------------------------------------------------------------
 
@@ -158,6 +176,7 @@ namespace detail {
       : _connType(TransportType::Vst)
       , _ssl(true)
       , _host("localhost")
+      , _authenticationType(AuthenticationType::None)
       , _user("")
       , _password("")
       , _maxChunkSize(5000ul) // in bytes
@@ -168,6 +187,7 @@ namespace detail {
     bool _ssl;
     std::string _host;
     std::string _port;
+    AuthenticationType _authenticationType;
     std::string _user;
     std::string _password;
     std::size_t _maxChunkSize;

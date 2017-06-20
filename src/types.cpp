@@ -199,6 +199,19 @@ std::string to_string(ContentType type) {
   throw std::logic_error("unknown content type");
 }
 
+std::string to_string(AuthenticationType type) {
+  switch (type) {
+    case AuthenticationType::None:
+      return "none";
+    case AuthenticationType::Basic:
+      return "basic";
+    case AuthenticationType::Jwt:
+      return "jwt";
+  }
+  return "unknown";
+}
+
+
 ErrorCondition intToError(Error integral){
   static const std::vector<Error> valid = {
       0,    // NoError
@@ -209,6 +222,7 @@ ErrorCondition intToError(Error integral){
       1102, // VstReadError
       1103, // VstWriteError
       1104, // CancelledDuringReset
+      1105, // MalformedURL
       3000, // CurlError
   };
   auto pos = std::find(valid.begin(), valid.end(), integral);

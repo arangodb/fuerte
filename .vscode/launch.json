@@ -18,7 +18,7 @@
             "stopAtEntry": false,
             "cwd": "${workspaceRoot}",
             "environment": [{"name":"CONTINUOUS_TEST", "value":"1"}],
-            "externalConsole": true,
+            "externalConsole": false,
             "MIMode": "lldb"
         }
     ]

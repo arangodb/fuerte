@@ -23,11 +23,13 @@
 #pragma once 
 
 #include <algorithm>
+#include <stdlib.h>
 
 #include <fuerte/fuerte.h>
 #include <fuerte/loop.h>
 #include <fuerte/helper.h>
 
+#include "authentication_test.h"
 #include "test_main.h"
 
 namespace f = ::arangodb::fuerte;
@@ -56,8 +58,12 @@ class ConnectionTestF : public ::testing::TestWithParam<ConnectionTestParams> {
 
   virtual void SetUp() override {
     try {
+      // Set connection parameters
       f::ConnectionBuilder cbuilder;
       cbuilder.host(GetParam()._url);
+      setupAuthenticationFromEnv(cbuilder);
+
+      // make connection
       _connection = cbuilder.connect(*_eventLoopService);
     } catch(std::exception const& ex) {
       std::cout << "SETUP OF FIXTURE FAILED" << std::endl;

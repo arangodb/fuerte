@@ -34,11 +34,12 @@ TEST_P(ConnectionTestF, ApiVersionSync) {
   for (auto rep = 0; rep < repeat(); rep++) {
     auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
     auto result = _connection->sendRequest(std::move(request));
+    ASSERT_EQ(result->statusCode(), f::StatusOK);
     auto slice = result->slices().front();
     auto version = slice.get("version").copyString();
     auto server = slice.get("server").copyString();
-    ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
-    ASSERT_TRUE(version[0] == _major_arango_version);
+    ASSERT_EQ(server, "arango");
+    ASSERT_EQ(version[0], _major_arango_version);
   }
 }
 
@@ -51,11 +52,12 @@ TEST_P(ConnectionTestF, ApiVersionASync) {
       if (error) {
         ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
       } else {
+        ASSERT_EQ(res->statusCode(), f::StatusOK);
         auto slice = res->slices().front();
         auto version = slice.get("version").copyString();
         auto server = slice.get("server").copyString();
-        ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
-        ASSERT_TRUE(version[0] == _major_arango_version);
+        ASSERT_EQ(server, "arango");
+        ASSERT_EQ(version[0], _major_arango_version);
       }
     };
     wg.add();
@@ -70,11 +72,12 @@ TEST_P(ConnectionTestF, ApiVersionSync20) {
     fu::Request req = *request;
     for (int i = 0; i < 20; i++) {
       auto result = _connection->sendRequest(req);
+      ASSERT_EQ(result->statusCode(), f::StatusOK);
       auto slice = result->slices().front();
       auto version = slice.get("version").copyString();
       auto server = slice.get("server").copyString();
-      ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
-      ASSERT_TRUE(version[0] == _major_arango_version);
+      ASSERT_EQ(server, "arango");
+      ASSERT_EQ(version[0], _major_arango_version);
     }
   }
 }
@@ -88,11 +91,12 @@ TEST_P(ConnectionTestF, ApiVersionASync20) {
       if (error) {
         ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
       } else {
+        ASSERT_EQ(res->statusCode(), f::StatusOK);
         auto slice = res->slices().front();
         auto version = slice.get("version").copyString();
         auto server = slice.get("server").copyString();
-        ASSERT_TRUE(server == std::string("arango")) << server << " == arango";
-        ASSERT_TRUE(version[0] == _major_arango_version);
+        ASSERT_EQ(server, "arango");
+        ASSERT_EQ(version[0], _major_arango_version);
       }
     };
     fu::Request req = *request;
@@ -112,6 +116,7 @@ TEST_P(ConnectionTestF, SimpleCursorSync){
   builder.close();
   request->addVPack(builder.slice());
   auto response = _connection->sendRequest(std::move(request));
+  ASSERT_EQ(response->statusCode(), f::StatusCreated);
   auto slice = response->slices().front();
 
   ASSERT_TRUE(slice.isObject());
@@ -124,6 +129,7 @@ TEST_P(ConnectionTestF, CreateDocumentSync){
   auto request = fu::createRequest(fu::RestVerb::Post, "/_api/document/_users");
   request->addVPack(fu::VSlice::emptyObjectSlice());
   auto response = _connection->sendRequest(std::move(request));
+  ASSERT_EQ(response->statusCode(), f::StatusAccepted);
   auto slice = response->slices().front();
 
   ASSERT_TRUE(slice.get("_id").isString());
@@ -138,6 +144,7 @@ TEST_P(ConnectionTestF, ShortAndLongASync){
     if (error) {
       ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
     } else {
+      ASSERT_EQ(res->statusCode(), f::StatusCreated);
       auto slice = res->slices().front();
       ASSERT_TRUE(slice.isObject());
       ASSERT_TRUE(slice.get("code").isInteger());

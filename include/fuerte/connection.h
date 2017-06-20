@@ -104,6 +104,8 @@ class ConnectionBuilder {
     // Create an connection and start opening it.
     std::shared_ptr<Connection> connect(EventLoopService& eventLoopService);
 
+    // Set the authentication type of the connection
+    ConnectionBuilder& authenticationType(AuthenticationType t){ _conf._authenticationType = t; return *this; }
     // Set the username of the connection
     ConnectionBuilder& user(std::string const& u){ _conf._user = u; return *this; }
     // Set the password of the connection

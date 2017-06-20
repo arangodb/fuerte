@@ -47,7 +47,7 @@ struct MessageHeader {
 
   ::boost::optional<int> version;
   ::boost::optional<MessageType> type;
-  ::boost::optional<uint32_t> responseCode;
+  ::boost::optional<StatusCode> responseCode;
   ::boost::optional<std::string> database;
   ::boost::optional<RestVerb> restVerb;
   ::boost::optional<std::string> path;
@@ -195,6 +195,27 @@ public:
           {
             header.type = MessageType::Response;
           }
+
+  ///////////////////////////////////////////////
+  // get / check status
+  ///////////////////////////////////////////////
+
+  // statusCode returns the (HTTP) status code for the request (400==OK).
+  StatusCode statusCode() { return header.responseCode ? header.responseCode.get() : 0; }
+  // checkStatus returns true if the statusCode equals one of the given valid code, false otherwise.
+  bool checkStatus(std::initializer_list<StatusCode> validStatusCodes) {
+    auto actual = statusCode();
+    for (auto code : validStatusCodes) {
+      if (code == actual) return true;
+    }
+    return false;
+  }
+  // assertStatus throw an exception if the statusCode does not equal one of the given valid codes.
+  void assertStatus(std::initializer_list<StatusCode> validStatusCodes) {
+    if (!checkStatus(validStatusCodes)) {
+      throw std::runtime_error("invalid status " + std::to_string(statusCode()));
+    }
+  }
 
   ///////////////////////////////////////////////
   // get/set payload
