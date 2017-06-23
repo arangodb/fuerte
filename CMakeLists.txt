@@ -31,11 +31,16 @@ find_package(Boost REQUIRED COMPONENTS ${CMAKE_BOOST_COMPONENTS})
 
 find_package(CURL REQUIRED)
 
-include(FindVelocypack)
-find_package(Velocypack)
+if(VELOCYPACK_SOURCE_DIR)
+    add_subdirectory(${VELOCYPACK_SOURCE_DIR} ./vpack-build)
+    set(VELOCYPACK_LIBRARIES velocypack)
+else()
+    include(FindVelocypack)
+    find_package(Velocypack)
 
-if (NOT ${VELOCYPACK_FOUND})
-    message(FATAL_ERROR "Velocypack not found. Clone from https://github.com/arangodb/velocypack and install it")
+    if (NOT ${VELOCYPACK_FOUND})
+        message(FATAL_ERROR "Velocypack not found. Clone from https://github.com/arangodb/velocypack and install it")
+    endif()
 endif()
 
 #########################################################################################
