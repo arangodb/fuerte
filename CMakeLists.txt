@@ -32,6 +32,7 @@ find_package(Boost REQUIRED COMPONENTS ${CMAKE_BOOST_COMPONENTS})
 find_package(CURL REQUIRED)
 
 if(VELOCYPACK_SOURCE_DIR)
+    option(BuildVelocyPackExamples "Build examples" OFF)
     add_subdirectory(${VELOCYPACK_SOURCE_DIR} ./vpack-build)
     set(VELOCYPACK_LIBRARIES velocypack)
 else()
