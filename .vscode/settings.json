@@ -73,6 +73,7 @@
         "__mutex_base": "cpp",
         "__bit_reference": "cpp",
         "__functional_base": "cpp",
-        "locale": "cpp"
+        "locale": "cpp",
+        "cmakeccompilerid.c": "cpp"
     }
 }
