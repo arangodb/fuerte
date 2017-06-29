@@ -325,6 +325,22 @@ boost::asio::const_buffer Request::payload() const {
 // class Response
 ///////////////////////////////////////////////
 
+bool Response::isContentTypeJSON() const {
+  return (header.contentType() == ContentType::Json);
+}
+
+bool Response::isContentTypeVPack() const {
+  return (header.contentType() == ContentType::VPack);  
+}
+
+bool Response::isContentTypeHtml() const {
+  return (header.contentType() == ContentType::Html);  
+}
+
+bool Response::isContentTypeText() const {
+  return (header.contentType() == ContentType::Text);  
+}
+
 std::vector<VSlice>const & Response::slices() {
   if (_slices.empty()) {
     auto length = _payload.byteSize() - _payloadOffset;

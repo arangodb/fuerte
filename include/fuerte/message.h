@@ -222,6 +222,10 @@ public:
   ///////////////////////////////////////////////
   // get/set payload
   ///////////////////////////////////////////////
+  bool isContentTypeJSON() const;
+  bool isContentTypeVPack() const;
+  bool isContentTypeHtml() const;
+  bool isContentTypeText() const;
   virtual std::vector<VSlice>const & slices() override;
   virtual boost::asio::const_buffer payload() const override; 
 
