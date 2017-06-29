@@ -70,8 +70,7 @@ using VSlice = arangodb::velocypack::Slice;
 using VBuilder = arangodb::velocypack::Builder;
 using VValue = arangodb::velocypack::Value;
 
-using mapss = std::map<std::string,std::string>;
-using NetBuffer = std::string;
+using StringMap = std::map<std::string, std::string>;
 
 // -----------------------------------------------------------------------------
 // --SECTION--                                         enum class ErrorCondition

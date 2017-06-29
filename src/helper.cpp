@@ -28,8 +28,8 @@
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
-mapss sliceToStringMap(VSlice const& slice){
-  mapss rv;
+StringMap sliceToStringMap(VSlice const& slice){
+  StringMap rv;
   assert(slice.isObject());
   for(auto const& it : ::arangodb::velocypack::ObjectIterator(slice)){
     rv.insert({it.key.copyString(), it.value.copyString()});

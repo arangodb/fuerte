@@ -193,8 +193,8 @@ static std::string createVstMessageHeader(MessageHeader const& header)
 
       // 5 - parameters - not optional in current server
       builder.openObject();
-      if (header.parameter){
-        for(auto const& item : header.parameter.get()){
+      if (header.parameters) {
+        for (auto const& item : header.parameters.get()) {
           builder.add(item.first,VValue(item.second));
         }
       }
@@ -351,7 +351,7 @@ MessageHeader messageHeaderFromSlice(int vstVersionID, VSlice const& headerSlice
       header.database = headerSlice.at(2).copyString();                             // databse
       header.restVerb = static_cast<RestVerb>(headerSlice.at(3).getInt());          // rest verb
       header.path = headerSlice.at(4).copyString();                                 // request (path)
-      header.parameter = sliceToStringMap(headerSlice.at(5));                       // params
+      header.parameters = sliceToStringMap(headerSlice.at(5));                      // query params
       header.meta = sliceToStringMap(headerSlice.at(6));                            // meta
       break;
 

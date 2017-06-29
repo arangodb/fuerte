@@ -126,7 +126,7 @@ class HttpConnection : public Connection {
     std::string _requestBody;
     struct curl_slist* _requestHeaders;
 
-    mapss _responseHeaders;
+    StringMap _responseHeaders;
     std::chrono::steady_clock::time_point _startTime;
     std::string _responseBody;
 
@@ -148,7 +148,7 @@ class HttpConnection : public Connection {
  private:
   void createRequestItem(const Destination& destination, std::unique_ptr<Request> request, RequestCallback callback);
   void handleResult(CURL*, CURLcode);
-  void transformResult(CURL*, mapss&&, std::string const&, Response*);
+  void transformResult(CURL*, StringMap&&, std::string const&, Response*);
 
   /// @brief curl will strip standalone ".". ArangoDB allows using . as a key
   /// so this thing will analyse the url and urlencode any unsafe .'s

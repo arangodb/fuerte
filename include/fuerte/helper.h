@@ -83,7 +83,7 @@ namespace _detail {
 std::string to_string(VSlice const& slice);
 std::string to_string(std::vector<VSlice> const& payload);
 std::string to_string(Message& message);
-mapss sliceToStringMap(VSlice const&);
+StringMap sliceToStringMap(VSlice const&);
 
 template<typename K, typename V, typename A>
 std::string mapToString(std::map<K,V,A> map){

@@ -46,18 +46,18 @@ struct MessageHeader {
   MessageHeader(MessageHeader&&) = default;
 
   ::boost::optional<int> version;
-  ::boost::optional<MessageType> type;
-  ::boost::optional<StatusCode> responseCode;
-  ::boost::optional<std::string> database;
-  ::boost::optional<RestVerb> restVerb;
-  ::boost::optional<std::string> path;
-  ::boost::optional<mapss> parameter;
-  ::boost::optional<mapss> meta;
-  ::boost::optional<std::string> encryption;
-  ::boost::optional<std::string> user;
-  ::boost::optional<std::string> password;
-  ::boost::optional<std::string> token;
-  ::boost::optional<std::size_t> byteSize; //for debugging
+  ::boost::optional<MessageType> type;        // Type of message
+  ::boost::optional<StatusCode> responseCode; // Response code (response only)
+  ::boost::optional<std::string> database;    // Database that is the target of the request
+  ::boost::optional<RestVerb> restVerb;       // HTTP method
+  ::boost::optional<std::string> path;        // Local path of the request
+  ::boost::optional<StringMap> parameters;    // Query parameters
+  ::boost::optional<StringMap> meta;          // Header meta data
+  ::boost::optional<std::string> encryption;  // Authentication: encryption field
+  ::boost::optional<std::string> user;        // Authentication: username
+  ::boost::optional<std::string> password;    // Authentication: password
+  ::boost::optional<std::string> token;       // Authentication: JWT token
+  ::boost::optional<std::size_t> byteSize;    // for debugging
 
   // content type accessors
   std::string contentTypeString() const;
@@ -70,18 +70,25 @@ struct MessageHeader {
   ContentType acceptType() const;
   void acceptType(std::string const& type);
   void acceptType(ContentType type);
+
+  // query parameter helpers 
+  void addParameter(std::string const& key, std::string const& value);
+  // Header metadata helpers 
+  void addMeta(std::string const& key, std::string const& value);
+  // Get value for header metadata key, returns empty string if not found.
+  std::string metaByKey(std::string const& key) const;
 };
 
 std::string to_string(MessageHeader const&);
 
 // create a map<string,string> from header object
-mapss headerStrings(MessageHeader const& header);
+StringMap headerStrings(MessageHeader const& header);
 
 // Message is base class for message being send to (Request) or
 // from (Response) a server.
 class Message {
 protected:
-  Message(MessageHeader&& messageHeader = MessageHeader(), mapss&& headerStrings = mapss())
+  Message(MessageHeader&& messageHeader = MessageHeader(), StringMap&& headerStrings = StringMap())
     : header(std::move(messageHeader)),
       messageID(123456789)
          {
@@ -90,7 +97,7 @@ protected:
            }
          }
 
-  Message(MessageHeader const& messageHeader, mapss const& headerStrings)
+  Message(MessageHeader const& messageHeader, StringMap const& headerStrings)
     : header(messageHeader),
       messageID(123456789)
          {
@@ -126,7 +133,7 @@ public:
 class Request : public Message {
   static std::chrono::milliseconds _defaultTimeout;
 public:
-  Request(MessageHeader&& messageHeader = MessageHeader(), mapss&& headerStrings = mapss())
+  Request(MessageHeader&& messageHeader = MessageHeader(), StringMap&& headerStrings = StringMap())
     : Message(std::move(messageHeader), std::move(headerStrings)),
       _sealed(false),
       _modified(true),
@@ -137,7 +144,7 @@ public:
          {
            header.type = MessageType::Request;
          }
-  Request(MessageHeader const& messageHeader, mapss const& headerStrings)
+  Request(MessageHeader const& messageHeader, StringMap const& headerStrings)
     : Message(messageHeader, headerStrings),
       _sealed(false),
       _modified(true),
@@ -192,7 +199,7 @@ private:
 // Response contains the message resulting from a request to a server.
 class Response : public Message {
 public:
-  Response(MessageHeader&& messageHeader = MessageHeader(), mapss&& headerStrings = mapss())
+  Response(MessageHeader&& messageHeader = MessageHeader(), StringMap&& headerStrings = StringMap())
     : Message(std::move(messageHeader), std::move(headerStrings))
           {
             header.type = MessageType::Response;

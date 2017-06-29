@@ -70,12 +70,12 @@ MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request, RequestC
                           + dbString
                           + request->header.path.get();
 
-  auto const& parameter = request->header.parameter;
+  auto const& parameters = request->header.parameters;
 
-  if (parameter && !parameter.get().empty()) {
+  if (parameters && !parameters.get().empty()) {
     std::string sep = "?";
 
-    for (auto p : parameter.get()) {
+    for (auto p : parameters.get()) {
       destination += sep + urlEncode(p.first) + "=" + urlEncode(p.second);
       sep = "&";
     }
@@ -206,7 +206,7 @@ size_t HttpConnection::readBody(void* data, size_t size, size_t nitems,
   }
 }
 
-void HttpConnection::transformResult(CURL* handle, mapss&& responseHeaders,
+void HttpConnection::transformResult(CURL* handle, StringMap&& responseHeaders,
                                        std::string const& responseBody,
                                        Response* response) {
 #if  ENABLE_FUERTE_LOG_HTTPTRACE > 0

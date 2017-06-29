@@ -81,8 +81,8 @@ int main(int argc, char* argv[]) {
   std::string path = "/_api/version";
   std::string user = "";
   std::string password = "";
-  arangodb::fuerte::mapss meta;
-  arangodb::fuerte::mapss parameter;
+  arangodb::fuerte::StringMap meta;
+  arangodb::fuerte::StringMap parameter;
 
 //#warning TODO: add database flag
 

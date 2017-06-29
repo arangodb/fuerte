@@ -29,16 +29,16 @@
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
 std::string to_string(MessageHeader const& header){
-  ::boost::optional<int> version;
+/*  ::boost::optional<int> version;
   ::boost::optional<MessageType> type;
   ::boost::optional<unsigned> responseCode;
   ::boost::optional<std::string> database;
   ::boost::optional<RestVerb> restVerb;           // GET POST ...
   ::boost::optional<std::string> path;            // equivalent of http path
-  ::boost::optional<mapss> parameter;             // equivalent of http parametes ?foo=bar
-  ::boost::optional<mapss> meta;                  // equivalent of http headers
+  ::boost::optional<StringMap> parameters;        // equivalent of http parametes ?foo=bar
+  ::boost::optional<StringMap> meta;              // equivalent of http headers
   ::boost::optional<std::string> user;
-  ::boost::optional<std::string> password;
+  ::boost::optional<std::string> password;*/
   std::stringstream ss;
 
   if(header.byteSize){
@@ -69,9 +69,9 @@ std::string to_string(MessageHeader const& header){
     ss << "path: " << header.path.get() << std::endl;
   }
 
-  if(header.parameter){
+  if(header.parameters){
     ss << "parameters: ";
-    for(auto const& item : header.parameter.get()){
+    for(auto const& item : header.parameters.get()){
       ss << item.first <<  " -:- " << item.second << "\n";
     }
     ss<< std::endl;
@@ -104,26 +104,15 @@ std::string to_string(MessageHeader const& header){
 
 // content type accessors
 std::string MessageHeader::contentTypeString() const {
-  if(!meta){
-    return "";
-  }
-  auto& hmap = meta.get();
-  auto found =  hmap.find(fu_content_type_key);
-  if(found == hmap.end()){
-    return "";
-  }
-  return found->second;
+  return metaByKey(fu_content_type_key);
 }
 
 ContentType MessageHeader::contentType() const {
   return to_ContentType(contentTypeString());
 }
 
-void MessageHeader::contentType(std::string const& type){
-  if (!meta) {
-    meta = mapss();
-  }
-  meta.get()[fu_content_type_key] = type;
+void MessageHeader::contentType(std::string const& type) {
+  addMeta(fu_content_type_key, type);
 }
 
 void MessageHeader::contentType(ContentType type){
@@ -132,31 +121,43 @@ void MessageHeader::contentType(ContentType type){
 
 // accept header accessors
 std::string MessageHeader::acceptTypeString() const {
-  if(!meta){
-    return "";
-  }
-  auto& hmap = meta.get();
-  auto found =  hmap.find(fu_accept_key);
-  if(found == hmap.end()){
-    return "";
-  }
-  return found->second;
+  return metaByKey(fu_accept_key);
 }
 
 ContentType MessageHeader::acceptType() const {
   return to_ContentType(acceptTypeString());
 }
 
-void MessageHeader::acceptType(std::string const& type){
-  if(!meta){
-    meta = mapss();
-  }
-  FUERTE_LOG_DEBUG << "setting Accept to: " << type << std::endl;
-  meta.get()[fu_accept_key] = type;
+void MessageHeader::acceptType(std::string const& type) {
+  addMeta(fu_accept_key, type);
 }
 
 void MessageHeader::acceptType(ContentType type){
   acceptType(to_string(type));
+}
+
+void MessageHeader::addParameter(std::string const& key, std::string const& value) {
+  if (!parameters) {
+    parameters = StringMap();
+  }
+  parameters.get()[key] = value;
+}
+
+void MessageHeader::addMeta(std::string const& key, std::string const& value) {
+  if (!meta) {
+    meta = StringMap();
+  }
+  meta.get()[key] = value;
+}
+
+// Get value for header metadata key, returns empty string if not found.
+std::string MessageHeader::metaByKey(std::string const& key) const {
+  if (!meta) {
+    return "";
+  }
+  auto& hmap = meta.get();
+  auto found =  hmap.find(key);
+  return (found == hmap.end()) ? "" : found->second;
 }
 
 ///////////////////////////////////////////////
@@ -367,63 +368,5 @@ void Response::setPayload(VBuffer&& buffer, size_t payloadOffset) {
   _payloadOffset = payloadOffset;
   _payload = std::move(buffer);
 }
-
-
-// ////helper
-// static bool specialHeader(Message& request, std::string const&, std::string const&){
-//   //static std::regex -- test
-//   if (/* maching condition*/ false ){
-//     //do special stuff on
-//     //request->bla
-//     return true;
-//   }
-//   return false;
-// }
-//
-// //set value in the header
-// void setHeaderValue(Message request, std::string const& key, std::string const& val){
-//   if(!specialHeader(request, key, val)){
-//     request.headerStrings.emplace(key,val);
-//   }
-// };
-//
-// //// external interface
-// Message createAuthMessage(std::string const& user, std::string const& password){
-//   Message request;
-//   request.header.type = MessageType::Authentication;
-//   request.header.user=user;
-//   request.header.password=password;
-//   return request;
-// }
-//
-// Message createRequest(RestVerb verb
-//                      ,std::string const& database
-//                      ,std::string const& path
-//                      ,std::string const& user
-//                      ,std::string const& password
-//                      ,mapss parameter
-//                      ,mapss meta
-//                      ){
-//
-//   //version must be set by protocol
-//   Message request;
-//   request.header.version = 0;
-//   request.header.type = MessageType::Request;
-//   request.header.responseCode = 0;
-//   request.header.database = database;
-//   request.header.restVerb = verb;
-//   request.header.path = path;
-//   request.header.parameter = parameter;
-//   request.header.meta = meta;
-//   return request;
-// }
-//
-// std::unique_ptr<Response> createResponse(unsigned code){
-//   auto response = std::unique_ptr<Response>(new Response());
-//   //version must be set by protocol
-//   response->header.type = MessageType::Response;
-//   response->header.responseCode = code;
-//   return response;
-// }
 
 }}}
