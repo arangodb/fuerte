@@ -399,7 +399,7 @@ curl_socket_t CurlMultiAsio::open_socket(curlsocktype purpose, struct curl_socka
   curl_socket_t sockfd = CURL_SOCKET_BAD;
  
   // restrict to IPv4 
-  if (purpose == CURLSOCKTYPE_IPCXN && address->family == AF_INET) {
+  if (purpose == CURLSOCKTYPE_IPCXN) {
     /* create a tcp socket object */
     auto tcp_socket = new boost::asio::ip::tcp::socket(_io_service);
 
