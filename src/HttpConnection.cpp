@@ -431,12 +431,15 @@ void HttpConnection::handleResult(CURL* handle, CURLcode rc) {
 
       case CURLE_COULDNT_CONNECT:
         onFailure(static_cast<Error>(ErrorCondition::CouldNotConnect), "connect failed");
+        requestItem->_callback.invoke(static_cast<Error>(ErrorCondition::CouldNotConnect), std::move(requestItem->_request), {nullptr});
         break;
       case CURLE_SSL_CONNECT_ERROR:
         onFailure(static_cast<Error>(ErrorCondition::CouldNotConnect), "ssl connect failed");
+        requestItem->_callback.invoke(static_cast<Error>(ErrorCondition::CouldNotConnect), std::move(requestItem->_request), {nullptr});
         break;
       case CURLE_COULDNT_RESOLVE_HOST:
         onFailure(static_cast<Error>(ErrorCondition::CouldNotConnect), "resolve host failed");
+        requestItem->_callback.invoke(static_cast<Error>(ErrorCondition::CouldNotConnect), std::move(requestItem->_request), {nullptr});
         break;
       case CURLE_URL_MALFORMAT:
         requestItem->_callback.invoke(static_cast<Error>(ErrorCondition::MalformedURL), std::move(requestItem->_request), {nullptr});
