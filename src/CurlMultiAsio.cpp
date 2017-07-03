@@ -405,7 +405,14 @@ curl_socket_t CurlMultiAsio::open_socket(curlsocktype purpose, struct curl_socka
 
     /* open it and get the native handle*/ 
     boost::system::error_code ec;
-    tcp_socket->open(boost::asio::ip::tcp::v4(), ec);
+    if (address->family == AF_INET) {
+      tcp_socket->open(boost::asio::ip::tcp::v4(), ec);
+    } else if (address->family == AF_INET6) {
+      tcp_socket->open(boost::asio::ip::tcp::v6(), ec);
+    } else {
+      FUERTE_LOG_ERROR << "Couldn't open socket with family " << address->family << std::endl;
+      return sockfd;
+    }
  
     if (ec) {
       // An error occurred 
