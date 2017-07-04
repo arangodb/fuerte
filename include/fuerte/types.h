@@ -44,15 +44,15 @@ using Error = std::uint32_t;
 using MessageID = uint64_t; // id that identifies a Request.
 using StatusCode = uint32_t;
 
-const StatusCode StatusOK = 200;
-const StatusCode StatusCreated = 201;
-const StatusCode StatusAccepted = 202;
-const StatusCode StatusBadRequest = 400;
-const StatusCode StatusUnauthorized = 401;
-const StatusCode StatusForbidden = 403;
-const StatusCode StatusNotFound = 404;
-const StatusCode StatusMethodNotAllowed = 405;
-const StatusCode StatusConflict = 409;
+StatusCode const StatusOK = 200;
+StatusCode const StatusCreated = 201;
+StatusCode const StatusAccepted = 202;
+StatusCode const StatusBadRequest = 400;
+StatusCode const StatusUnauthorized = 401;
+StatusCode const StatusForbidden = 403;
+StatusCode const StatusNotFound = 404;
+StatusCode const StatusMethodNotAllowed = 405;
+StatusCode const StatusConflict = 409;
 
 // RequestCallback is called for finished connection requests.
 // If the given Error is zero, the request succeeded, otherwise an error occurred.
