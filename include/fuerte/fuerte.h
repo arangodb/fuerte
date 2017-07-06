@@ -28,5 +28,6 @@
 #include "collection.h"
 #include "requests.h"
 #include "helper.h"
+#include "waitgroup.h"
 
 #endif

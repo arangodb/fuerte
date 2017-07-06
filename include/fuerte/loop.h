@@ -18,6 +18,7 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author Jan Christoph Uhde
+/// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 
@@ -27,116 +28,107 @@
 #include <utility>
 #include <memory>
 
+#include <boost/asio.hpp>
+#include <boost/thread.hpp>
 
 // run / runWithWork / poll for Loop mapping to ioservice
 // free function run with threads / with thread group barrier and work
 
-
-namespace boost { namespace  asio {
-  class io_service;
-}}
-
 namespace arangodb { namespace fuerte { inline namespace v1 {
-
-class Work;
-class Loop;
 
 namespace vst {
   class VstConnection;
 }
 
-namespace http{
-  class HttpCommunicator;
+namespace http {
+  class HttpConnection;
+}
+
+namespace impl {
+  class VpackInit;
 }
 
 // need partial rewrite so it can be better integrated in client applications
 
+typedef ::boost::asio::io_service asio_io_service;
+typedef ::boost::asio::io_service::work asio_work;
 
-// LoopProvider is a meyers singleton so we have private constructors
-// call to the class are not thread safe! It is your responsiblity
-// to make sure that there is no concurrent access to this class in
-// your code!
-class LoopProvider {
-  LoopProvider(); // private for singleton use getProvider()
-
-public:
-  //get LoopProvider Singelton with this function!
-  static LoopProvider& getProvider(){
-    static LoopProvider provider;
-    return provider;
+// GlobalService is intended to be instantiated once for the entire 
+// lifetime of a program using fuerte. 
+// It initializes all global state, needed by fuerte.
+class GlobalService {
+ public:
+  // get GlobalService singelton.
+  static GlobalService& get() {
+    static GlobalService service;
+    return service;
   }
 
-  // get a shared pointer to a http communicator!
-  // You need to include the HttpCommunicator.h.
-  std::shared_ptr<http::HttpCommunicator> getHttpLoop(){
-    return _httpLoop;
-  }
+ private:
+  GlobalService();
+  ~GlobalService();
 
-  //// io_service modification
-  //the service will not be owned by the LoopProvider
-  void setAsioService(::boost::asio::io_service*, bool running);
-  void setAsioServiceTakeOwnership(::boost::asio::io_service*, bool running);
-  // get pointer to the ioservice
-  std::shared_ptr<Loop> getAsioLoop();
+  // Prevent copying
+  GlobalService(GlobalService const& other) = delete;
+  GlobalService& operator=(GlobalService const& other) = delete;
 
-  // poll / run both loops
-  void poll();
-  void run();
-  void resetIoService();
-
-private:
-  std::shared_ptr<Loop> _asioLoop;
-  std::shared_ptr<http::HttpCommunicator> _httpLoop;
+ private:
+  std::unique_ptr<impl::VpackInit> _vpack_init; 
 };
 
-// for internal usage
-class Loop{
-  friend class LoopProvider;
+// EventLoopService implements multi-threaded event loops for
+// boost io_service as well as curl HTTP.
+class EventLoopService {
   friend class vst::VstConnection;
+  friend class http::HttpConnection;
 
-public:
-  Loop();
-  //void run();
-  //void ask_to_stop();
-  void run_ready();
-  void poll();
-  void reset();
+ public:
+  // Initialize an EventLoopService with a given number of threads and a new io_service.
+  EventLoopService(unsigned int threadCount = 1);
+  // Initialize an EventLoopService with a given number of threads and a given io_service.
+  // Initialize an EventLoopService with a given number of threads and a given io_service.
+  EventLoopService(unsigned int threadCount,
+                   const std::shared_ptr<asio_io_service>& io_service)
+      :
+      global_service_(GlobalService::get()),
+      io_service_(io_service), 
+      working_(new asio_work(*io_service)) {
+    while (threadCount > 0) {
+      auto worker = boost::bind(&EventLoopService::run, this);
+      threadGroup_.add_thread(new boost::thread(worker));
+      threadCount--;
+    }
+  }
+  virtual ~EventLoopService() {
+    working_.reset();  // allow run() to exit
+    threadGroup_.join_all();
+    io_service_->stop();
+  }
 
-  void direct_poll();
-  void direct_run();
-  void direct_stop();
-  void direct_reset() { reset(); }
+  // Prevent copying
+  EventLoopService(EventLoopService const& other) = delete;
+  EventLoopService& operator=(EventLoopService const& other) = delete;
 
-  void setIoService(::boost::asio::io_service * service);
-  void setIoServiceTakeOwnership(::boost::asio::io_service* service);
-  ::boost::asio::io_service* getIoService();
+ protected:
+  // run is called for each thread. It calls io_service.run() and
+  // invokes the curl handlers.
+  // You only need to invoke this if you want a custom event loop service.
+  void run();
 
-private:
-  std::shared_ptr<::boost::asio::io_service> _serviceSharedPtr;
-  ::boost::asio::io_service* _service;
-  std::shared_ptr<Work> _work;
-  bool _owning;
-  bool _sealed;
-  bool _running;
-  bool _singleRunMode;
-};
+  // handleRunException is called when an exception is thrown in run.
+  virtual void handleRunException(std::exception const& ex) {
+    std::cerr << "exception: " << ex.what() << std::endl;
+    exit(EXIT_FAILURE);
+  }
 
-// pools the services
-// when blocking is true asio will do all outstanding communication and return.
-// Otherwise (blocking == false) it will return immediately if there is no
-// ready handler so it will not wait for things like epoll on a socket.
-// You want to use poll(false) if you are using fuerte with your own event loop.
-inline void poll(){ LoopProvider::getProvider().poll(); };
+  // io_service returns a reference to the boost io_service.
+  std::shared_ptr<asio_io_service>& io_service() { return io_service_; }
 
-inline void run(){
-  static auto& provider = LoopProvider::getProvider();
-  provider.run();
-  provider.resetIoService();
-};
-
-inline LoopProvider& getProvider(){
-  static auto& provider = LoopProvider::getProvider();
-  return provider;
+ private:
+  GlobalService& global_service_;
+  std::shared_ptr<asio_io_service> io_service_;
+  std::unique_ptr<asio_work> working_;  // Used to keep the io-service alive.
+  boost::thread_group threadGroup_;     // Used to join on.
 };
 
 }}}

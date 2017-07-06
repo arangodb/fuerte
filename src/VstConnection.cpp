@@ -18,20 +18,23 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author Jan Christoph Uhde
+/// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <condition_variable>
 
-
-#include "VstConnection.h"
 #include <boost/asio/connect.hpp>
 #include <boost/asio/read.hpp>
 #include <boost/asio/write.hpp>
-#include <condition_variable>
+
 #include <fuerte/FuerteLogger.h>
 #include <fuerte/helper.h>
 #include <fuerte/loop.h>
 #include <fuerte/message.h>
-#include <fuerte/vst.h>
+#include <fuerte/types.h>
+
+#include "VstConnection.h"
+#include "vst.h"
 
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
@@ -43,575 +46,689 @@ using bt = ::boost::asio::ip::tcp;
 using be = ::boost::asio::ip::tcp::endpoint;
 using BoostEC = ::boost::system::error_code;
 using RequestItemSP = std::shared_ptr<RequestItem>;
-using Lock = std::lock_guard<std::mutex>;
-typedef std::unique_ptr<Request> RequestUP;
-typedef std::unique_ptr<Response> ResponseUP;
 
-MessageID VstConnection::sendRequest(std::unique_ptr<Request> request
-                                    ,OnErrorCallback onError
-                                    ,OnSuccessCallback onSuccess){
+// sendRequest prepares a RequestItem for the given parameters
+// and adds it to the send queue.
+MessageID VstConnection::sendRequest(std::unique_ptr<Request> request, RequestCallback cb) {
+  // Create RequestItem from parameters
+  auto item = createRequestItem(std::move(request), cb);
 
-  //check if id is already used and fail
-  request->messageid = ++_messageId;
-  auto item = std::make_shared<RequestItem>();
+  // Add item to send queue
+  _sendQueue.add(item);
 
-  item->_messageId = _messageId;
-  item->_onError = onError;
-  item->_onSuccess = onSuccess;
-  item->_requestBuffer = vst::toNetwork(*request);
-  item->_request = std::move(request);
-
-  //start Write may be only entered once!
-  bool doWrite;
-  {
-    Lock lockQueue(_sendQueueMutex);
-    doWrite = _sendQueue.empty();
-    _sendQueue.push_back(item);
-#if ENABLE_FUERTE_LOG_CALLBACKS < 0
-    FUERTE_LOG_DEBUG << "queue request" << std::endl;
-#endif
-    FUERTE_LOG_CALLBACKS << "q";
+  // this allows sendRequest to return immediately and
+  // not to block until all writing is done
+  if (_connected) {
+    FUERTE_LOG_VSTTRACE << "start sending & reading" << std::endl;
+    startWriting();
+  } else {
+    FUERTE_LOG_VSTTRACE << "sendRequest (async): not connected" << std::endl;
   }
 
-  if(doWrite){
-    // this allows sendRequest to return immediately and
-    // not to block until all writing is done
-    if(_connected){
-      FUERTE_LOG_VSTTRACE << "queue write" << std::endl;
-      FUERTE_LOG_VSTTRACE << "messageid: " << item->_request->messageid << " path: " << item->_request->header.path.get() << std::endl;
-      auto self = shared_from_this();
-      _ioService->dispatch( [this,self](){ startWrite(); } );
-      //startWrite();
-
-      bool alreadyReading = _reading.exchange(true);
-      if (!alreadyReading){
-        FUERTE_LOG_TRACE << "starting new read" << std::endl;
-        startRead();
-      } else {
-        FUERTE_LOG_TRACE << "NOT starting new read" << std::endl;
-      }
-    }
-  }
-  return item->_messageId;
+  FUERTE_LOG_VSTTRACE << "sendRequest (async) done" << std::endl;
+  return item->_messageID;
 }
 
-std::size_t VstConnection::requestsLeft(){
+// createRequestItem prepares a RequestItem for the given parameters.
+std::shared_ptr<RequestItem> VstConnection::createRequestItem(std::unique_ptr<Request> request, RequestCallback cb) {
+  // check if id is already used and fail (?)
+  request->messageID = ++_messageID;
+  auto item = std::make_shared<RequestItem>();
+
+  item->_messageID = request->messageID;
+  item->_callback = cb;
+  item->_request = std::move(request);
+  item->prepareForNetwork(_vstVersion);
+
+  return item;
+}
+
+std::size_t VstConnection::requestsLeft() {
   // this function does not return the exact size (both mutexes would be
   // required to be locked at the same time) but as it is used to decide
   // if another run is called or not this should not be critical.
-  std::size_t left = 0;
-  {
-    Lock sendQueueLock(_sendQueueMutex);
-    left += _sendQueue.size();
-  }
-
-  {
-    Lock mapLock(_mapMutex);
-    left += _messageMap.size();
-  }
-  return left;
+  return _sendQueue.size() + _messageStore.size();
 };
 
-std::unique_ptr<Response> VstConnection::sendRequest(RequestUP request){
-  FUERTE_LOG_VSTTRACE << "start sync request" << std::endl;
-  // TODO - we expect the loop to be running even for sync requests
-  // maybe we could call poll on the ioservice in this function if
-  // it is not running.
-  std::mutex mutex;
-  std::condition_variable conditionVar;
-  bool done = false;
-
-  auto rv = std::unique_ptr<Response>(nullptr);
-  auto onError  = [&](::arangodb::fuerte::v1::Error error, RequestUP request, ResponseUP response){
-    rv = std::move(response);
-    done = true;
-    conditionVar.notify_one();
-  };
-
-  auto onSuccess  = [&](RequestUP request, ResponseUP response){
-    rv = std::move(response);
-    done = true;
-    conditionVar.notify_one();
-  };
-
-  {
-    std::unique_lock<std::mutex> lock(mutex);
-    sendRequest(std::move(request),onError,onSuccess);
-    if(!_asioLoop->_running){
-      arangodb::fuerte::run();
-    }
-    conditionVar.wait(lock, [&]{ return done; });
-  }
-  return std::move(rv);
-}
-
-
-VstConnection::VstConnection(ConnectionConfiguration const& configuration)
-    : _asioLoop(getProvider().getAsioLoop())
-    , _messageId(0)
-    , _ioService(_asioLoop->getIoService())
+VstConnection::VstConnection(EventLoopService& eventLoopService, ConnectionConfiguration const& configuration)
+    : Connection(eventLoopService, configuration)
+    , _vstVersion(configuration._vstVersion)
+    , _messageID(0)
+    , _ioService(eventLoopService.io_service())
+    , _resolver(new bt::resolver(*eventLoopService.io_service()))
     , _socket(nullptr)
     , _context(bs::context::method::sslv23)
     , _sslSocket(nullptr)
     , _connected(false)
-    , _pleaseStop(false)
-    , _reading(false)
-    , _configuration(configuration)
-    , _deadline(*_ioService)
-    , _vstVersionID(1)
+    , _permanent_failure(false)
+    , _async_calls(0)
 {
-    bt::resolver resolver(*_ioService);
+    assert(!_readLoop._current);
+    assert(!_writeLoop._current);
+}
 
-    //TODO async resolve - set other endpoints
-    _endpoints = resolver.resolve({configuration._host,configuration._port});
-    if (_endpoints == bt::resolver::iterator()){
-      throw std::runtime_error("unable to resolve endpoints");
-    }
+// Deconstruct.
+VstConnection::~VstConnection() {
+  _resolver->cancel();
+  shutdownConnection();
+}
 
-    //initSocket(); -- make_shared_from_this not allowed in constructor -- called after creation
+// Activate this connection.
+void VstConnection::start() {
+  startResolveHost();
+}
+
+// resolve the host into a series of endpoints 
+void VstConnection::startResolveHost() {
+  // Resolve the host asynchronous.
+  auto self = shared_from_this();
+  _resolver->async_resolve({_configuration._host, _configuration._port},
+    [this, self](const boost::system::error_code& error, bt::resolver::iterator iterator) {
+      if (error) {
+        FUERTE_LOG_DEBUG << "resolve failed: error=" << error << std::endl;
+        onFailure(errorToInt(ErrorCondition::CouldNotConnect), "resolved failed: error" + error.message());
+      } else {
+        FUERTE_LOG_CALLBACKS << "resolve succeeded" << std::endl;
+        _endpoints = iterator;
+        if (_endpoints == bt::resolver::iterator()){
+          FUERTE_LOG_ERROR << "unable to resolve endpoints" << std::endl;
+          onFailure(errorToInt(ErrorCondition::CouldNotConnect), "unable to resolve endpoints");
+        } else {
+          initSocket();
+        }
+      }
+    });
 }
 
 // CONNECT RECONNECT //////////////////////////////////////////////////////////
 
-void VstConnection::initSocket(){
+void VstConnection::initSocket() {
+  std::lock_guard<std::mutex> lock(_socket_mutex);
+
+  // socket must be empty before. Check that 
+  assert(!_socket);
+  assert(!_sslSocket);
+
   FUERTE_LOG_CALLBACKS << "begin init" << std::endl;
   _socket.reset(new bt::socket(*_ioService));
   _sslSocket.reset(new bs::stream<bt::socket&>(*_socket, _context));
-  _pleaseStop = false;
-  auto endpoints = _endpoints; //copy as connect modifies iterator
+  
+  auto endpoints = _endpoints; // copy as connect modifies iterator
   startConnect(endpoints);
 }
 
-void VstConnection::shutdownSocket(){
-  std::unique_lock<std::mutex> queueLock(_sendQueueMutex, std::defer_lock);
-  std::unique_lock<std::mutex> mapLock(_mapMutex, std::defer_lock);
-  std::lock(queueLock,mapLock);
+// close the TCP & SSL socket.
+void VstConnection::shutdownSocket() {
+  std::lock_guard<std::mutex> lock(_socket_mutex);
 
   FUERTE_LOG_CALLBACKS << "begin shutdown socket" << std::endl;
 
-  _deadline.cancel();
   BoostEC error;
-  _sslSocket->shutdown(error);
-  _socket->shutdown(bt::socket::shutdown_both,error);
-  _socket->close(error);
+  if (_sslSocket) {
+    _sslSocket->shutdown(error);
+  }
+  if (_socket) {
+    _socket->cancel();
+    _socket->shutdown(bt::socket::shutdown_both, error);
+    _socket->close(error);
+  }
   _sslSocket = nullptr;
   _socket = nullptr;
 }
 
-void VstConnection::shutdownConnection(){
-  // this function must be used in handlers
-  bool alreadyStopping = _pleaseStop.exchange(true);
-  _reading = false;
-  if (alreadyStopping){
-    return;
-  }
+// shutdown the connection and cancel all pending messages.
+void VstConnection::shutdownConnection(const ErrorCondition error) {
+  FUERTE_LOG_CALLBACKS << "shutdownConnection" << std::endl;
 
-  FUERTE_LOG_CALLBACKS << "begin shutdown connection" << std::endl;
+  // Stop the read & write loop 
+  stopWriting();
+  stopReading();
+
+  // Close socket
   shutdownSocket();
 
-  Lock mapLock(_mapMutex);
-  for(auto& item : _messageMap){
-    item.second->_onError(errorToInt(ErrorCondition::VstCanceldDuringReset)
-                         ,std::move(item.second->_request)
-                         ,nullptr);
+  // Cancel all items and remove them from the message store.
+  _messageStore.cancelAll(error);
+}
+
+void VstConnection::restartConnection(const ErrorCondition error){
+  // Read & write loop must have been reset by now 
+  assert(!_readLoop._current);
+  assert(!_writeLoop._current);
+
+  FUERTE_LOG_CALLBACKS << "restartConnection" << std::endl;
+  // Terminate connection
+  shutdownConnection(error);
+
+  // Initiate new connection
+  if (!_permanent_failure) {
+    startResolveHost();
   }
-  _messageMap.clear();
-
 }
 
-void VstConnection::restartConnection(){
-  FUERTE_LOG_CALLBACKS << "restart" << std::endl;
-  shutdownConnection();
-  initSocket();
-}
+// ------------------------------------
+// Creating a connection
+// ------------------------------------
 
-// ASIO CONNECT
-
+// try to open the socket connection to the first endpoint.
 void VstConnection::startConnect(bt::resolver::iterator endpointItr){
-  if (endpointItr != boost::asio::ip::tcp::resolver::iterator()){
+  if (endpointItr != boost::asio::ip::tcp::resolver::iterator()) {
     FUERTE_LOG_CALLBACKS << "trying to connect to: " << endpointItr->endpoint() << "..." << std::endl;
 
     // Set a deadline for the connect operation.
-    _deadline.expires_from_now(boost::posix_time::seconds(60));
+    //_deadline.expires_from_now(boost::posix_time::seconds(60));
+    // TODO wait for connect timeout
 
     // Start the asynchronous connect operation.
     auto self = shared_from_this();
-    ba::async_connect(*_socket
-                     ,endpointItr
-                     ,[this,self](BoostEC const& error, bt::resolver::iterator endpointItr){
-                        handleConnect(error,endpointItr);
-                      }
-                     );
+    ba::async_connect(*_socket, endpointItr, 
+      boost::bind(&VstConnection::asyncConnectCallback, std::dynamic_pointer_cast<VstConnection>(self), _1, endpointItr));
   }
 }
 
-void VstConnection::handleConnect(BoostEC const& error, bt::resolver::iterator endpointItr){
-  if(!error){
-    FUERTE_LOG_CALLBACKS << "connected" << std::endl;
-    //if success - start async handshake
-    if(_configuration._ssl){
-      FUERTE_LOG_CALLBACKS << "call start startHandshake" << std::endl;
-      startHandshake();
-      return;
-    } else {
-      FUERTE_LOG_CALLBACKS << "call finish init" << std::endl;
-      finishInitialization();
-      return;
-    }
-  } else {
-    FUERTE_LOG_ERROR << error.message() << std::endl;
+// callback handler for async_callback (called in startConnect).
+void VstConnection::asyncConnectCallback(BoostEC const& error, bt::resolver::iterator endpointItr) {
+  if (error) {
+    // Connection failed
+    FUERTE_LOG_DEBUG << error.message() << std::endl;
     shutdownConnection();
-    if(endpointItr == bt::resolver::iterator()){
+    if(endpointItr == bt::resolver::iterator()) {
       FUERTE_LOG_CALLBACKS << "no further endpoint" << std::endl;
     }
-    throw std::runtime_error("unable to connect -- " + error.message() );
-    return;
+    onFailure(errorToInt(ErrorCondition::CouldNotConnect), "unable to connect -- " + error.message());
+  } else {
+    // Connection established
+    FUERTE_LOG_CALLBACKS << "TCP socket connected" << std::endl;
+    if(_configuration._ssl) {
+      startSSLHandshake();
+    } else {
+      finishInitialization();
+    }
   }
-  throw std::logic_error("you should not end up here!!!");
 }
 
+// socket connection is up (with optional SSL), now initiate the VST protocol.
 void VstConnection::finishInitialization(){
-  FUERTE_LOG_CALLBACKS << "finish initialization" << std::endl;
-  {
-    _connected = true;
+  FUERTE_LOG_CALLBACKS << "finishInitialization" << std::endl;
+
+  const char* vstHeader;
+  switch (_vstVersion) {
+    case VST1_0:
+      vstHeader = vstHeader1_0;
+      break;
+    case VST1_1:
+      vstHeader = vstHeader1_1;
+      break;
+    default:
+      throw std::logic_error("Unknown VST version");
   }
-  startWrite(true); // there might be no requests enqueued
-  bool alreadyReading = _reading.exchange(true);
-  if (!alreadyReading){
-    startRead();
-  }
+
+  auto self = shared_from_this();
+  ba::async_write(*_socket
+                 ,ba::buffer(vstHeader, strlen(vstHeader))
+                 ,[this,self](BoostEC const& error, std::size_t transferred){
+                    if (error) {
+                      FUERTE_LOG_ERROR << error.message() << std::endl;
+                      _connected = false;
+                      shutdownConnection();
+                      onFailure(errorToInt(ErrorCondition::CouldNotConnect), "unable to initialize connection: error=" + error.message());
+                    } else {
+                      FUERTE_LOG_CALLBACKS << "VST connection established; starting send/read loop" << std::endl;
+                      insertAuthenticationRequests();
+                      _connected = true;
+                      startWriting();
+                      startReading();
+                    }
+                  }
+                 );
 }
 
-void VstConnection::startHandshake(){
+// start intiating an SSL connection (on top of an established TCP socket)
+void VstConnection::startSSLHandshake() {
   if(!_configuration._ssl){
     finishInitialization();
   }
   FUERTE_LOG_CALLBACKS << "starting ssl handshake " << std::endl;
   auto self = shared_from_this();
-  _sslSocket->async_handshake(bs::stream_base::client
-                             ,[this,self](BoostEC const& error){
-                               if(error){
-                                 shutdownSocket();
-                                 FUERTE_LOG_ERROR << error.message() << std::endl;
-                                 throw std::runtime_error("unable to perform ssl handshake");
-                               }
-                               FUERTE_LOG_CALLBACKS << "ssl handshake done" << std::endl ;
-                               finishInitialization();
-                              }
-                            );
-
+  _sslSocket->async_handshake(
+      bs::stream_base::client, [this, self](BoostEC const& error) {
+        if (error) {
+          shutdownSocket();
+          FUERTE_LOG_ERROR << error.message() << std::endl;
+          onFailure(errorToInt(ErrorCondition::CouldNotConnect),
+            "unable to perform ssl handshake: error=" + error.message());
+        } else {
+          FUERTE_LOG_CALLBACKS << "ssl handshake done" << std::endl;
+          finishInitialization();
+        }
+      });
 }
 
-// READING WRITING / NORMAL OPERATIONS  ///////////////////////////////////////
-
-void VstConnection::startRead(){
-  FUERTE_LOG_CALLBACKS << "-";
-  if (_pleaseStop) {
-    return;
+// Insert all requests needed for authenticating a new connection at the front of the send queue.
+void VstConnection::insertAuthenticationRequests() {
+  switch (_configuration._authenticationType) {
+    case AuthenticationType::None:
+      // Do nothing
+      break;  
+    case AuthenticationType::Basic:
+      {
+        auto req = std::unique_ptr<Request>(new Request());
+        req->header.type = MessageType::Authentication;
+        req->header.encryption = "plain";
+        req->header.user = _configuration._user;
+        req->header.password = _configuration._password;
+        auto self = shared_from_this();
+        auto item = createRequestItem(std::move(req), [this, self](Error error, std::unique_ptr<Request>, std::unique_ptr<Response>){
+          if (error) {
+            _permanent_failure = true;
+            onFailure(error, "authentication failed");
+          }
+        });
+        _sendQueue.insert(item);
+      }
+      break;
+    case AuthenticationType::Jwt:
+      throw std::invalid_argument("JWT authentication not yet implemented");
+      break;
   }
+}
 
+// ------------------------------------
+// Reading data
+// ------------------------------------
+
+// activate the receiver loop (if needed)
+void VstConnection::startReading() {
+  ReadLoop *newLoop;
   {
-    std::unique_lock<std::mutex> queueLock(_sendQueueMutex, std::defer_lock);
-    std::unique_lock<std::mutex> mapLock(_mapMutex, std::defer_lock);
-    std::lock(queueLock,mapLock);
-    if(_messageMap.empty() && _sendQueue.empty()){
-      _reading = false;
-      FUERTE_LOG_VSTTRACE << "returning from read loop";
-      FUERTE_LOG_CALLBACKS <<  std::endl;
+    std::lock_guard<std::mutex> lock(_readLoop._mutex);
+    if (_readLoop._current) {
+      // There is already a read loop, do nothing 
       return;
     }
+    // There is no current read loop, create one 
+    _readLoop._current = std::make_shared<ReadLoop>(std::dynamic_pointer_cast<VstConnection>(shared_from_this()), _socket);
+    newLoop = _readLoop._current.get();
+  }
+  // Start the new loop
+  newLoop->start();
+}
+
+// Stop the current read loop
+void VstConnection::stopReading() {
+  {
+    std::lock_guard<std::mutex> lock(_readLoop._mutex);
+    _readLoop._current.reset();
+  }
+}
+
+// called by a ReadLoop to decide if it must stop.
+// returns true when the given loop should stop.
+bool VstConnection::shouldStopReading(const ReadLoop* readLoop, std::chrono::milliseconds& timeout) {
+  // Claim exclusive access 
+  std::unique_lock<std::mutex> readLoopLock(_readLoop._mutex, std::defer_lock);
+  std::unique_lock<std::mutex> queueLock(_sendQueue.mutex(), std::defer_lock);
+  std::unique_lock<std::mutex> mapLock(_messageStore.mutex(), std::defer_lock);
+  std::lock(readLoopLock, queueLock, mapLock);
+
+  // Is the read loop still the current read loop?
+  if (_readLoop._current.get() != readLoop) {
+    FUERTE_LOG_VSTTRACE << "shouldStopReading: no longer current loop: loop=" << readLoop << std::endl;
+    return true;
   }
 
-  // gets data from network and fill
-  _deadline.expires_from_now(boost::posix_time::seconds(30));
+  // Connection permanently broken?
+  if (_permanent_failure) {
+    FUERTE_LOG_VSTTRACE << "shouldStopReading: permanent failure" << std::endl;
+    return true;
+  }
+
+  // Is there any work left for the read loop?
+  if (_messageStore.empty(true) && _sendQueue.empty(true)) {
+    // No more work 
+    _readLoop._current.reset();
+    FUERTE_LOG_VSTTRACE << "shouldStopReading: no more pending messages/requests, stopping read loop: loop=" << readLoop << std::endl;
+    return true;
+  }
+
+  // Continue read loop
+  timeout = _messageStore.minimumTimeout(true);
+  return false;
+}
+
+// Restart the connection if the given ReadLoop is still the current read loop.
+void VstConnection::restartConnection(const ReadLoop* readLoop, const ErrorCondition error) {
+  {
+    // Claim read & write loop mutex, so we can prevent that the ReadLoop & WriteLoop each restart
+    // the connection, resulting in a double restart.
+    std::unique_lock<std::mutex> readLoopLock(_readLoop._mutex, std::defer_lock);
+    std::unique_lock<std::mutex> writeLoopLock(_writeLoop._mutex, std::defer_lock);
+    std::lock(readLoopLock, writeLoopLock);
+    if (_readLoop._current.get() != readLoop) {
+      return;
+    }
+    _readLoop._current.reset();
+    _writeLoop._current.reset();
+  }
+  restartConnection(error);
+}
+
+// start the read loop 
+void VstConnection::ReadLoop::start() {
+  auto wasStarted = _started.exchange(true);
+  if (!wasStarted) {
+    readNextBytes();
+  }
+}
+
+// readNextBytes reads the next bytes from the server.
+void VstConnection::ReadLoop::readNextBytes() {
+  FUERTE_LOG_VSTTRACE << "readNextBytes: this=" << this << std::endl;
+  FUERTE_LOG_CALLBACKS << "-";
+
+  // Ask the connection if we should terminate.
+  std::chrono::milliseconds timeout;
+  if (_connection->shouldStopReading(this, timeout)) {
+    FUERTE_LOG_VSTTRACE << "readNextBytes: stopping read loop" << std::endl;
+    return;    
+  }
+
+  // Start reading data from the network.
   FUERTE_LOG_CALLBACKS << "r";
 #if ENABLE_FUERTE_LOG_CALLBACKS > 0
-  std::cout << mapToKeys(_messageMap) << std::endl;
-  std::cout.flush();
+  std::cout << "_messageMap = " << _connection->_messageStore.keys() << std::endl;
 #endif
+
+  // Set timeout 
   auto self = shared_from_this();
-  ba::async_read(*_socket
-                ,_receiveBuffer
-                ,ba::transfer_at_least(4)
-                ,[this,self](const boost::system::error_code& error, std::size_t transferred){
-                   handleRead(error,transferred);
-                 }
-                );
+  _deadline.expires_from_now(boost::posix_time::milliseconds(timeout.count()));
+  _deadline.async_wait(boost::bind(&ReadLoop::deadlineHandler, self, _1));
+
+  _connection->_async_calls++;
+  ba::async_read(*_socket, _receiveBuffer, ba::transfer_at_least(1),
+    boost::bind(&ReadLoop::asyncReadCallback, self, _1, _2));
+
+  FUERTE_LOG_VSTTRACE << "readNextBytes: done" << std::endl;
 }
 
-// helper for turning a asio::const_buffer into a accessible form
-template<typename T = uint8_t>
-std::pair<T const*, std::size_t> bufferToPointerAndSize(boost::asio::const_buffer& buffer){
-  return std::make_pair( boost::asio::buffer_cast<T const*>(buffer)
-                       , boost::asio::buffer_size(buffer));
-}
+// asyncReadCallback is called when readNextBytes is resulting in some data.
+void VstConnection::ReadLoop::asyncReadCallback(const boost::system::error_code& error, std::size_t transferred) {
+  // Cancel deadline
+  _deadline.cancel();
 
-std::tuple<bool,std::shared_ptr<RequestItem>,std::size_t> VstConnection::processChunk(uint8_t const * cursor, std::size_t length){
-  FUERTE_LOG_VSTTRACE << "\n\n\nENTER PROCESS CHUNK, address: " << cursor << " length: " <<  length << std::endl;
-  auto vstChunkHeader = vst::readChunkHeaderV1_0(cursor);
-  //peek next chunk
-  bool nextChunkAvailable = false;
-  if(length > vstChunkHeader._chunkLength + sizeof(ChunkHeader::_chunkLength)){
-    FUERTE_LOG_VSTTRACE << "processing chunk with messageid: " << vstChunkHeader._messageID << std::endl;
-    FUERTE_LOG_VSTTRACE << "peeking into next chunk!" << std::endl;
-    nextChunkAvailable = vst::isChunkComplete(cursor + vstChunkHeader._chunkLength
-                                             ,length - vstChunkHeader._chunkLength);
-    FUERTE_LOG_VSTTRACE << "next available: " << nextChunkAvailable << std::endl;
-  }
+  auto pendingAsyncCalls = --_connection->_async_calls;
+  if (error) {
+    FUERTE_LOG_CALLBACKS << "asyncReadCallback: Error while reading form socket";
+    FUERTE_LOG_ERROR << error.message() << std::endl;
 
-  FUERTE_LOG_VSTTRACE << "ChunkLength: " << vstChunkHeader._chunkLength << std::endl
-                      << "available length: " << length << std::endl;
-  cursor += vstChunkHeader._chunkHeaderLength;
-  length -= vstChunkHeader._chunkHeaderLength;
-
-  FUERTE_LOG_VSTTRACE << "ChunkHeaderLength: " << vstChunkHeader._chunkHeaderLength << std::endl;
-  FUERTE_LOG_VSTTRACE << "ChunkPayloadLength: " << vstChunkHeader._chunkPayloadLength << std::endl
-                      << "available length: " << length << std::endl;
-
-  //because we are in single chunk mode for now
-  //assert(length == vstChunkHeader._chunkPayloadLength);
-
-  ::std::map<MessageID,std::shared_ptr<RequestItem>>::iterator found;
-  {
-    Lock lock(_mapMutex);
-    found = _messageMap.find(vstChunkHeader._messageID);
-    if (found == _messageMap.end()) {
-      throw std::logic_error("got message with no matching request");
-    }
-  }
-
-  RequestItemSP item = found->second;
-
-  FUERTE_LOG_VSTTRACE << "appending to item with length: " << vstChunkHeader._chunkPayloadLength << std::endl;
-  // copy payload to buffer
-  item->_responseBuffer.append(cursor,vstChunkHeader._chunkPayloadLength);
-
-  cursor += vstChunkHeader._chunkPayloadLength;
-  length -= vstChunkHeader._chunkPayloadLength;
-
-  FUERTE_LOG_VSTTRACE << "next chunk available: " << std::boolalpha << nextChunkAvailable  << std::endl;
-
-  if(vstChunkHeader._isSingle){ //we got a single chunk containing the complete message
-    FUERTE_LOG_VSTTRACE << "adding single chunk " << std::endl;
-    FUERTE_LOG_VSTTRACE << "resetting buffer length to: " << vstChunkHeader._chunkPayloadLength << std::endl;
-    item->_responseBuffer.resetTo(vstChunkHeader._chunkPayloadLength);
-    FUERTE_LOG_VSTTRACE << "setting buffer length - done" << vstChunkHeader._chunkPayloadLength << std::endl;
-    return std::tuple<bool,RequestItemSP,std::size_t>(nextChunkAvailable, std::move(item), vstChunkHeader._chunkLength);
-  } else if (!vstChunkHeader._isFirst){
-    //there is chunk that continues a message
-    assert(item->_responseChunk == vstChunkHeader._numberOfChunks); // 0 based counting
-    item->_responseChunk++;
-    FUERTE_LOG_VSTTRACE << "cunk: " << vstChunkHeader._numberOfChunks << "/" << item->_responseChunks << std::endl;
-    if(item->_responseChunks == item->_responseChunk){ //last chunk reached
-      FUERTE_LOG_VSTTRACE << "adding multi chunk " << std::endl;
-      // TODO TODO TODO TODO should multichunk not be working start looking here!!!!!!!
-      // the VPackBuffer is unable to track how much has been written to it. Maybe this is
-      // fixed when you read this.
-      //assert(item->_responseBuffer.length() == item->_responseLength);
-      item->_responseBuffer.resetTo(item->_responseLength);
-      return std::tuple<bool,RequestItemSP,std::size_t>(nextChunkAvailable, std::move(item),vstChunkHeader._chunkLength);
-    }
-    FUERTE_LOG_VSTTRACE << "multi chunk incomplete" << std::endl;
+    // Restart connection, this will trigger a release of the readloop.
+    _connection->restartConnection(this, ErrorCondition::VstReadError); 
   } else {
-    //the chunk stats a multipart message
-    item->_responseLength = vstChunkHeader._totalMessageLength;
-    item->_responseChunks = vstChunkHeader._numberOfChunks;
-    item->_responseChunk = 1;
-    FUERTE_LOG_VSTTRACE << "starting multi chunk" << std::endl;
-  }
+    FUERTE_LOG_CALLBACKS << "asyncReadCallback: received " << transferred << " bytes async-calls=" << pendingAsyncCalls << std::endl;
 
-  return std::tuple<bool,RequestItemSP,std::size_t>(nextChunkAvailable, nullptr, vstChunkHeader._chunkLength);
+    // Inspect the data we've received so far.
+    auto receivedBuf = _receiveBuffer.data(); // no copy
+    auto cursor = boost::asio::buffer_cast<const uint8_t*>(receivedBuf);
+    auto available = boost::asio::buffer_size(receivedBuf);
+    while (vst::isChunkComplete(cursor, available)) {
+      // Read chunk 
+      ChunkHeader chunk;
+      switch (_connection->_vstVersion) {
+        case VST1_0:
+          chunk = vst::readChunkHeaderVST1_0(cursor);
+          break;
+        case VST1_1:
+          chunk = vst::readChunkHeaderVST1_1(cursor);
+          break;
+        default:
+          throw std::logic_error("Unknown VST version");
+      }
+
+      // Process chunk 
+      _connection->processChunk(chunk);
+
+      // Remove consumed data from receive buffer.
+      _receiveBuffer.consume(chunk.chunkLength());
+      cursor += chunk.chunkLength();
+      available -= chunk.chunkLength();
+    }
+
+    // Continue reading data
+    readNextBytes();
+  }
 }
 
-void VstConnection::processCompleteItem(std::shared_ptr<RequestItem>&& itempointer){
-  RequestItem& item = *itempointer;
-  FUERTE_LOG_VSTTRACE << "completing item with messageid: " << item._messageId << std::endl;
-  auto itemCursor = item._responseBuffer.data();
-  auto itemLength = item._responseBuffer.byteSize();
+// handler for deadline timer
+void VstConnection::ReadLoop::deadlineHandler(const boost::system::error_code& error) {
+  if (!error) {
+    // Stop current connection and try to restart a new one.
+    // This will reset the current write loop.
+    _connection->restartConnection(this, ErrorCondition::Timeout);
+  }
+}
+
+// Process the given incoming chunk.
+void VstConnection::processChunk(ChunkHeader &chunk) {
+  auto msgID = chunk.messageID();
+  FUERTE_LOG_VSTTRACE << "processChunk: messageID=" << msgID << std::endl;
+
+  // Find requestItem for this chunk.  
+  auto item = _messageStore.findByID(chunk._messageID);
+  if (!item) {
+    FUERTE_LOG_ERROR << "got chunk with unknown message ID: " << msgID << std::endl;
+    return;
+  }
+
+  // We've found the matching RequestItem.
+  item->addChunk(chunk);
+
+  // Try to assembly chunks in RequestItem to complete response.
+  auto completeBuffer = item->assemble();
+  if (completeBuffer) {
+    FUERTE_LOG_VSTTRACE << "processChunk: complete response received" << std::endl;
+    // Message is complete 
+    // Remove message from store 
+    _messageStore.removeByID(item->_messageID);
+
+    // Create response
+    auto response = createResponse(*item, completeBuffer);
+
+    // Notify listeners
+    FUERTE_LOG_VSTTRACE << "processChunk: notifying RequestItem onSuccess callback" << std::endl;
+    item->_callback.invoke(0, std::move(item->_request), std::move(response));
+  }
+}
+
+// Create a response object for given RequestItem & received response buffer.
+std::unique_ptr<Response> VstConnection::createResponse(RequestItem& item, std::unique_ptr<VBuffer>& responseBuffer) {
+  FUERTE_LOG_VSTTRACE << "creating response for item with messageid: " << item._messageID << std::endl;
+  auto itemCursor = responseBuffer->data();
+  auto itemLength = responseBuffer->byteSize();
   std::size_t messageHeaderLength;
-  MessageHeader messageHeader = validateAndExtractMessageHeader(_vstVersionID, itemCursor, itemLength, messageHeaderLength);
-  itemCursor += messageHeaderLength;
-  itemLength -= messageHeaderLength;
+  int vstVersionID = 1;
+  MessageHeader messageHeader = validateAndExtractMessageHeader(vstVersionID, itemCursor, itemLength, messageHeaderLength);
 
   auto response = std::unique_ptr<Response>(new Response(std::move(messageHeader)));
-  response->messageid = itempointer->_messageId;
-  // finally add payload
+  response->messageID = item._messageID;
+  response->setPayload(std::move(*responseBuffer), messageHeaderLength);
 
-  // avoiding the copy would imply that we mess with offsets
-  // if feels like Velocypack could gain some options like
-  // adding some offset for a buffer that way the already
-  // allocated memory could be reused.
-  if(messageHeader.contentType() == ContentType::VPack){
-    auto numPayloads = vst::validateAndCount(itemCursor,itemLength);
-    FUERTE_LOG_VSTTRACE << "number of slices: " << numPayloads << std::endl;
-    VBuffer buffer;
-    buffer.append(itemCursor,itemLength); //we should avoid this copy FIXME
-    buffer.resetTo(itemLength);
-    auto slice = VSlice(itemCursor);
-    FUERTE_LOG_VSTTRACE << to_string(slice)  << " , " << slice.byteSize() << std::endl;
-    FUERTE_LOG_VSTTRACE << "buffer size" << " , " << buffer.size() << std::endl;
-    response->addVPack(std::move(buffer)); //ASK jan
-    FUERTE_LOG_VSTTRACE << "payload size" << " , " << response->payload().second << std::endl;
-  } else {
-    response->addBinary(itemCursor,itemLength);
-  }
-  // call callback
-  item._onSuccess(std::move(item._request),std::move(response));
-  {
-    Lock mapLock(_mapMutex);
-    _messageMap.erase(item._messageId);
-  }
+  return response;
 }
 
-void VstConnection::handleRead(const boost::system::error_code& error, std::size_t transferred){
-  if (error){
-    FUERTE_LOG_CALLBACKS << "Error while reading form socket";
-    FUERTE_LOG_ERROR << error.message() << std::endl;
-    restartConnection();
-  }
+// ------------------------------------
+// Writing data
+// ------------------------------------
 
-  FUERTE_LOG_CALLBACKS << "R(" << transferred << ")" ;
-
-  if(_pleaseStop) {
-    return;
-  }
-
-  //THIS WILL MAKE THE CODE FAIL WHEN RECONNECTING
-  //if (!transferred) {
-  // throw std::logic_error("handler called without receiving data");
-  //}
-
-  boost::asio::const_buffer received = _receiveBuffer.data(); //no copy
-  std::size_t size = boost::asio::buffer_size(received);
-
-  //assert(transferred == size); // could be longer because we do not take everything form the buffer
-  auto pair = bufferToPointerAndSize<uint8_t>(received); //get write access
-  if (!vst::isChunkComplete(pair.first, pair.second)){
-    FUERTE_LOG_CALLBACKS << "no complete chunk continue reading" << std::endl;
-    startRead();
-    return;
-  }
-
-  uint8_t const* cursor = pair.first;
-  auto length = pair.second;
-  std::size_t consumed = 0;
-  std::vector<std::shared_ptr<RequestItem>> items;
-
-  { // limit scope of vars
-    RequestItemSP item = nullptr; // id is given only when a chunk is complete
-    bool processMoreChunks = true;
-    std::size_t consume;
-
-    while(processMoreChunks){
-      std::tie(processMoreChunks,item,consume) = processChunk(cursor, length);
-      assert(consume <= length);
-      consumed += consume;
-      cursor += consume;
-      length -= consume;
-      if(item){
-        items.push_back(std::move(item));
-      }
-    }
-
-    _receiveBuffer.consume(consumed); //remove chunk from input
-  }
-
-  /// end new function
-
-  //if(!_asioLoop->_singleRunMode){
-  //  startRead(); //start next read - code below might run in parallel to new read
-  //}
-
-  if(!items.empty()){
-    for(auto itempointer : items){
-      processCompleteItem(std::move(itempointer)); //maybe as ref or plain pointer?!
-    }
-  }
-
-  //if(_asioLoop->_singleRunMode){
-    startRead();
-  //}
-}
-
-void VstConnection::startWrite(bool possiblyEmpty){
-  FUERTE_LOG_TRACE << "+" ;
-  if (_pleaseStop) {
-    return;
-  }
-
-  std::shared_ptr<RequestItem> next;
+// activate the sender loop (if needed)
+void VstConnection::startWriting() {
+  WriteLoop *newLoop;
   {
-    Lock sendQueueLock(_sendQueueMutex);
-    if(_sendQueue.empty()){
-      assert(possiblyEmpty);
+    std::lock_guard<std::mutex> lock(_writeLoop._mutex);
+    if (_writeLoop._current) {
+      // There is already a write loop, do nothing 
       return;
     }
-    next = _sendQueue.front();
+    // There is no current write loop, create one 
+    _writeLoop._current = std::make_shared<WriteLoop>(std::dynamic_pointer_cast<VstConnection>(shared_from_this()), _socket);
+    newLoop = _writeLoop._current.get();
   }
+  // Start the new loop
+  newLoop->start();
+}
 
+// Stop the current write loop
+void VstConnection::stopWriting() {
   {
-    Lock mapLock(_mapMutex);
-    _messageMap.emplace(next->_messageId,next);
+    std::lock_guard<std::mutex> lock(_writeLoop._mutex);
+    _writeLoop._current.reset();
+  }
+}
+
+// called by a WriteLoop to request for the next request that will be written.
+// If there is no more work, nullptr is returned and the given loop must stop.
+std::shared_ptr<RequestItem> VstConnection::getNextRequestToSend(const WriteLoop* writeLoop) {
+  // Claim exclusive access 
+  std::lock_guard<std::mutex> lock(_writeLoop._mutex);
+
+  // Is the write loop still the current write loop?
+  if (_writeLoop._current.get() != writeLoop) {
+    FUERTE_LOG_VSTTRACE << "shouldStopWriting: no longer current loop: loop=" << writeLoop << std::endl;
+    return std::shared_ptr<RequestItem>(nullptr);
   }
 
-  FUERTE_LOG_CALLBACKS << "s";
+  // Connection permanently broken?
+  if (_permanent_failure) {
+    FUERTE_LOG_VSTTRACE << "shouldStopWriting: permanent failure" << std::endl;
+    return std::shared_ptr<RequestItem>(nullptr);
+  }
+
+  // Get next request from send queue.
+  auto next = _sendQueue.front();
+  if (!next) {
+    // send queue is empty
+    FUERTE_LOG_VSTTRACE << "sendNextRequest: sendQueue empty" << std::endl;
+    _writeLoop._current.reset();
+    return std::shared_ptr<RequestItem>(nullptr);
+  }
+
+  // Add item to message store 
+  _messageStore.add(next);
+
+  // Remove item from send queue 
+  _sendQueue.removeFirst();
+
+  // Return message
+  return next;
+}
+
+// Restart the connection if the given WriteLoop is still the current write loop.
+void VstConnection::restartConnection(const WriteLoop* writeLoop, const ErrorCondition error) {
+  {
+    // Claim read & write loop mutex, so we can prevent that the ReadLoop & WriteLoop each restart
+    // the connection, resulting in a double restart.
+    std::unique_lock<std::mutex> readLoopLock(_readLoop._mutex, std::defer_lock);
+    std::unique_lock<std::mutex> writeLoopLock(_writeLoop._mutex, std::defer_lock);
+    std::lock(readLoopLock, writeLoopLock);
+    if (_writeLoop._current.get() != writeLoop) {
+      return;
+    }
+    _readLoop._current.reset();
+    _writeLoop._current.reset();
+  }
+  restartConnection(error);
+}
+
+// start the write loop 
+void VstConnection::WriteLoop::start() {
+  auto wasStarted = _started.exchange(true);
+  if (!wasStarted) {
+    sendNextRequest();
+  }
+}
+
+// writes data from task queue to network using boost::asio::async_write
+void VstConnection::WriteLoop::sendNextRequest() {
+  FUERTE_LOG_VSTTRACE << "sendNextRequest" << std::endl;
+  FUERTE_LOG_TRACE << "+" ;
+
+  // Get next request to send.
+  auto next = _connection->getNextRequestToSend(this);
+  if (!next) {
+    // No more work for me.
+    return;
+  }
+
+  // Make sure we're listening for a response 
+  _connection->startReading();
+
+  FUERTE_LOG_VSTTRACE << "sendNextRequest: preparing to send next" << std::endl;
 
   // make sure we are connected and handshake has been done
   auto self = shared_from_this();
   assert(next);
-  assert(next->_requestBuffer);
-  VBuffer const& data = *next->_requestBuffer;
-#ifdef FUERTE_CHECKED_MODE
-  FUERTE_LOG_VSTTRACE << "Checking outgoing data for message: " << next->_messageId << std::endl;
+  assert(next->_requestBuffers.size());
+
+  // Set timeout 
+  auto reqTimeout = std::chrono::duration_cast<std::chrono::milliseconds>(next->_request->timeout());
+  _deadline.expires_from_now(boost::posix_time::milliseconds(reqTimeout.count()));
+  _deadline.async_wait(boost::bind(&WriteLoop::deadlineHandler, self, _1));
+
+/*#ifdef FUERTE_CHECKED_MODE
+  FUERTE_LOG_VSTTRACE << "Checking outgoing data for message: " << next->_messageID << std::endl;
   auto vstChunkHeader = vst::readChunkHeaderV1_0(data.data());
   validateAndCount(data.data() + vstChunkHeader._chunkHeaderLength
                   ,data.byteSize() - vstChunkHeader._chunkHeaderLength);
-#endif
-  FUERTE_LOG_CALLBACKS << data.byteSize();
-  ba::async_write(*_socket
-                 ,ba::buffer(data.data(),data.byteSize())
-                 ,[this,self,next](BoostEC const& error, std::size_t transferred){
-                    this->handleWrite(error,transferred, next);
-                  }
-                 );
+#endif*/
+  _connection->_async_calls++;
+  ba::async_write(*_socket, 
+    next->_requestBuffers,
+    [this, self, next](BoostEC const& error, std::size_t transferred) {
+      asyncWriteCallback(error, transferred, next);
+    });
+
+  FUERTE_LOG_VSTTRACE << "sendNextRequest: done" << std::endl;
 }
 
-void VstConnection::handleWrite(BoostEC const& error, std::size_t transferred, RequestItemSP item){
-  FUERTE_LOG_CALLBACKS << "S";
+// callback of async_write function that is called in sendNextRequest.
+void VstConnection::WriteLoop::asyncWriteCallback(BoostEC const& error, std::size_t transferred, RequestItemSP item) {
+  // Cancel deadline 
+  _deadline.cancel();
 
-  if (error){
+  auto pendingAsyncCalls = --_connection->_async_calls;
+  if (error) {
+    // Send failed
+    FUERTE_LOG_CALLBACKS << "asyncWriteCallback: error " << error.message() << std::endl;
     FUERTE_LOG_ERROR << error.message() << std::endl;
-    _pleaseStop = true; //stop reading as well
-    {
-      Lock lock(_mapMutex);
-      _messageMap.erase(item->_messageId);
-    }
 
-    //let user know that this request caused the error
-    item->_onError(errorToInt(ErrorCondition::VstWriteError),std::move(item->_request),nullptr);
+    // Item has failed, remove from message store
+    _connection->_messageStore.removeByID(item->_messageID);
 
-    restartConnection();
+    // let user know that this request caused the error
+    item->_callback.invoke(errorToInt(ErrorCondition::VstWriteError), std::move(item->_request), nullptr);
 
-    // pop at the very end of error handling so nothing else
-    // gets queued in the io_service
-    Lock sendQueueLock(_sendQueueMutex);
-    _sendQueue.pop_front();
-    return;
+    // Stop current connection and try to restart a new one.
+    // This will reset the current write loop.
+    _connection->restartConnection(this, ErrorCondition::VstWriteError);
+  } else {
+    // Send succeeded
+    FUERTE_LOG_CALLBACKS << "asyncWriteCallback: send succeeded, " << transferred << " bytes transferred async-calls=" << pendingAsyncCalls << std::endl;
+
+    // request is written we no longer data for that
+    item->resetSendData();
+
+    // Continue with next request (if any)
+    FUERTE_LOG_CALLBACKS << "asyncWriteCallback: send next request (if any)" << std::endl;
+    sendNextRequest();
   }
-  item->_requestBuffer.reset(); //request is written we no longer need the buffer
-  //everything is ok
-  // remove item when work is done;
-  // so the queue does not get empty in between which could
-  // trigger another parallel write that is not allowed
-  // the caller of async_write has to make sure that there
-  // are no parallel calls
-  {
-    Lock sendQueueLock(_sendQueueMutex);
-    _sendQueue.pop_front();
-    if(_sendQueue.empty()){ return; }
-  }
-  //startWrite();
-  auto self = shared_from_this();
-  _ioService->dispatch( [self](){ self->startWrite(); });
 }
+
+// handler for deadline timer
+void VstConnection::WriteLoop::deadlineHandler(const boost::system::error_code& error) {
+  if (!error) {
+    // Stop current connection and try to restart a new one.
+    // This will reset the current write loop.
+    _connection->restartConnection(this, ErrorCondition::Timeout);
+  }
+}
+
 }}}}

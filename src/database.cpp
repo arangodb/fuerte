@@ -19,9 +19,11 @@
 ///
 /// @author Jan Christoph Uhde
 ////////////////////////////////////////////////////////////////////////////////
+
 #include <fuerte/database.h>
 #include <fuerte/collection.h> //required by new
 #include <fuerte/connection.h> //required by _conn
+#include <fuerte/message.h> //required by _conn
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 

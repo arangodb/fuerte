@@ -18,23 +18,23 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author Jan Christoph Uhde
+/// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #ifndef ARANGO_CXX_DRIVER_MESSAGE
 #define ARANGO_CXX_DRIVER_MESSAGE
 
+#include <chrono>
+#include <map>
+#include <string>
+#include <vector>
+
 #include "types.h"
 
 #include <boost/optional.hpp>
-#include <string>
-#include <vector>
-#include <map>
+#include <boost/asio/buffer.hpp>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
-
-namespace vst {
-  class VstConnection;
-}
 
 const std::string fu_content_type_key("content-type");
 const std::string fu_accept_key("accept");
@@ -46,16 +46,18 @@ struct MessageHeader {
   MessageHeader(MessageHeader&&) = default;
 
   ::boost::optional<int> version;
-  ::boost::optional<MessageType> type;
-  ::boost::optional<uint32_t> responseCode;
-  ::boost::optional<std::string> database;
-  ::boost::optional<RestVerb> restVerb;
-  ::boost::optional<std::string> path;
-  ::boost::optional<mapss> parameter;
-  ::boost::optional<mapss> meta;
-  ::boost::optional<std::string> user;
-  ::boost::optional<std::string> password;
-  ::boost::optional<std::size_t> byteSize; //for debugging
+  ::boost::optional<MessageType> type;        // Type of message
+  ::boost::optional<StatusCode> responseCode; // Response code (response only)
+  ::boost::optional<std::string> database;    // Database that is the target of the request
+  ::boost::optional<RestVerb> restVerb;       // HTTP method
+  ::boost::optional<std::string> path;        // Local path of the request
+  ::boost::optional<StringMap> parameters;    // Query parameters
+  ::boost::optional<StringMap> meta;          // Header meta data
+  ::boost::optional<std::string> encryption;  // Authentication: encryption field
+  ::boost::optional<std::string> user;        // Authentication: username
+  ::boost::optional<std::string> password;    // Authentication: password
+  ::boost::optional<std::string> token;       // Authentication: JWT token
+  ::boost::optional<std::size_t> byteSize;    // for debugging
 
   // content type accessors
   std::string contentTypeString() const;
@@ -68,51 +70,91 @@ struct MessageHeader {
   ContentType acceptType() const;
   void acceptType(std::string const& type);
   void acceptType(ContentType type);
+
+  // query parameter helpers 
+  void addParameter(std::string const& key, std::string const& value);
+  // Header metadata helpers 
+  void addMeta(std::string const& key, std::string const& value);
+  // Get value for header metadata key, returns empty string if not found.
+  std::string metaByKey(std::string const& key) const;
 };
 
 std::string to_string(MessageHeader const&);
 
 // create a map<string,string> from header object
-mapss headerStrings(MessageHeader const& header);
+StringMap headerStrings(MessageHeader const& header);
 
-// TODO SPLIT MESSAGE INTO REQEST / RESPONSE
+// Message is base class for message being send to (Request) or
+// from (Response) a server.
 class Message {
-friend class VstConnection;
+protected:
+  Message(MessageHeader&& messageHeader = MessageHeader(), StringMap&& headerStrings = StringMap())
+    : header(std::move(messageHeader)),
+      messageID(123456789)
+         {
+           if (!headerStrings.empty()){
+            header.meta = std::move(headerStrings);
+           }
+         }
+
+  Message(MessageHeader const& messageHeader, StringMap const& headerStrings)
+    : header(messageHeader),
+      messageID(123456789)
+         {
+           if (!headerStrings.empty()){
+            header.meta = std::move(headerStrings);
+           }
+         }
+
 public:
-  Message(MessageHeader&& messageHeader = MessageHeader()
-         ,mapss&& headerStrings = mapss()
-         )
-         :header(std::move(messageHeader))
-         ,messageid(123456789)
-         ,_sealed(false)
-         ,_modified(true)
-         ,_isVpack(boost::none)
-         ,_builder(nullptr)
-         ,_payloadLength(0)
-         {
-           if (!headerStrings.empty()){
-            header.meta = std::move(headerStrings);
-           }
-         }
-
-  Message(MessageHeader const& messageHeader
-         ,mapss const& headerStrings
-         )
-         :header(messageHeader)
-         ,messageid(123456789)
-         ,_sealed(false)
-         ,_modified(true)
-         ,_isVpack(boost::none)
-         ,_builder(nullptr)
-         ,_payloadLength(0)
-         {
-           if (!headerStrings.empty()){
-            header.meta = std::move(headerStrings);
-           }
-         }
-
   MessageHeader header;
-  uint64_t messageid; //generate by some singleton
+  MessageID messageID; //generate by some singleton
+
+  ///////////////////////////////////////////////
+  // get payload
+  ///////////////////////////////////////////////
+  virtual std::vector<VSlice>const & slices() = 0;
+  virtual boost::asio::const_buffer payload() const = 0; 
+  std::string payloadAsString() const {
+    auto p = payload();
+    return std::string(boost::asio::buffer_cast<char const*>(p), boost::asio::buffer_size(p));
+  }
+
+  // content-type header accessors
+  std::string contentTypeString() const;
+  ContentType contentType() const;
+
+  // accept header accessors
+  std::string acceptTypeString() const;
+  ContentType acceptType() const;
+};
+
+// Request contains the message send to a server in a request.
+class Request : public Message {
+  static std::chrono::milliseconds _defaultTimeout;
+public:
+  Request(MessageHeader&& messageHeader = MessageHeader(), StringMap&& headerStrings = StringMap())
+    : Message(std::move(messageHeader), std::move(headerStrings)),
+      _sealed(false),
+      _modified(true),
+      _isVpack(boost::none),
+      _builder(nullptr),
+      _payloadLength(0),
+      _timeout(std::chrono::duration_cast<std::chrono::milliseconds>(_defaultTimeout))
+         {
+           header.type = MessageType::Request;
+         }
+  Request(MessageHeader const& messageHeader, StringMap const& headerStrings)
+    : Message(messageHeader, headerStrings),
+      _sealed(false),
+      _modified(true),
+      _isVpack(boost::none),
+      _builder(nullptr),
+      _payloadLength(0),
+      _timeout(std::chrono::duration_cast<std::chrono::milliseconds>(_defaultTimeout))
+         {
+           header.type = MessageType::Request;
+         }
 
   ///////////////////////////////////////////////
   // add payload
@@ -123,29 +165,24 @@ public:
   void addBinary(uint8_t const* data, std::size_t length);
   void addBinarySingle(VBuffer&& buffer);
 
-  ///////////////////////////////////////////////
-  // get payload
-  ///////////////////////////////////////////////
-  std::vector<VSlice>const & slices(); // not const because it updates slices form buffer
-                                       // slices could become a fee standing function
-                                       // it is probably just called once
-  std::pair<uint8_t const *, std::size_t> payload() const; //as binary
-  std::string payloadAsString() const {
-    auto p = payload();
-    return std::string(reinterpret_cast<char const*>(p.first),p.second);
-  }
-
   // content-type header accessors
-  std::string contentTypeString() const;
-  ContentType contentType() const;
   void contentType(std::string const& type);
   void contentType(ContentType type);
 
   // accept header accessors
-  std::string acceptTypeString() const;
-  ContentType acceptType() const;
   void acceptType(std::string const& type);
   void acceptType(ContentType type);
+  
+  ///////////////////////////////////////////////
+  // get payload
+  ///////////////////////////////////////////////
+  virtual std::vector<VSlice>const & slices() override;
+  virtual boost::asio::const_buffer payload() const override; 
+
+  // get timeout 
+  inline std::chrono::milliseconds timeout() const { return _timeout; }
+  // set timeout 
+  void timeout(std::chrono::milliseconds timeout) { _timeout = timeout; }
 
 private:
   VBuffer _payload;
@@ -156,39 +193,56 @@ private:
   std::vector<VSlice> _slices;
   std::size_t _payloadLength; // because VPackBuffer has quirks we need
                               // to track the Length manually
+  std::chrono::milliseconds _timeout;
 };
 
-class Request : public Message {
-public:
-  Request(MessageHeader&& messageHeader = MessageHeader()
-         ,mapss&& headerStrings = mapss()
-         ): Message(std::move(messageHeader), std::move(headerStrings))
-         {
-           header.type = MessageType::Request;
-         }
-  Request(MessageHeader const& messageHeader
-         ,mapss const& headerStrings
-         ): Message(messageHeader, headerStrings)
-         {
-           header.type = MessageType::Request;
-         }
-
-};
-
+// Response contains the message resulting from a request to a server.
 class Response : public Message {
 public:
-  Response(MessageHeader&& messageHeader = MessageHeader()
-          ,mapss&& headerStrings = mapss()
-          )
-          :Message(std::move(messageHeader), std::move(headerStrings))
+  Response(MessageHeader&& messageHeader = MessageHeader(), StringMap&& headerStrings = StringMap())
+    : Message(std::move(messageHeader), std::move(headerStrings))
           {
             header.type = MessageType::Response;
           }
 
+  ///////////////////////////////////////////////
+  // get / check status
+  ///////////////////////////////////////////////
 
+  // statusCode returns the (HTTP) status code for the request (400==OK).
+  StatusCode statusCode() { return header.responseCode ? header.responseCode.get() : 0; }
+  // checkStatus returns true if the statusCode equals one of the given valid code, false otherwise.
+  bool checkStatus(std::initializer_list<StatusCode> validStatusCodes) {
+    auto actual = statusCode();
+    for (auto code : validStatusCodes) {
+      if (code == actual) return true;
+    }
+    return false;
+  }
+  // assertStatus throw an exception if the statusCode does not equal one of the given valid codes.
+  void assertStatus(std::initializer_list<StatusCode> validStatusCodes) {
+    if (!checkStatus(validStatusCodes)) {
+      throw std::runtime_error("invalid status " + std::to_string(statusCode()));
+    }
+  }
+
+  ///////////////////////////////////////////////
+  // get/set payload
+  ///////////////////////////////////////////////
+  bool isContentTypeJSON() const;
+  bool isContentTypeVPack() const;
+  bool isContentTypeHtml() const;
+  bool isContentTypeText() const;
+  virtual std::vector<VSlice>const & slices() override;
+  virtual boost::asio::const_buffer payload() const override; 
+
+  void setPayload(VBuffer&& buffer, size_t payloadOffset);
+
+private:
+  VBuffer _payload;
+  size_t _payloadOffset;
+  std::vector<VSlice> _slices;
 };
-
-//std::unique_ptr<Response> createResponse(unsigned code);
 
 }}}
 #endif

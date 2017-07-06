@@ -50,7 +50,7 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
 // base case - everything uses this
 std::unique_ptr<Request>
 createRequest(MessageHeader&& messageHeader
-             ,mapss&& headerStrings
+             ,StringMap&& headerStrings
              ,RestVerb const& verb
              ,ContentType const& contentType
              );
@@ -58,7 +58,7 @@ createRequest(MessageHeader&& messageHeader
 // wrapper for const paramters
 std::unique_ptr<Request>
 createRequest(MessageHeader const& messageHeader
-             ,mapss const& headerStrings
+             ,StringMap const& headerStrings
              ,std::string const& database
              ,RestVerb const& verb
              ,ContentType const& contentType
@@ -73,21 +73,21 @@ createRequest(RestVerb const& verb
 std::unique_ptr<Request>
 createRequest(RestVerb verb
              ,std::string const& path
-             ,mapss const& parameter
+             ,StringMap const& parameter
              ,VBuffer&& payload
              );
 
 std::unique_ptr<Request>
 createRequest(RestVerb verb
              ,std::string const& path
-             ,mapss const& parameter
+             ,StringMap const& parameter
              ,VSlice const& payload
              );
 
 std::unique_ptr<Request>
 createRequest(RestVerb verb
              ,std::string const& path
-             ,mapss const& parameter = mapss()
+             ,StringMap const& parameter = StringMap()
              );
 }}}
 #endif

@@ -23,16 +23,6 @@
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
-VpackInit::VpackInit() : _translator(new arangodb::velocypack::AttributeTranslator){
-    _translator->add("_key", uint8_t(1));
-    _translator->add("_rev", uint8_t(2));
-    _translator->add("_id", uint8_t(3));
-    _translator->add("_from", uint8_t(4));
-    _translator->add("_to", uint8_t(5));
-    _translator->seal();
-    arangodb::velocypack::Options::Defaults.attributeTranslator = _translator.get();
-}
-
 RestVerb to_RestVerb(std::string const& value) {
   std::string lowercase;
   lowercase.reserve(value.size());
@@ -209,6 +199,19 @@ std::string to_string(ContentType type) {
   throw std::logic_error("unknown content type");
 }
 
+std::string to_string(AuthenticationType type) {
+  switch (type) {
+    case AuthenticationType::None:
+      return "none";
+    case AuthenticationType::Basic:
+      return "basic";
+    case AuthenticationType::Jwt:
+      return "jwt";
+  }
+  return "unknown";
+}
+
+
 ErrorCondition intToError(Error integral){
   static const std::vector<Error> valid = {
       0,    // NoError
@@ -218,7 +221,8 @@ ErrorCondition intToError(Error integral){
       1002, // TimeOut
       1102, // VstReadError
       1103, // VstWriteError
-      1104, // VstCancelledDuringReset
+      1104, // CancelledDuringReset
+      1105, // MalformedURL
       3000, // CurlError
   };
   auto pos = std::find(valid.begin(), valid.end(), integral);
@@ -251,8 +255,10 @@ std::string to_string(ErrorCondition error){
       return "Error: reading vst";
     case ErrorCondition::VstWriteError:
       return "Error: writing vst";
-    case ErrorCondition::VstCanceldDuringReset:
+    case ErrorCondition::CanceledDuringReset:
       return "Error: cancel as result of other error";
+    case ErrorCondition::MalformedURL:
+      return "Error: malformed URL";
 
     case ErrorCondition::CurlError:
       return "Error: in curl";

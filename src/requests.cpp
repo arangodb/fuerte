@@ -27,7 +27,7 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
 // Helper and Implementation
 std::unique_ptr<Request>
 createRequest(MessageHeader&& messageHeader
-             ,mapss&& headerStrings
+             ,StringMap&& headerStrings
              ,RestVerb const& verb
              ,ContentType const& contentType
              ){
@@ -48,13 +48,13 @@ createRequest(MessageHeader&& messageHeader
 
 std::unique_ptr<Request>
 createRequest(MessageHeader const& messageHeader
-             ,mapss const& headerStrings
+             ,StringMap const& headerStrings
              ,std::string const& database
              ,RestVerb const& verb
              ,ContentType const& contentType
              ){
   MessageHeader header = messageHeader;
-  mapss strings = headerStrings;
+  StringMap strings = headerStrings;
   return createRequest(std::move(header), std::move(strings), database, verb, contentType);
 }
 
@@ -62,19 +62,19 @@ std::unique_ptr<Request>
 createRequest(RestVerb const& verb
              ,ContentType const& contentType
              ){
-  return createRequest(MessageHeader(), mapss(), verb, contentType);
+  return createRequest(MessageHeader(), StringMap(), verb, contentType);
 }
 
 // For User
 std::unique_ptr<Request>
 createRequest(RestVerb verb
              ,std::string const& path
-             ,mapss const& parameter
+             ,StringMap const& parameters
              ,VBuffer&& payload)
 {
   auto request = createRequest(verb, ContentType::VPack);
   request->header.path = path;
-  request->header.parameter = parameter;
+  request->header.parameters = parameters;
   request->addVPack(std::move(payload));
   return request;
 }
@@ -82,12 +82,12 @@ createRequest(RestVerb verb
 std::unique_ptr<Request>
 createRequest(RestVerb verb
              ,std::string const& path
-             ,mapss const& parameter
+             ,StringMap const& parameters
              ,VSlice const& payload)
 {
   auto request = createRequest(verb, ContentType::VPack);
   request->header.path = path;
-  request->header.parameter = parameter;
+  request->header.parameters = parameters;
   request->addVPack(payload);
   return request;
 }
@@ -95,12 +95,12 @@ createRequest(RestVerb verb
 std::unique_ptr<Request>
 createRequest(RestVerb verb
              ,std::string const& path
-             ,mapss const& parameter
+             ,StringMap const& parameters
              )
 {
   auto request = createRequest(verb, ContentType::VPack);
   request->header.path = path;
-  request->header.parameter = parameter;
+  request->header.parameters = parameters;
   return request;
 }
 

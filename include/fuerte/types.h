@@ -18,6 +18,7 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author Jan Christoph Uhde
+/// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 
@@ -40,27 +41,36 @@ class Request;
 class Response;
 
 using Error = std::uint32_t;
-using MessageID = uint64_t; //id that identifies a vst::request
-using Ticket = MessageID;
+using MessageID = uint64_t; // id that identifies a Request.
+using StatusCode = uint32_t;
 
-using OnSuccessCallback = std::function<void(std::unique_ptr<Request>, std::unique_ptr<Response>)>;
-using OnErrorCallback = std::function<void(Error, std::unique_ptr<Request>, std::unique_ptr<Response>)>;
+StatusCode const StatusOK = 200;
+StatusCode const StatusCreated = 201;
+StatusCode const StatusAccepted = 202;
+StatusCode const StatusBadRequest = 400;
+StatusCode const StatusUnauthorized = 401;
+StatusCode const StatusForbidden = 403;
+StatusCode const StatusNotFound = 404;
+StatusCode const StatusMethodNotAllowed = 405;
+StatusCode const StatusConflict = 409;
+
+// RequestCallback is called for finished connection requests.
+// If the given Error is zero, the request succeeded, otherwise an error occurred.
+using RequestCallback = std::function<void(Error, std::unique_ptr<Request>, std::unique_ptr<Response>)>;
+// ConnectionFailureCallback is called when a connection encounters a failure 
+// that is not related to a specific request.
+// Examples are:
+// - Host cannot be resolved
+// - Cannot connect
+// - Connection lost
+using ConnectionFailureCallback = std::function<void(Error errorCode, const std::string& errorMessage)>;
 
 using VBuffer = arangodb::velocypack::Buffer<uint8_t>;
 using VSlice = arangodb::velocypack::Slice;
 using VBuilder = arangodb::velocypack::Builder;
 using VValue = arangodb::velocypack::Value;
 
-using mapss = std::map<std::string,std::string>;
-using NetBuffer = std::string;
-
-//move to some other place
-class VpackInit {
-    std::unique_ptr<arangodb::velocypack::AttributeTranslator> _translator;
-  public:
-    VpackInit();
-};
-
+using StringMap = std::map<std::string, std::string>;
 
 // -----------------------------------------------------------------------------
 // --SECTION--                                         enum class ErrorCondition
@@ -74,8 +84,9 @@ enum class ErrorCondition : Error {
   CouldNotConnect = 1001,
   Timeout = 1002,
   VstReadError = 1102,
-  VstWriteError =1103,
-  VstCanceldDuringReset = 1104,
+  VstWriteError = 1103,
+  CanceledDuringReset = 1104,
+  MalformedURL = 1105,
 
   CurlError = 3000,
 
@@ -135,6 +146,26 @@ ContentType to_ContentType(std::string const& val);
 std::string to_string(ContentType type);
 
 // -----------------------------------------------------------------------------
+// --SECTION--                                                AuthenticationType
+// -----------------------------------------------------------------------------
+
+enum class AuthenticationType { None, Basic, Jwt };
+std::string to_string(AuthenticationType type);
+
+// -----------------------------------------------------------------------------
+// --SECTION--                                                      Velocystream
+// -----------------------------------------------------------------------------
+
+namespace vst {
+
+  enum VSTVersion {
+    VST1_0,
+    VST1_1
+  };
+
+}
+
+// -----------------------------------------------------------------------------
 // --SECTION--                                           ConnectionConfiguration
 // -----------------------------------------------------------------------------
 
@@ -143,21 +174,24 @@ namespace detail {
     ConnectionConfiguration()
       : _connType(TransportType::Vst)
       , _ssl(true)
-      , _async(false)
       , _host("localhost")
-      , _user("root")
-      , _password("foppels")
+      , _authenticationType(AuthenticationType::None)
+      , _user("")
+      , _password("")
       , _maxChunkSize(5000ul) // in bytes
+      , _vstVersion(vst::VST1_0)
       {}
 
     TransportType _connType; // vst or http
     bool _ssl;
-    bool _async;
     std::string _host;
     std::string _port;
+    AuthenticationType _authenticationType;
     std::string _user;
     std::string _password;
     std::size_t _maxChunkSize;
+    vst::VSTVersion _vstVersion;
+    ConnectionFailureCallback _onFailure;
   };
 
 }

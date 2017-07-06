@@ -34,7 +34,7 @@
 #include <fuerte/helper.h>
 
 using ConnectionBuilder = arangodb::fuerte::ConnectionBuilder;
-//using LoopProvider = arangodb::fuerte::LoopProvider;
+using EventLoopService = arangodb::fuerte::EventLoopService;
 using Request = arangodb::fuerte::Request;
 using MessageHeader = arangodb::fuerte::MessageHeader;
 using Response = arangodb::fuerte::Response;
@@ -81,8 +81,8 @@ int main(int argc, char* argv[]) {
   std::string path = "/_api/version";
   std::string user = "";
   std::string password = "";
-  arangodb::fuerte::mapss meta;
-  arangodb::fuerte::mapss parameter;
+  arangodb::fuerte::StringMap meta;
+  arangodb::fuerte::StringMap parameter;
 
 //#warning TODO: add database flag
 
@@ -139,24 +139,23 @@ int main(int argc, char* argv[]) {
   builder.user(user);
   builder.password(password);
 
-  auto connection = builder.connect();
+  EventLoopService eventLoopService;
+  auto connection = builder.connect(eventLoopService);
 
-  auto resCallback = [](std::unique_ptr<Request> request,
-                        std::unique_ptr<Response> response) {
-    std::cout << "--------------------------------------------------------------------------" << std::endl;
-    std::cout << "received result:\n"
-              << (response ? fu::to_string(*response) : "no response")
-              << std::endl;
-  };
-
-  auto errCallback = [](uint32_t err, std::unique_ptr<Request> request,
-                        std::unique_ptr<Response> response) {
-    std::cout << "--------------------------------------------------------------------------" << std::endl;
-    std::cout << "received error: " << err << std::endl
-              << to_string(request->header)
-              << "request payload:"
-              << (response ? fu::to_string(*response) : "no response")
-              << std::endl;
+  auto cb = [](uint32_t err, std::unique_ptr<Request> request, std::unique_ptr<Response> response) {
+    if (err) {
+      std::cout << "--------------------------------------------------------------------------" << std::endl;
+      std::cout << "received error: " << err << std::endl
+                << to_string(request->header)
+                << "request payload:"
+                << (response ? fu::to_string(*response) : "no response")
+                << std::endl;
+    } else {
+      std::cout << "--------------------------------------------------------------------------" << std::endl;
+      std::cout << "received result:\n"
+                << (response ? fu::to_string(*response) : "no response")
+                << std::endl;
+    }
   };
 
   arangodb::fuerte::VBuilder vbuilder;
@@ -170,7 +169,7 @@ int main(int argc, char* argv[]) {
       std::cout << "Sending Request (messageid will be replaced)"
                 << fu::to_string(*request) << std::endl;
 
-      auto id = connection->sendRequest(std::move(request), errCallback, resCallback);
+      auto id = connection->sendRequest(std::move(request), cb);
       std::cout << "Request was assigned ID: " << id << std::endl;
     } catch (std::exception const& ex) {
       std::cerr << "exception: " << ex.what() << std::endl;
@@ -178,12 +177,12 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  try {
+  /*try {
     arangodb::fuerte::run();
   } catch (std::exception const& ex) {
     std::cerr << "exception: " << ex.what() << std::endl;
     exit(EXIT_FAILURE);
-  }
+  }*/
 
   return EXIT_SUCCESS;
 }

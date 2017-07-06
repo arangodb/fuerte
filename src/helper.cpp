@@ -28,8 +28,8 @@
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
-mapss sliceToStringMap(VSlice const& slice){
-  mapss rv;
+StringMap sliceToStringMap(VSlice const& slice){
+  StringMap rv;
   assert(slice.isObject());
   for(auto const& it : ::arangodb::velocypack::ObjectIterator(slice)){
     rv.insert({it.key.copyString(), it.value.copyString()});
@@ -70,7 +70,7 @@ std::string to_string(std::vector<VSlice> const& slices){
 std::string to_string(Message& message){
   std::stringstream ss;
   ss << "\n#### Message #####################################\n";
-  ss << "Id:" <<  message.messageid << "\n";
+  ss << "Id:" <<  message.messageID << "\n";
   ss << "Header:\n";
   ss << to_string(message.header);
   ss << "\nBody:\n";

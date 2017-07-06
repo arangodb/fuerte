@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.4)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules")
 
 project(fuerte CXX)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -7,10 +8,10 @@ enable_testing()
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(UNIX)
-    # -fPIC here as curlpp is borken
-   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-endif()
+#if(UNIX)
+#    # -fPIC here as curlpp is borken
+#   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+#endif()
 
 #########################################################################################
 # Configuration
@@ -21,19 +22,27 @@ option(FUERTE_EXAMPLES "Build EXAMPLES" OFF)
 # Dependencies
 
 find_package(OpenSSL REQUIRED)
+include_directories(${OPENSSL_INCLUDE_DIR})
+
 find_package(Threads REQUIRED)
 
 set(CMAKE_BOOST_COMPONENTS "system" "thread")
-find_package(Boost COMPONENTS ${CMAKE_BOOST_COMPONENTS})
-if(Boost_FOUND)
-    message(STATUS "== Using Boost provided by your system")
-else()
-    add_subdirectory(3rdParty/cmake-for-boost)
-endif()
+find_package(Boost REQUIRED COMPONENTS ${CMAKE_BOOST_COMPONENTS})
 
-option(BuildVelocyPackExamples "Build examples" OFF)
-add_subdirectory(3rdParty/velocypack)
-add_subdirectory(3rdParty/curlpp2)
+find_package(CURL REQUIRED)
+
+if(VELOCYPACK_SOURCE_DIR)
+    option(BuildVelocyPackExamples "Build examples" OFF)
+    add_subdirectory(${VELOCYPACK_SOURCE_DIR} ./vpack-build)
+    set(VELOCYPACK_LIBRARIES velocypack)
+else()
+    include(FindVelocypack)
+    find_package(Velocypack)
+
+    if (NOT ${VELOCYPACK_FOUND})
+        message(FATAL_ERROR "Velocypack not found. Clone from https://github.com/arangodb/velocypack and install it")
+    endif()
+endif()
 
 #########################################################################################
 # Main Project
@@ -43,18 +52,20 @@ add_subdirectory(3rdParty/curlpp2)
 
 ## fuerte
 add_library(fuerte STATIC
-    src/types.cpp
-    src/message.cpp
-    src/vst.cpp
-    src/loop.cpp
+    src/connection.cpp
+    src/ConnectionBuilder.cpp
+    src/CurlMultiAsio.cpp
+    src/database.cpp
     src/helper.cpp
-    src/HttpCommunicator.cpp
     src/HttpConnection.cpp
+    src/loop.cpp
+    src/message.cpp
+    src/requests.cpp
+    src/types.cpp
+    src/vst.cpp
     src/VstConnection.cpp
     src/collection.cpp
     src/connection.cpp
-    src/database.cpp
-    src/requests.cpp
 )
 
 if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
@@ -63,17 +74,15 @@ if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
 endif()
 
 target_link_libraries(fuerte PUBLIC
-    velocypack
-    curlpp
-    Boost::system
-    Boost::thread
+    ${VELOCYPACK_LIBRARIES}
+    ${CURL_LIBRARIES}
+    ${Boost_LIBRARIES}
     ${OPENSSL_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
 )
 
 target_include_directories(fuerte PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/curlpp2/include
 )
 
 add_executable(fuerte-get

@@ -18,78 +18,50 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author Jan Christoph Uhde
+/// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <fuerte/connection.h>
-#include <fuerte/database.h>
-#include "HttpConnection.h"
-#include "VstConnection.h"
-
-#include <boost/algorithm/string.hpp>
-#include <vector>
+#include <fuerte/FuerteLogger.h>
+#include <fuerte/waitgroup.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
-  using namespace arangodb::fuerte::detail;
 
-  Connection::Connection(detail::ConnectionConfiguration const& conf):
-    _realConnection(nullptr),
-    _configuration(conf)
-    {
-      if (_configuration._connType == TransportType::Vst){
-        FUERTE_LOG_DEBUG << "fuerte - creating velocystream connection" << std::endl;
-        _realConnection = std::make_shared<vst::VstConnection>(_configuration);
-        _realConnection->start();
-      } else {
-        //throw std::logic_error("http in vst test");
-        FUERTE_LOG_DEBUG << "fuerte - creating http connection" << std::endl;
-        _realConnection = std::make_shared<http::HttpConnection>(_configuration);
-      }
-    };
+// Deconstructor
+Connection::~Connection() { FUERTE_LOG_DEBUG << "Destroying Connection" << std::endl; }
 
-  ConnectionBuilder& ConnectionBuilder::host(std::string const& str){
-    std::vector<std::string> strings;
-    boost::split(strings, str, boost::is_any_of(":"));
+// sendRequest and wait for it to finished.
+std::unique_ptr<Response> Connection::sendRequest(std::unique_ptr<Request> request){
+  FUERTE_LOG_TRACE << "start sync request" << std::endl;
 
-    //get protocol
-    std::string const& proto = strings[0];
-    if (proto == "vst"){
-      _conf._connType = TransportType::Vst;
-      _conf._ssl = false;
-    }
-    else if (proto == "vsts"){
-      _conf._connType = TransportType::Vst;
-      _conf._ssl = true;
-    }
-    else if (proto == "http"){
-      _conf._connType = TransportType::Http;
-      _conf._ssl = false;
-    }
-    else if (proto == "https"){
-      _conf._connType = TransportType::Http;
-      _conf._ssl = true;
-    }
-    else {
-      throw std::runtime_error(std::string("invalid protocol: ") + proto);
-    }
+  WaitGroup wg;
+  auto rv = std::unique_ptr<Response>(nullptr);
+  ::arangodb::fuerte::v1::Error error = 0;
 
-    //TODO
-    //do more checking?
-    _conf._host = strings[1].erase(0,2); //remove '//'
-    _conf._port = strings[2];
+  auto cb = [&](::arangodb::fuerte::v1::Error e, std::unique_ptr<Request> request, std::unique_ptr<Response> response){
+    WaitGroupDone done(wg);
+    FUERTE_LOG_TRACE << "sendRequest (sync): onError" << std::endl;
+    rv = std::move(response);
+    error = e;
+  };
 
-    return *this;
+  {
+    // Start asynchronous request
+    wg.add();
+    sendRequest(std::move(request), cb);
+
+    // Wait for request to finish.
+    FUERTE_LOG_TRACE << "sendRequest (sync): before wait" << std::endl;
+    wg.wait();
   }
 
-  // TODO add back later as soon basic functionality has been provided
-  // // get or create?!
-  // std::shared_ptr<Database> Connection::getDatabase(std::string name){
-  //   return std::shared_ptr<Database> ( new Database(shared_from_this(), name));
-  // }
-  // std::shared_ptr<Database> Connection::createDatabase(std::string name){
-  //   return std::shared_ptr<Database> ( new Database(shared_from_this(), name));
-  // }
-  // bool Connection::deleteDatabase(std::string name){
-  //   return false;
-  // }
+  FUERTE_LOG_TRACE << "sendRequest (sync): done" << std::endl;
+
+  if (error != 0) {
+    throw intToError(error);
+  }
+
+  return std::move(rv);
+}
 
 }}}
