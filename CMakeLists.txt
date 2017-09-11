@@ -8,11 +8,6 @@ enable_testing()
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(UNIX)
-    # -fPIC here as curlpp is borken
-   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-endif()
-
 #########################################################################################
 # Configuration
 option(FUERTE_TESTS    "Build Tests" OFF)
@@ -46,8 +41,6 @@ endif()
 
 #########################################################################################
 # Main Project
-# FIXME -FPIC does not end up in curlpp
-#set_target_properties(fuerte-old velocypack curlpp PROPERTIES POSITION_INDEPENDENT_CODE ON)
 #DVELOCYPACK_XXHASH=1
 
 ## fuerte
@@ -68,7 +61,9 @@ add_library(fuerte STATIC
     src/connection.cpp
 )
 
-if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+set_target_properties(fuerte PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+if(${CMAKE_BUILD_TYPE} AND ${CMAKE_BUILD_TYPE} STREQUAL "Debug")
     message(STATUS "Enabling Fuerte checked mode: -DFUERTE_CHECKED_MODE")
     target_compile_definitions(fuerte PUBLIC "FUERTE_CHECKED_MODE" )
 endif()
