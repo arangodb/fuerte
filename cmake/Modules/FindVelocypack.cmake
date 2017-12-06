@@ -1,14 +1,17 @@
 # FindVelocypack
 # --------
 #
-# Find ArangoDB Velocypack
-#
-# ::
+# Find ArangoDB Velocypack::
 #
 #   VELOCYPACK_INCLUDE_DIRS   - where to find velocypack/vpack.h, etc.
 #   VELOCYPACK_LIBRARIES      - List of libraries when using velocypack.
 #   VELOCYPACK_FOUND          - True if velocypack found.
 #   VELOCYPACK_VERSION_STRING - the version of velocypack found (since CMake 2.8.8)
+#
+# Import target::
+#
+#   arangodb::velocypack
+#
 
 # Look for the header file.
 find_path(VELOCYPACK_INCLUDE_DIR NAMES velocypack/vpack.h)
@@ -38,6 +41,12 @@ FIND_PACKAGE_HANDLE_STANDARD_ARGS(VELOCYPACK
                                   VERSION_VAR VELOCYPACK_VERSION_STRING)
 
 if(VELOCYPACK_FOUND)
+  add_library(arangodb::velocypack IMPORTED STATIC GLOBAL)
+  set_target_properties(arangodb::velocypack
+      PROPERTIES IMPORTED_LINK_INTERFACE_LANGUAGE CXX
+                 IMPORTED_LOCATION "${VELOCYPACK_LIBRARY}"
+                 INTERFACE_INCLUDE_DIRECTORIES "${VELOCYPACK_INCLUDE_DIR}")
+
   set(VELOCYPACK_LIBRARIES ${VELOCYPACK_LIBRARY})
   set(VELOCYPACK_INCLUDE_DIRS ${VELOCYPACK_INCLUDE_DIR})
 endif()

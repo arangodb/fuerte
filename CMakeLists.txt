@@ -36,7 +36,6 @@ if(VELOCYPACK_SOURCE_DIR)
     add_subdirectory(${VELOCYPACK_SOURCE_DIR} ./vpack-build)
     set(VELOCYPACK_LIBRARIES velocypack)
 else()
-    include(FindVelocypack)
     find_package(Velocypack)
 
     if (NOT ${VELOCYPACK_FOUND})
@@ -74,7 +73,7 @@ if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
 endif()
 
 target_link_libraries(fuerte PUBLIC
-    ${VELOCYPACK_LIBRARIES}
+    arangodb::velocypack
     ${CURL_LIBRARIES}
     ${Boost_LIBRARIES}
     ${OPENSSL_LIBRARIES}
