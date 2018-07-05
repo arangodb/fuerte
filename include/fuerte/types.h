@@ -44,6 +44,7 @@ using Error = std::uint32_t;
 using MessageID = uint64_t; // id that identifies a Request.
 using StatusCode = uint32_t;
 
+StatusCode const StatusUndefined = 0;
 StatusCode const StatusOK = 200;
 StatusCode const StatusCreated = 201;
 StatusCode const StatusAccepted = 202;
@@ -120,7 +121,7 @@ std::string to_string(RestVerb type);
 // --SECTION--                                                       MessageType
 // -----------------------------------------------------------------------------
 
-enum class MessageType
+enum class MessageType : int
 { Undefined = 0
 , Request = 1
 , Response = 2
@@ -179,7 +180,7 @@ namespace detail {
       , _user("")
       , _password("")
       , _maxChunkSize(5000ul) // in bytes
-      , _vstVersion(vst::VST1_0)
+      , _vstVersion(vst::VST1_1)
       {}
 
     TransportType _connType; // vst or http

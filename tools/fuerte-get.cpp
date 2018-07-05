@@ -26,6 +26,8 @@
 #define ENABLE_FUERTE_LOG_DEBUG 1
 #define ENABLE_FUERTE_LOG_TRACE 1
 
+#include <chrono>
+
 #include <fuerte/connection.h>
 #include <iostream>
 #include <fuerte/message.h>
@@ -79,7 +81,7 @@ int main(int argc, char* argv[]) {
   RestVerb method = RestVerb::Get;
   std::string host = "http://127.0.0.1:8529";
   std::string path = "/_api/version";
-  std::string user = "";
+  std::string user = "root";
   std::string password = "";
   arangodb::fuerte::StringMap meta;
   arangodb::fuerte::StringMap parameter;
@@ -139,7 +141,7 @@ int main(int argc, char* argv[]) {
   builder.user(user);
   builder.password(password);
 
-  EventLoopService eventLoopService;
+  EventLoopService eventLoopService(2);
   auto connection = builder.connect(eventLoopService);
 
   auto cb = [](uint32_t err, std::unique_ptr<Request> request, std::unique_ptr<Response> response) {
@@ -158,24 +160,27 @@ int main(int argc, char* argv[]) {
     }
   };
 
-  arangodb::fuerte::VBuilder vbuilder;
+  arangodb::velocypack::Builder vbuilder;
   vbuilder.openObject();
   vbuilder.add("name",arangodb::velocypack::Value("superdb"));
   vbuilder.close();
 
-  for (size_t i = 0; i < 1; ++i) {
-    try {
-      auto request = arangodb::fuerte::createRequest(method, path, parameter, vbuilder.slice());
-      std::cout << "Sending Request (messageid will be replaced)"
-                << fu::to_string(*request) << std::endl;
+  try {
+    auto request = arangodb::fuerte::createRequest(method, path, parameter, vbuilder.slice());
+    std::cout << "Sending Request (messageid will be replaced)"
+              << fu::to_string(*request) << std::endl;
 
-      auto id = connection->sendRequest(std::move(request), cb);
-      std::cout << "Request was assigned ID: " << id << std::endl;
-    } catch (std::exception const& ex) {
-      std::cerr << "exception: " << ex.what() << std::endl;
-      exit(EXIT_FAILURE);
-    }
+    auto id = connection->sendRequest(std::move(request), cb);
+    std::cout << "Request was assigned ID: " << id << std::endl;
+  } catch (std::exception const& ex) {
+    std::cerr << "exception: " << ex.what() << std::endl;
+    exit(EXIT_FAILURE);
   }
+
+  while (connection->requestsLeft() > 0) {
+    std::this_thread::yield();
+  }
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
   /*try {
     arangodb::fuerte::run();

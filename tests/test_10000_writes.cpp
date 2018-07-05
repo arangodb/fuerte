@@ -68,7 +68,7 @@ class Connection100kWritesF : public ::testing::Test {
         arangodb::fuerte::Request request = *fu::createRequest(fu::RestVerb::Post, "/_api/collection");
         request.addVPack(builder.slice());
         auto result = _connection->sendRequest(std::move(request));
-        if (result->header.responseCode.get() >= 400){
+        if (result->header.responseCode >= 400){
           std::cerr << fu::to_string(request);
           std::cerr << fu::to_string(*result);
           ASSERT_TRUE(false);
@@ -127,8 +127,8 @@ TEST_F(Connection100kWritesF, Writes100k){
   fu::OnSuccessCallback onSuccess = [](std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res){
     assert(req);
     assert(res);
-    //ASSERT_TRUE(res->header.responseCode.get() < 400);
-    if (res->header.responseCode.get() >= 400) {
+    //ASSERT_TRUE(res->header.responseCode < 400);
+    if (res->header.responseCode >= 400) {
       std::cerr << res->messageid << std::endl;
       std::cerr << fu::to_string(*req);
       std::cerr << fu::to_string(*res);

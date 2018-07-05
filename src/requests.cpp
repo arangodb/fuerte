@@ -32,10 +32,13 @@ createRequest(MessageHeader&& messageHeader
              ,ContentType const& contentType
              ){
 
-  auto request = std::unique_ptr<Request>(new Request(std::move(messageHeader),std::move(headerStrings)));
+  if (!headerStrings.empty()){
+    messageHeader.meta = std::move(headerStrings);
+  }
+  auto request = std::unique_ptr<Request>(new Request(std::move(messageHeader)));
 
   request->header.restVerb = verb;
-  if (!request->header.type){
+  if (request->header.type == MessageType::Undefined){
     request->header.type = MessageType::Request;
   }
 

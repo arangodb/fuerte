@@ -46,15 +46,15 @@ std::string to_string(MessageHeader const& header){
   }
 
   if(header.version){
-    ss << "version: " << header.version.get() << std::endl;
+    ss << "version: " << header.version << std::endl;
   }
 
-  if(header.type){
-    ss << "type: " << static_cast<int>(header.type.get()) << std::endl;
+  if(header.type != MessageType::Undefined){
+    ss << "type: " << static_cast<int>(header.type) << std::endl;
   }
 
   if(header.responseCode){
-    ss << "responseCode: " << header.responseCode.get() << std::endl;
+    ss << "responseCode: " << header.responseCode << std::endl;
   }
 
   if(header.database){
@@ -209,7 +209,7 @@ void Request::acceptType(ContentType type) {
 void Request::addVPack(VSlice const& slice){
 #ifdef FUERTE_CHECKED_MODE
   //FUERTE_LOG_ERROR << "Checking data that is added to the message: " << std::endl;
-  vst::validateAndCount(slice.start(),slice.byteSize());
+  vst::parser::validateAndCount(slice.start(),slice.byteSize());
 #endif
   if(_sealed || (_isVpack && !_isVpack.get())){
     throw std::logic_error("Message is sealed or of wrong type (vst/binary)");
@@ -230,7 +230,7 @@ void Request::addVPack(VSlice const& slice){
 void Request::addVPack(VBuffer const& buffer){
 #ifdef FUERTE_CHECKED_MODE
   //FUERTE_LOG_ERROR << "Checking data that is added to the message: " << std::endl;
-  vst::validateAndCount(buffer.data(),buffer.byteSize());
+  vst::parser::validateAndCount(buffer.data(),buffer.byteSize());
 #endif
   if(_sealed || (_isVpack && !_isVpack.get())){
     throw std::logic_error("Message is sealed or of wrong type (vst/binary)");
@@ -263,7 +263,7 @@ void Request::addVPack(VBuffer const& buffer){
 void Request::addVPack(VBuffer&& buffer){
 #ifdef FUERTE_CHECKED_MODE
   //FUERTE_LOG_ERROR << "Checking data that is added to the message: " << std::endl;
-  vst::validateAndCount(buffer.data(),buffer.byteSize());
+  vst::parser::validateAndCount(buffer.data(),buffer.byteSize());
 #endif
   if(_sealed || _isVpack){
     throw std::logic_error("Message is sealed or of wrong type (vst/binary)");

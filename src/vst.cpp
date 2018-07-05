@@ -26,8 +26,9 @@
 #include "portable_endian.h"
 #include "vst.h"
 
-#include <velocypack/Validator.h>
 #include <velocypack/HexDump.h>
+#include <velocypack/Iterator.h>
+#include <velocypack/Validator.h>
 #include <velocypack/velocypack-aliases.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
@@ -131,9 +132,9 @@ void buildChunks(uint64_t messageID, uint32_t maxChunkSize, std::vector<VSlice> 
   }
   // Set chunkX of first chunk
 	if (result.size() == 1) {
-		result[0]._chunkX = 3;
+		result[0]._chunkX = 3; // ((1 << 1)| 1)
 	} else {
-		result[0]._chunkX = (result.size() << 1) + 1;
+		result[0]._chunkX = (result.size() << 1) | 1;
 	}
 }
 
@@ -150,12 +151,12 @@ static std::string createVstMessageHeader(MessageHeader const& header)
   builder.openArray();
 
   // 0 - version
-  builder.add(VValue(header.version.get()));
+  builder.add(VValue(header.version));
 
   // 1 - type
-  builder.add(VValue(static_cast<int>(header.type.get())));
-  FUERTE_LOG_DEBUG << "MessageHeader.type=" << static_cast<int>(header.type.get()) << std::endl;
-  switch (header.type.get()){
+  builder.add(VValue(static_cast<int>(header.type)));
+  FUERTE_LOG_DEBUG << "MessageHeader.type=" << static_cast<int>(header.type) << std::endl;
+  switch (header.type){
     case MessageType::Authentication:
       {
         // 2 - encryption
@@ -213,7 +214,7 @@ static std::string createVstMessageHeader(MessageHeader const& header)
 
     case MessageType::Response:
       if(!header.responseCode){ throw std::runtime_error("response code" + message); }
-      builder.add(VValue(header.responseCode.get()));                // 2
+      builder.add(VValue(header.responseCode));                // 2
       break;
     default:
       break;
@@ -266,6 +267,8 @@ void RequestItem::prepareForNetwork(VSTVersion vstVersion) {
   }
 }
 
+namespace parser {
+
 ///////////////////////////////////////////////////////////////////////////////////
 // receiving vst
 ///////////////////////////////////////////////////////////////////////////////////
@@ -297,7 +300,7 @@ ChunkHeader readChunkHeaderVST1_0(uint8_t const * const bufferBegin) {
   header._messageID = le64toh(*reinterpret_cast<const uint64_t*>(hdr+8));
   size_t hdrLen = minChunkHeaderSize;
 
-	if ((1 == (header._chunkX & 0x1)) && ((header._chunkX >> 1) > 1)) {
+	if (header.isFirst() && header.numberOfChunks() > 1) {
 		// First chunk, numberOfChunks>1 -> read messageLength
 		header._messageLength = le64toh(*reinterpret_cast<const uint64_t*>(hdr+16));
     hdrLen = maxChunkHeaderSize;
@@ -331,6 +334,7 @@ MessageHeader messageHeaderFromSlice(int vstVersionID, VSlice const& headerSlice
   MessageHeader header;
   header.byteSize = headerSlice.byteSize(); //for debugging
 
+  header.meta = StringMap();
   if(vstVersionID == 1) {
     header.contentType(ContentType::VPack);
   } else {
@@ -340,7 +344,7 @@ MessageHeader messageHeaderFromSlice(int vstVersionID, VSlice const& headerSlice
 
   header.version = headerSlice.at(0).getNumber<int>();                              //version
   header.type = static_cast<MessageType>(headerSlice.at(1).getNumber<int>());       //type
-  switch (header.type.get()){
+  switch (header.type){
     case MessageType::Authentication:
       //header.encryption = headerSlice.at(6);                                      //encryption (plain) should be 2
       header.user = headerSlice.at(2).copyString();                                 //user
@@ -358,9 +362,13 @@ MessageHeader messageHeaderFromSlice(int vstVersionID, VSlice const& headerSlice
     //resoponse should get content type
     case MessageType::Response:
       header.responseCode = headerSlice.at(2).getUInt(); // TODO fix me
-      header.contentType(ContentType::VPack);
+      header.contentType(ContentType::VPack); // empty meta
       if (headerSlice.length() >= 4) {
-        header.meta = sliceToStringMap(headerSlice.at(3));                          // meta
+        VSlice meta = headerSlice.at(3);
+        assert(meta.isObject());
+        for(auto it : VPackObjectIterator(meta)) {
+          header.meta.get().emplace(it.key.copyString(), it.value.copyString());
+        }
       }
       break;
     default:
@@ -370,13 +378,13 @@ MessageHeader messageHeaderFromSlice(int vstVersionID, VSlice const& headerSlice
   return header;
 };
 
-MessageHeader validateAndExtractMessageHeader(int const& vstVersionID, uint8_t const * const vpStart, std::size_t length, std::size_t& headerLength){
+MessageHeader validateAndExtractMessageHeader(int const& vstVersionID, uint8_t const * const vpStart, 
+                                              std::size_t length, std::size_t& headerLength){
   using VValidator = ::arangodb::velocypack::Validator;
   // there must be at least one velocypack for the header
   VValidator validator;
   bool isSubPart = true;
 
-  VSlice slice;
   try {
     // isSubPart allows the slice to be shorter than the checked buffer.
     validator.validate(vpStart, length , isSubPart);
@@ -385,7 +393,7 @@ MessageHeader validateAndExtractMessageHeader(int const& vstVersionID, uint8_t c
     FUERTE_LOG_VSTTRACE << "len: " << length << std::string(reinterpret_cast<char const*>(vpStart), length);
     throw std::runtime_error(std::string("error during validation of incoming VPack (HEADER): ") + e.what());
   }
-  slice = VSlice(vpStart);
+  VSlice slice = VSlice(vpStart);
   headerLength = slice.byteSize();
 
   return messageHeaderFromSlice(vstVersionID, slice);
@@ -427,6 +435,8 @@ std::size_t validateAndCount(uint8_t const * const vpStart, std::size_t length){
   return numPayloads;
 }
 
+} // parser
+
 // add the given chunk to the list of response chunks.
 void RequestItem::addChunk(ChunkHeader& chunk) {
   // Copy _data to response buffer 
@@ -462,12 +472,26 @@ std::unique_ptr<VBuffer> RequestItem::assemble() {
 		return nullptr;
 	}
 
+  // fast-path: chunks received in-order
+  bool reject = false;
+  for (size_t i = 0; i < _responseNumberOfChunks; i++) {
+    if (_responseChunks[i].index() != i) {
+      reject = true;
+      break;
+    }
+  }
+  if (!reject) {
+    FUERTE_LOG_VSTCHUNKTRACE << "RequestItem::assemble: fast-path, chunks are in order" << std::endl;
+    return std::unique_ptr<VBuffer>(new VBuffer(std::move(_responseChunkContent)));
+  }
+
   // We now have all chunks. Sort them by index.
   FUERTE_LOG_VSTCHUNKTRACE << "RequestItem::assemble: sort chunks" << std::endl;
   std::sort (_responseChunks.begin(), _responseChunks.end(), chunkByIndex);
 
   // Combine chunk content 
   FUERTE_LOG_VSTCHUNKTRACE << "RequestItem::assemble: build response buffer" << std::endl;
+
   auto buffer = std::unique_ptr<VBuffer>(new VBuffer());
   for (auto it = std::begin(_responseChunks); it!=std::end(_responseChunks); ++it) {
     buffer->append(_responseChunkContent.data() + it->_responseChunkContentOffset, it->_responseContentLength);

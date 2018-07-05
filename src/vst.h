@@ -78,17 +78,15 @@ struct ChunkHeader {
   inline bool isFirst() const { return ((_chunkX & 0x01) == 1); }
   // index returns the index of this chunk in the message.
   inline uint32_t index() const { 
-    if ((_chunkX & 0x01) == 1) {
-      return 0;
-    }
-    return _chunkX >> 1;
+    return isFirst() ? 0 : _chunkX >> 1;
   }
   // numberOfChunks return the number of chunks that make up the entire message.
   // This function is only valid for first chunks.
   inline uint32_t numberOfChunks() const { 
-    if ((_chunkX & 0x01) == 1) {
+    if (isFirst()) {
       return _chunkX >> 1;
     }
+    assert(false); // illegal call
     return 0; // Not known
   }
 
@@ -158,8 +156,10 @@ struct RequestItem {
 };
 
 /////////////////////////////////////////////////////////////////////////////////////
-// receive vst
+// parse vst
 /////////////////////////////////////////////////////////////////////////////////////
+
+namespace parser {
 
 // isChunkComplete returns the length of the chunk that starts at the given begin 
 // if the entire chunk is available.
@@ -176,10 +176,13 @@ ChunkHeader readChunkHeaderVST1_1(uint8_t const * const bufferBegin);
 MessageHeader messageHeaderFromSlice(VSlice const& headerSlice);
 // validates if a data range contains a slice and converts it
 // to a message Hader and returns size occupied by the sloce via reference
-MessageHeader validateAndExtractMessageHeader(int const& vstVersionID, uint8_t const * const vpStart, std::size_t length, std::size_t& headerLength);\
+MessageHeader validateAndExtractMessageHeader(int const& vstVersionID, 
+                                              uint8_t const * const vpStart, 
+                                              std::size_t length, std::size_t& headerLength);
 
 //Validates if payload consitsts of valid velocypack slices
 std::size_t validateAndCount(uint8_t const* vpHeaderStart, std::size_t len);
+}
 
 }}}}
 #endif

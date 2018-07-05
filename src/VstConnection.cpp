@@ -470,15 +470,15 @@ void VstConnection::ReadLoop::asyncReadCallback(const boost::system::error_code&
     auto receivedBuf = _receiveBuffer.data(); // no copy
     auto cursor = boost::asio::buffer_cast<const uint8_t*>(receivedBuf);
     auto available = boost::asio::buffer_size(receivedBuf);
-    while (vst::isChunkComplete(cursor, available)) {
+    while (vst::parser::isChunkComplete(cursor, available)) {
       // Read chunk 
       ChunkHeader chunk;
       switch (_connection->_vstVersion) {
         case VST1_0:
-          chunk = vst::readChunkHeaderVST1_0(cursor);
+          chunk = vst::parser::readChunkHeaderVST1_0(cursor);
           break;
         case VST1_1:
-          chunk = vst::readChunkHeaderVST1_1(cursor);
+          chunk = vst::parser::readChunkHeaderVST1_1(cursor);
           break;
         default:
           throw std::logic_error("Unknown VST version");
@@ -531,7 +531,7 @@ void VstConnection::processChunk(ChunkHeader &chunk) {
     _messageStore.removeByID(item->_messageID);
 
     // Create response
-    auto response = createResponse(*item, completeBuffer);
+    std::unique_ptr<Response> response = createResponse(*item, completeBuffer);
 
     // Notify listeners
     FUERTE_LOG_VSTTRACE << "processChunk: notifying RequestItem onSuccess callback" << std::endl;
@@ -545,8 +545,10 @@ std::unique_ptr<Response> VstConnection::createResponse(RequestItem& item, std::
   auto itemCursor = responseBuffer->data();
   auto itemLength = responseBuffer->byteSize();
   std::size_t messageHeaderLength;
+
+#warning FIXME configure version ID
   int vstVersionID = 1;
-  MessageHeader messageHeader = validateAndExtractMessageHeader(vstVersionID, itemCursor, itemLength, messageHeaderLength);
+  MessageHeader messageHeader = parser::validateAndExtractMessageHeader(vstVersionID, itemCursor, itemLength, messageHeaderLength);
 
   auto response = std::unique_ptr<Response>(new Response(std::move(messageHeader)));
   response->messageID = item._messageID;
@@ -676,8 +678,8 @@ void VstConnection::WriteLoop::sendNextRequest() {
 /*#ifdef FUERTE_CHECKED_MODE
   FUERTE_LOG_VSTTRACE << "Checking outgoing data for message: " << next->_messageID << std::endl;
   auto vstChunkHeader = vst::readChunkHeaderV1_0(data.data());
-  validateAndCount(data.data() + vstChunkHeader._chunkHeaderLength
-                  ,data.byteSize() - vstChunkHeader._chunkHeaderLength);
+  parser::validateAndCount(data.data() + vstChunkHeader._chunkHeaderLength
+                          ,data.byteSize() - vstChunkHeader._chunkHeaderLength);
 #endif*/
   _connection->_async_calls++;
   ba::async_write(*_socket, 

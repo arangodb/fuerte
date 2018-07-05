@@ -45,9 +45,9 @@ struct MessageHeader {
   MessageHeader() = default;
   MessageHeader(MessageHeader&&) = default;
 
-  ::boost::optional<int> version;
-  ::boost::optional<MessageType> type;        // Type of message
-  ::boost::optional<StatusCode> responseCode; // Response code (response only)
+  int version = 0;
+  MessageType type = MessageType::Undefined;  // Type of message
+  StatusCode responseCode = StatusUndefined;  // Response code (response only)
   ::boost::optional<std::string> database;    // Database that is the target of the request
   ::boost::optional<RestVerb> restVerb;       // HTTP method
   ::boost::optional<std::string> path;        // Local path of the request
@@ -88,23 +88,16 @@ StringMap headerStrings(MessageHeader const& header);
 // from (Response) a server.
 class Message {
 protected:
-  Message(MessageHeader&& messageHeader = MessageHeader(), StringMap&& headerStrings = StringMap())
+  Message(MessageHeader&& messageHeader = MessageHeader())
     : header(std::move(messageHeader)),
       messageID(123456789)
          {
-           if (!headerStrings.empty()){
-            header.meta = std::move(headerStrings);
-           }
          }
 
-  Message(MessageHeader const& messageHeader, StringMap const& headerStrings)
+  Message(MessageHeader const& messageHeader)
     : header(messageHeader),
       messageID(123456789)
-         {
-           if (!headerStrings.empty()){
-            header.meta = std::move(headerStrings);
-           }
-         }
+         {}
 
 public:
   MessageHeader header;
@@ -133,8 +126,8 @@ public:
 class Request : public Message {
   static std::chrono::milliseconds _defaultTimeout;
 public:
-  Request(MessageHeader&& messageHeader = MessageHeader(), StringMap&& headerStrings = StringMap())
-    : Message(std::move(messageHeader), std::move(headerStrings)),
+  Request(MessageHeader&& messageHeader = MessageHeader())
+    : Message(std::move(messageHeader)),
       _sealed(false),
       _modified(true),
       _isVpack(boost::none),
@@ -144,8 +137,8 @@ public:
          {
            header.type = MessageType::Request;
          }
-  Request(MessageHeader const& messageHeader, StringMap const& headerStrings)
-    : Message(messageHeader, headerStrings),
+  Request(MessageHeader const& messageHeader)
+    : Message(messageHeader),
       _sealed(false),
       _modified(true),
       _isVpack(boost::none),
@@ -199,8 +192,8 @@ private:
 // Response contains the message resulting from a request to a server.
 class Response : public Message {
 public:
-  Response(MessageHeader&& messageHeader = MessageHeader(), StringMap&& headerStrings = StringMap())
-    : Message(std::move(messageHeader), std::move(headerStrings))
+  Response(MessageHeader&& messageHeader = MessageHeader())
+    : Message(std::move(messageHeader))
           {
             header.type = MessageType::Response;
           }
@@ -210,7 +203,7 @@ public:
   ///////////////////////////////////////////////
 
   // statusCode returns the (HTTP) status code for the request (400==OK).
-  StatusCode statusCode() { return header.responseCode ? header.responseCode.get() : 0; }
+  StatusCode statusCode() { return header.responseCode; }
   // checkStatus returns true if the statusCode equals one of the given valid code, false otherwise.
   bool checkStatus(std::initializer_list<StatusCode> validStatusCodes) {
     auto actual = statusCode();

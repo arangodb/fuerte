@@ -21,7 +21,6 @@
 /// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
-
 #ifndef ARANGO_CXX_DRIVER_VST_CONNECTION_H
 #define ARANGO_CXX_DRIVER_VST_CONNECTION_H 1
 

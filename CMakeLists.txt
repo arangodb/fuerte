@@ -83,6 +83,7 @@ target_link_libraries(fuerte PUBLIC
 
 target_include_directories(fuerte PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${Boost_INCLUDE_DIRS}
 )
 
 add_executable(fuerte-get
