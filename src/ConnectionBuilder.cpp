@@ -32,16 +32,16 @@
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
 // Create an connection and start opening it.
-std::shared_ptr<Connection> ConnectionBuilder::connect(EventLoopService& eventLoopService) {
+std::shared_ptr<Connection> ConnectionBuilder::connect(EventLoopService& loop) {
   std::shared_ptr<Connection> result;
 
   if (_conf._connType == TransportType::Vst){
     FUERTE_LOG_DEBUG << "fuerte - creating velocystream connection" << std::endl;
-    result = std::make_shared<vst::VstConnection>(eventLoopService, _conf);
+    result = std::make_shared<vst::VstConnection>(loop.nextIOContext(), _conf);
   } else {
     //throw std::logic_error("http in vst test");
     FUERTE_LOG_DEBUG << "fuerte - creating http connection" << std::endl;
-    result = std::make_shared<http::HttpConnection>(eventLoopService, _conf);
+    result = std::make_shared<http::HttpConnection>(loop.nextIOContext(), _conf);
   }
   // Start the connection implementation
   result->start();

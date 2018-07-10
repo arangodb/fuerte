@@ -63,15 +63,16 @@ class Connection : public std::enable_shared_from_this<Connection> {
     }
 
     // Return the number of requests that have not yet finished.
-    virtual std::size_t requestsLeft() = 0;
+    virtual std::size_t requestsLeft() const = 0;
+
+    //virtual bool hasCapacity() const = 0;
 
   private:
     // Activate the connection.  
     virtual void start() {}
 
   protected:
-    Connection(EventLoopService& eventLoopService, detail::ConnectionConfiguration const& conf) :
-      _eventLoopService(eventLoopService),
+    Connection(detail::ConnectionConfiguration const& conf) :
       _configuration(conf) {}
 
     // Invoke the configured ConnectionFailureCallback (if any)
@@ -81,7 +82,6 @@ class Connection : public std::enable_shared_from_this<Connection> {
       }
     }
 
-    EventLoopService& _eventLoopService;
     const detail::ConnectionConfiguration _configuration;
 };
 

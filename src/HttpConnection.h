@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2016 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2018 ArangoDB GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
@@ -17,10 +17,7 @@
 ///
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
-/// @author Frank Celler
-/// @author Jan Uhde
-/// @author John Bufton
-/// @author Ewout Prangsma
+/// @author Simon Grätzer
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #ifndef ARANGO_CXX_DRIVER_HTTP_CONNECTION_H
@@ -38,23 +35,21 @@
 #include <fuerte/types.h>
 #include <fuerte/FuerteLogger.h>
 
-#include <curl/curl.h>
-
+#include "AsioConnection.h"
 #include "CallOnceRequestCallback.h"
-#include "CurlMultiAsio.h"
-#include "MessageStore.h"
+#include "http.h"
+#include "http_parser/http_parser.h"
 
 namespace arangodb {
 namespace fuerte {
 inline namespace v1 {
 namespace http {
 
-typedef std::string Destination;
-
 // HttpConnection implements a client->server connection using the HTTP protocol.
-class HttpConnection : public Connection {
+class HttpConnection : public AsioConnection<arangodb::fuerte::v1::http::RequestItem> {
  public:
-  explicit HttpConnection(EventLoopService&, detail::ConnectionConfiguration const&);
+  explicit HttpConnection(std::shared_ptr<asio_io_context>& ctx,
+                          detail::ConnectionConfiguration const&);
   virtual ~HttpConnection();
 
  public:
@@ -62,100 +57,48 @@ class HttpConnection : public Connection {
   MessageID sendRequest(std::unique_ptr<Request>, RequestCallback) override;
 
   // Return the number of unfinished requests.
-  std::size_t requestsLeft() override {
+  /*std::size_t requestsLeft() const override {
     return _curlm->requestsLeft();
-  }
-
+  }*/
+  
+protected:
+  
+  // socket connection is up (with optional SSL), now initiate the VST protocol.
+  void finishInitialization() override;
+  
+  // called on shutdown, always call superclass
+  void shutdownConnection(const ErrorCondition) override;
+  
+  // fetch the buffers for the write-loop (called from IO thread)
+  std::vector<boost::asio::const_buffer> fetchBuffers(std::shared_ptr<RequestItem> const&) override;
+  
+  // called by the async_write handler (called from IO thread)
+  bool asyncWriteCallback(::boost::system::error_code const& error,
+                          size_t transferred, std::shared_ptr<RequestItem>) override;
+  // called by the async_read handler (called from IO thread)
+  bool asyncReadCallback(::boost::system::error_code const&, size_t transferred) override;
+  
  private:
   class Options {
   public:
     double connectionTimeout = 2.0;
   };
 
-  uint64_t queueRequest(Destination, std::unique_ptr<Request>, RequestCallback);
+private:
+  
+  // Thread-Safe: activate the writer loop only if no read-loop is on
+  void startWritingExclusive();
+  
+  // createRequestItem prepares a RequestItem for the given parameters.
+  std::unique_ptr<RequestItem> createRequestItem(std::unique_ptr<Request> request, RequestCallback cb);
 
  private:
-  // RequestItem contains all data of a single request that is ongoing.
-  class RequestItem {
-   public:
-    RequestItem(const Destination& destination, std::unique_ptr<Request> request, RequestCallback callback)
-        : _destination(destination),
-          _request(std::move(request)),
-          _callback(callback),
-          _requestHeaders(nullptr),
-          _startTime(std::chrono::steady_clock::now()) {
-      _errorBuffer[0] = '\0';
-
-      _handle = curl_easy_init();
-      if (_handle == nullptr) {
-        throw std::bad_alloc();
-      }
-
-      curl_easy_setopt(_handle, CURLOPT_PRIVATE, this);
-#ifdef CURLOPT_PATH_AS_IS
-      curl_easy_setopt(_handle, CURLOPT_PATH_AS_IS, 1L);
-#endif
-    }
-
-    ~RequestItem() {
-      if (_requestHeaders != nullptr) {
-        curl_slist_free_all(_requestHeaders);
-      }
-      if (_handle != nullptr) {
-        curl_easy_cleanup(_handle);
-      }
-    }
-
-    // Prevent copying
-    RequestItem(RequestItem const& other) = delete;
-    RequestItem& operator=(RequestItem const& other) = delete;
-
-    // return the CURL EASY handle.
-    inline CURL* handle() const { return _handle; }
-
-    inline MessageID messageID() { return _request->messageID; }
-    inline void invokeOnError(Error e, std::unique_ptr<Request> req, std::unique_ptr<Response> res) { 
-      _callback.invoke(e, std::move(req), std::move(res));
-    }
-
-   public:
-    Destination _destination;
-    std::unique_ptr<Request> _request;
-    impl::CallOnceRequestCallback _callback;
-    Options _options;
-    std::string _requestBody;
-    struct curl_slist* _requestHeaders;
-
-    StringMap _responseHeaders;
-    std::chrono::steady_clock::time_point _startTime;
-    std::string _responseBody;
-
-    char _errorBuffer[CURL_ERROR_SIZE];
-   private:
-    CURL* _handle;
-  };
-
-  MessageStore<RequestItem> _messageStore;
-
- private:
-  static size_t readBody(void*, size_t, size_t, void*);
-  static size_t readHeaders(char* buffer, size_t size, size_t nitems,
-                            void* userdata);
-  static int curlDebug(CURL*, curl_infotype, char*, size_t, void*);
-  static void logHttpHeaders(std::string const&, std::string const&);
-  static void logHttpBody(std::string const&, std::string const&);
-
- private:
-  void createRequestItem(const Destination& destination, std::unique_ptr<Request> request, RequestCallback callback);
-  void handleResult(CURL*, CURLcode);
-  void transformResult(CURL*, StringMap&&, std::string const&, Response*);
-
-  /// @brief curl will strip standalone ".". ArangoDB allows using . as a key
-  /// so this thing will analyse the url and urlencode any unsafe .'s
-  std::string createSafeDottedCurlUrl(std::string const& originalUrl);
-
- private:
-  std::shared_ptr<CurlMultiAsio> _curlm;
+  /// currently in fligth request
+  std::shared_ptr<RequestItem> _inFlight;
+  /// the node http-parser
+  http_parser _parser;
+  http_parser_settings _parserSettings;
+  
   //int _stillRunning;
 };
 

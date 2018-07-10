@@ -48,7 +48,7 @@ createRequest(MessageHeader&& messageHeader
 
   return request;
 }
-
+/*
 std::unique_ptr<Request>
 createRequest(MessageHeader const& messageHeader
              ,StringMap const& headerStrings
@@ -59,7 +59,7 @@ createRequest(MessageHeader const& messageHeader
   MessageHeader header = messageHeader;
   StringMap strings = headerStrings;
   return createRequest(std::move(header), std::move(strings), database, verb, contentType);
-}
+}*/
 
 std::unique_ptr<Request>
 createRequest(RestVerb const& verb

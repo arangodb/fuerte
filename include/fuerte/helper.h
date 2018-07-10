@@ -105,15 +105,5 @@ std::string mapToKeys(std::unordered_map<K,V,A> map){
   return _detail::mapToKeys(map.begin(),map.end());
 }
 
-namespace http {
-  std::string urlDecode(std::string const& str);
-  std::string urlEncode(char const* src, size_t const len);
-  std::string urlEncode(char const* src);
-
-  inline std::string urlEncode(std::string const& str) {
-    return urlEncode(str.c_str(), str.size());
-  }
-}
-
 }}}
 #endif

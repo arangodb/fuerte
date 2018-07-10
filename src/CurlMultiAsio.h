@@ -56,7 +56,7 @@ class CurlMultiAsio : public std::enable_shared_from_this<CurlMultiAsio> {
   void addRequest(CURL *easyHandle);
 
   // Return the number of unfinished requests.
-  int requestsLeft() {
+  int requestsLeft() const {
     return _requests_left;
   }
 

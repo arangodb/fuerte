@@ -61,7 +61,7 @@ std::unique_ptr<Response> Connection::sendRequest(std::unique_ptr<Request> reque
     throw intToError(error);
   }
 
-  return std::move(rv);
+  return rv;
 }
 
 }}}

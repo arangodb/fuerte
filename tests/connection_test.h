@@ -34,19 +34,18 @@
 
 namespace f = ::arangodb::fuerte;
 
-typedef struct {
+struct ConnectionTestParams {
   const char *_url;       // Server URL
   const size_t _threads;  // #Threads to use for the EventLoopService 
   const size_t _repeat;   // Number of times to repeat repeatable tests.
-} ConnectionTestParams;
+};
 
-::std::ostream& operator<<(::std::ostream& os, const ConnectionTestParams& p) {
+/*::std::ostream& operator<<(::std::ostream& os, const ConnectionTestParams& p) {
   return os << "url=" << p._url << " threads=" << p._threads;
-}
+}*/
 
 // ConnectionTestF is a test fixture that can be used for all kinds of connection 
-// tests.
-// You can configure it using the ConnectionTestParams struct.
+// tests. You can configure it using the ConnectionTestParams struct.
 class ConnectionTestF : public ::testing::TestWithParam<ConnectionTestParams> {
  public:
   const char _major_arango_version = '3';

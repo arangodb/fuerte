@@ -74,14 +74,14 @@ class MessageStore {
   }
 
   // size returns the number of elements in the store.
-  size_t size() {
+  size_t size() const {
     std::lock_guard<std::mutex> lockMap(_mutex);
     return _map.size();
   }
 
   // empty returns true when there are no elements in the store, false
   // otherwise.
-  bool empty(bool unlocked = false) {
+  bool empty(bool unlocked = false) const {
     if (unlocked) {
       return _map.empty();
     } else {
@@ -111,13 +111,13 @@ class MessageStore {
   std::mutex& mutex() { return _mutex; }
 
   // keys returns a string representation of all MessageID's in the store.
-  std::string keys() {
+  std::string keys() const {
     std::lock_guard<std::mutex> lockMap(_mutex);
     return mapToKeys(_map);
   }
 
-  private:
-  std::mutex _mutex;
+ private:
+  mutable std::mutex _mutex;
   std::map<MessageID, std::shared_ptr<RequestItemT>> _map;
 };
 

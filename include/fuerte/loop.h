@@ -28,9 +28,10 @@
 #include <utility>
 #include <memory>
 #include <iostream>
+#include <thread>
 
-#include <boost/asio.hpp>
-#include <boost/thread.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/executor_work_guard.hpp>
 
 // run / runWithWork / poll for Loop mapping to ioservice
 // free function run with threads / with thread group barrier and work
@@ -51,8 +52,8 @@ namespace impl {
 
 // need partial rewrite so it can be better integrated in client applications
 
-typedef ::boost::asio::io_service asio_io_service;
-typedef ::boost::asio::io_service::work asio_work;
+typedef boost::asio::io_context asio_io_context;
+typedef boost::asio::executor_work_guard<boost::asio::io_context::executor_type> asio_work_guard;
 
 // GlobalService is intended to be instantiated once for the entire 
 // lifetime of a program using fuerte. 
@@ -80,41 +81,32 @@ class GlobalService {
 // EventLoopService implements multi-threaded event loops for
 // boost io_service as well as curl HTTP.
 class EventLoopService {
-  friend class vst::VstConnection;
+  //friend class vst::VstConnection;
   friend class http::HttpConnection;
+  friend class ConnectionBuilder;
 
  public:
   // Initialize an EventLoopService with a given number of threads and a new io_service.
   EventLoopService(unsigned int threadCount = 1);
   // Initialize an EventLoopService with a given number of threads and a given io_service.
   // Initialize an EventLoopService with a given number of threads and a given io_service.
-  EventLoopService(unsigned int threadCount,
-                   const std::shared_ptr<asio_io_service>& io_service)
-      :
-      global_service_(GlobalService::get()),
-      io_service_(io_service), 
-      working_(new asio_work(*io_service)) {
+  /*EventLoopService(const std::shared_ptr<::boost::asio::io_context>& io_service)
+      : global_service_(GlobalService::get()),
+        io_service_(io_service), 
+        working_(new asio_work(*io_service)) {
     while (threadCount > 0) {
-      auto worker = boost::bind(&EventLoopService::run, this);
+      auto worker = std::bind(&EventLoopService::run, this);
       threadGroup_.add_thread(new boost::thread(worker));
       threadCount--;
     }
-  }
-  virtual ~EventLoopService() {
-    working_.reset();  // allow run() to exit
-    threadGroup_.join_all();
-    io_service_->stop();
-  }
+  }*/
+  virtual ~EventLoopService();
 
   // Prevent copying
   EventLoopService(EventLoopService const& other) = delete;
   EventLoopService& operator=(EventLoopService const& other) = delete;
 
  protected:
-  // run is called for each thread. It calls io_service.run() and
-  // invokes the curl handlers.
-  // You only need to invoke this if you want a custom event loop service.
-  void run();
 
   // handleRunException is called when an exception is thrown in run.
   virtual void handleRunException(std::exception const& ex) {
@@ -123,13 +115,25 @@ class EventLoopService {
   }
 
   // io_service returns a reference to the boost io_service.
-  std::shared_ptr<asio_io_service>& io_service() { return io_service_; }
+  std::shared_ptr<asio_io_context>& io_context() { 
+    return _ioContexts[0]; 
+  }
+
+    // io_service returns a reference to the boost io_service.
+  std::shared_ptr<asio_io_context>& nextIOContext() { 
+    return _ioContexts[_lastUsed.fetch_add(1) % _ioContexts.size()];
+  }
 
  private:
   GlobalService& global_service_;
-  std::shared_ptr<asio_io_service> io_service_;
-  std::unique_ptr<asio_work> working_;  // Used to keep the io-service alive.
-  boost::thread_group threadGroup_;     // Used to join on.
+  std::atomic<uint32_t> _lastUsed;
+
+  /// io contexts
+  std::vector<std::shared_ptr<asio_io_context>> _ioContexts;
+  /// Used to keep the io-context alive.
+  std::vector<asio_work_guard> _guards;
+  /// Threads powering each io_context
+  std::vector<std::thread> _threads;
 };
 
 }}}

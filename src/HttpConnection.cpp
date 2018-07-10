@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2016 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2018 ArangoDB GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
@@ -17,14 +17,10 @@
 ///
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
-/// @author Frank Celler
-/// @author Jan Uhde
-/// @author John Bufton
-/// @author Ewout Prangsma
+/// @author Simon Grätzer
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "HttpConnection.h"
-#include <fcntl.h>
 #include <velocypack/Parser.h>
 #include <cassert>
 #include <sstream>
@@ -35,201 +31,132 @@
 #include <fuerte/types.h>
 #include <fuerte/loop.h>
 
+namespace {
+  using namespace arangodb::fuerte::v1;
+  using namespace arangodb::fuerte::v1::http;
+  
+  int on_message_began(http_parser* parser) { return 0; }
+  int on_status(http_parser* parser, const char* at, size_t len) {
+    return 0;
+  }
+  int on_header_field(http_parser* parser, const char* at, size_t len) {
+    RequestItem* data = static_cast<RequestItem*>(parser->data);
+    if (data->last_header_was_a_value) {
+      data->_response->header.meta.emplace(std::move(data->lastHeaderField),
+                                           std::move(data->lastHeaderValue));
+      data->lastHeaderField.assign(at, len);
+    } else {
+      data->lastHeaderField.append(at, len);
+    }
+    data->last_header_was_a_value = false;
+    return 0;
+  }
+  static int on_header_value(http_parser* parser, const char* at, size_t len) {
+    RequestItem* data = static_cast<RequestItem*>(parser->data);
+    if (data->last_header_was_a_value) {
+      data->lastHeaderValue.append(at, len);
+    } else {
+      data->lastHeaderValue.assign(at, len);
+    }
+    data->last_header_was_a_value = true;
+    return 0;
+  }
+  static int on_header_complete(http_parser* parser) {
+    RequestItem* data = static_cast<RequestItem*>(parser->data);
+    data->_response->header.responseCode = static_cast<StatusCode>(parser->status_code);
+    if (!data->lastHeaderField.empty()) {
+      data->_response->header.meta.emplace(std::move(data->lastHeaderField),
+                                           std::move(data->lastHeaderValue));
+    }
+    return 0;
+  }
+  static int on_body(http_parser* parser, const char* at, size_t len) {
+    static_cast<RequestItem*>(parser->data)->_responseBuffer.append(at, len);
+    return 0;
+  }
+  static int on_message_complete(http_parser* parser) {
+    static_cast<RequestItem*>(parser->data)->message_complete = true;
+    return 0;
+  }
+}
+
 namespace arangodb {
 namespace fuerte {
 inline namespace v1 {
 namespace http {
 
+namespace fu = ::arangodb::fuerte::v1;
 using namespace arangodb::fuerte::detail;
-
-HttpConnection::HttpConnection(EventLoopService& eventLoopService, ConnectionConfiguration const& configuration)
-    : Connection(eventLoopService, configuration) {
-  _curlm.reset(new CurlMultiAsio(
-      *eventLoopService.io_service(), 
-        boost::bind(&HttpConnection::handleResult, this, _1, _2)));
+  
+HttpConnection::HttpConnection(std::shared_ptr<asio_io_context>& ctx,
+                               ConnectionConfiguration const& configuration)
+    : AsioConnection(ctx, configuration), _inFlight(nullptr) {
+  _parserSettings.on_message_begin = ::on_message_began;
+  _parserSettings.on_status = ::on_status;
+  _parserSettings.on_header_field = ::on_header_field;
+  _parserSettings.on_header_value = ::on_header_value;
+  _parserSettings.on_headers_complete = ::on_header_complete;
+  _parserSettings.on_body = ::on_body;
+  _parserSettings.on_message_complete = ::on_message_complete;
+  http_parser_init(&_parser, HTTP_RESPONSE);
 }
 
 HttpConnection::~HttpConnection() { 
   FUERTE_LOG_HTTPTRACE << "Destroying HttpConnection" << std::endl;
-  if (!_messageStore.empty()){
-    FUERTE_LOG_HTTPTRACE << "DESTROYING CONNECTION WITH: "
-                         << _messageStore.size()
-                         << " outstanding requests!"
-                         << std::endl;
-  }
-  _messageStore.cancelAll();
-  _curlm.reset();
 }
 
 MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request, RequestCallback callback) {
-  std::string dbString = (request->header.database) ? std::string("/_db/") + request->header.database.get() : std::string("");
-  Destination destination = (_configuration._ssl ? "https://" : "http://")
-                          + _configuration._host
-                          + ":"
-                          + _configuration._port
-                          + dbString
-                          + request->header.path.get();
-
-  auto const& parameters = request->header.parameters;
-
-  if (parameters && !parameters.get().empty()) {
-    std::string sep = "?";
-
-    for (auto p : parameters.get()) {
-      destination += sep + urlEncode(p.first) + "=" + urlEncode(p.second);
-      sep = "&";
-    }
-  }
-  return queueRequest(destination, std::move(request), callback);
-}
-
-// -----------------------------------------------------------------------------
-// --SECTION--                                                    public methods
-// -----------------------------------------------------------------------------
-
-uint64_t HttpConnection::queueRequest(Destination destination,
-                                    std::unique_ptr<Request> request,
-                                    RequestCallback callback) {
+  
   FUERTE_LOG_HTTPTRACE << "queueRequest - start - at address: " << request.get() << std::endl;
-  static std::atomic<uint64_t> ticketId(0);
-
+  static std::atomic<uint64_t> ticketId(1);
+  
   // Prepare a new request
-  auto id = ++ticketId;
+  uint64_t id = ticketId.fetch_add(1, std::memory_order_relaxed);
+  FUERTE_LOG_HTTPTRACE << "sendRequest (http): queuing " << id << std::endl;
   request->messageID = id;
-  createRequestItem(destination, std::move(request), callback);
-
+  auto item = createRequestItem(std::move(request), callback);
+  
+  queueRequest(std::move(item));
+  if (_connected) {
+    FUERTE_LOG_HTTPTRACE << "sendRequest (http): start sending & reading" << std::endl;
+    // HTTP is half-duplex protocol: we only write if there is no reading
+    startWritingExclusive(); // start writing if possible
+  } else {
+    FUERTE_LOG_HTTPTRACE << "sendRequest (http): not connected" << std::endl;
+  }
   return id;
 }
 
 // -----------------------------------------------------------------------------
 // --SECTION--                                                   private methods
 // -----------------------------------------------------------------------------
-
-int HttpConnection::curlDebug(CURL* handle, curl_infotype type, char* data,
-                                size_t size, void* userptr) {
-  RequestItem* inprogress = nullptr;
-  curl_easy_getinfo(handle, CURLINFO_PRIVATE, &inprogress);
-
-  std::string dataStr(data, size);
-  std::string prefix("Communicator(" +
-                     std::to_string(inprogress->_request->messageID) + "): ");
-
-  switch (type) {
-    case CURLINFO_TEXT:
-      FUERTE_LOG_HTTPTRACE << prefix << "Text: " << dataStr;
-      break;
-
-    case CURLINFO_HEADER_OUT:
-      logHttpHeaders(prefix + "Header >>", dataStr);
-      break;
-
-    case CURLINFO_HEADER_IN:
-      logHttpHeaders(prefix + "Header <<", dataStr);
-      break;
-
-    case CURLINFO_DATA_OUT:
-    case CURLINFO_SSL_DATA_OUT:
-      logHttpBody(prefix + "Body >>", dataStr);
-      break;
-
-    case CURLINFO_DATA_IN:
-    case CURLINFO_SSL_DATA_IN:
-      logHttpBody(prefix + "Body <<", dataStr);
-      break;
-
-    case CURLINFO_END:
-      break;
-  }
-
-  return 0;
-}
-
-void HttpConnection::logHttpBody(std::string const& prefix,
-                                   std::string const& data) {
-  std::string::size_type n = 0;
-
-  while (n < data.length()) {
-    FUERTE_LOG_HTTPTRACE << prefix << " " << data.substr(n, 80) << "\n";
-    n += 80;
-  }
-}
-
-void HttpConnection::logHttpHeaders(std::string const& prefix,
-                                      std::string const& headerData) {
-  std::string::size_type last = 0;
-  std::string::size_type n;
-
-  while (true) {
-    n = headerData.find("\r\n", last);
-
-    if (n == std::string::npos) {
-      break;
+  
+  
+// Thread-Safe: activate the writer loop only if no read-loop is on
+void HttpConnection::startWritingExclusive() {
+  assert(_connected);
+  FUERTE_LOG_TRACE << "startWritingExclusive: this=" << this << std::endl;
+  
+  uint32_t state = _loopState.load(std::memory_order_seq_cst);
+  // start the loop if necessary
+  while (!(state & WRITE_LOOP_ACTIVE) && !(state & READ_LOOP_ACTIVE) &&
+         (state & WRITE_LOOP_QUEUE_MASK) > 0 ) {
+    if (_loopState.compare_exchange_weak(state, state | WRITE_LOOP_ACTIVE,
+                                         std::memory_order_seq_cst)) {
+      FUERTE_LOG_TRACE << "startWritingExclusive: starting write\n";
+      auto self = shared_from_this();
+      _io_context->post([this, self] {
+        asyncWrite();
+      });
+      return;
     }
-
-    FUERTE_LOG_HTTPTRACE << prefix << " "
-                         << headerData.substr(last, n - last)
-                         << "\n";
-    last = n + 2;
+  }
+  if ((state & WRITE_LOOP_QUEUE_MASK) == 0) {
+    FUERTE_LOG_TRACE << "startWritingExclusive: nothing is queued\n";
   }
 }
 
-// stores headers in _responseHeaders (lowercase)
-size_t HttpConnection::readHeaders(char* buffer, size_t size, size_t nitems,
-                                     void* userptr) {
-  size_t realsize = size * nitems;
-  RequestItem* rip = (struct RequestItem*)userptr;
-
-  std::string const header(buffer, realsize);
-  size_t pivot = header.find_first_of(':');
-
-  if (pivot != std::string::npos) {
-    std::string key(header.c_str(), pivot);
-    std::transform(key.begin(), key.end(), key.begin(), ::tolower);
-
-    rip->_responseHeaders.emplace(
-        key, header.substr(pivot + 2, header.length() - pivot - 4));
-  }
-  return realsize;
-}
-
-size_t HttpConnection::readBody(void* data, size_t size, size_t nitems,
-                                  void* userp) {
-  size_t realsize = size * nitems;
-
-  RequestItem* rip = (struct RequestItem*)userp;
-
-  try {
-    rip->_responseBody.append((char*)data, realsize);
-    return realsize;
-  } catch (std::bad_alloc&) {
-    return 0;
-  }
-}
-
-void HttpConnection::transformResult(CURL* handle, StringMap&& responseHeaders,
-                                       std::string const& responseBody,
-                                       Response* response) {
-#if  ENABLE_FUERTE_LOG_HTTPTRACE > 0
-  std::cout << "header START" << std::endl;
-  for(auto& p : responseHeaders){
-    std::cout << p.first << "  " <<p.second << std::endl;
-  }
-  std::cout << "header END" << std::endl;
-#endif
-
-  // no available - response->header.requestType
-  auto const& ctype = responseHeaders[fu_content_type_key];
-  response->header.contentType(ctype);
-
-  if (responseBody.length()) {
-      VBuffer buffer;
-      buffer.append(responseBody);
-      response->setPayload(std::move(buffer), 0);
-  }
-  response->header.meta = std::move(responseHeaders);
-
-}
-
+/*
 std::string HttpConnection::createSafeDottedCurlUrl(
     std::string const& originalUrl) {
   std::string url;
@@ -253,225 +180,231 @@ std::string HttpConnection::createSafeDottedCurlUrl(
   }
   url += originalUrl.substr(currentFind);
   return url;
-}
+}*/
 
-void HttpConnection::createRequestItem(const Destination& destination, std::unique_ptr<Request> request, RequestCallback callback) {
-  // mop: the curl handle will be managed safely via unique_ptr and hold
-  // ownership for rip
-  auto requestItem = std::make_shared<RequestItem>(destination, std::move(request), callback);
-  auto handle = requestItem->handle();
-  struct curl_slist* requestHeaders = nullptr;
-  auto fuRequest = requestItem->_request.get();
-  if (fuRequest->header.meta) {
-    for (auto const& header : fuRequest->header.meta.get()) {
-      std::string thisHeader(header.first + ": " + header.second);
-      requestHeaders = curl_slist_append(requestHeaders, thisHeader.c_str());
+std::unique_ptr<RequestItem> HttpConnection::createRequestItem(std::unique_ptr<Request> request,
+                                                               RequestCallback callback) {
+  assert(request);
+  // build the request header
+  assert(request->header.restVerb != RestVerb::Illegal);
+  
+  std::string header;
+  header.reserve(128); // TODO is there a meaningful size ?
+  header.append(fu::to_string(request->header.restVerb));
+  header.push_back(' ');
+  
+  // construct request path ("/_db/<name>/" prefix)
+  if (!request->header.database.empty()) {
+    header.append("/_db/");
+    header.append(http::urlEncode(request->header.database));
+  }
+  
+  // TODO these should throw an exception somewhere else
+  assert(!request->header.path.empty());
+  assert(request->header.path[0] == '/');
+
+  auto const& parameters = request->header.parameters;
+  if (parameters.empty()) {
+    header.append(request->header.path);
+  } else {
+    std::string path = request->header.path;
+    path.push_back('?');
+    for (auto p : parameters) {
+      if (path.back() != '?') {
+        path.push_back('&');
+      }
+      path += http::urlEncode(p.first) + "=" + http::urlEncode(p.second);
     }
   }
-
-  std::string url = createSafeDottedCurlUrl(requestItem->_destination);
-  requestItem->_requestHeaders = requestHeaders;
-  curl_easy_setopt(handle, CURLOPT_HTTPHEADER, requestHeaders);
-  curl_easy_setopt(handle, CURLOPT_HEADER, 0L);
-  curl_easy_setopt(handle, CURLOPT_URL, url.c_str());
-  curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, HttpConnection::readBody);
-  curl_easy_setopt(handle, CURLOPT_WRITEDATA, requestItem.get());
-  curl_easy_setopt(handle, CURLOPT_HEADERFUNCTION, &HttpConnection::readHeaders);
-  curl_easy_setopt(handle, CURLOPT_HEADERDATA, requestItem.get());
-#if ENABLE_FUERTE_LOG_HTTPRACE > 0
-  curl_easy_setopt(handle, CURLOPT_DEBUGFUNCTION, HttpConnection::curlDebug);
-  curl_easy_setopt(handle, CURLOPT_DEBUGDATA, requestItem.get());
-  curl_easy_setopt(handle, CURLOPT_VERBOSE, 1L);
-#endif
-  curl_easy_setopt(handle, CURLOPT_ERRORBUFFER, requestItem->_errorBuffer);
-
-  // mop: XXX :S CURLE 51 and 60...
-  curl_easy_setopt(handle, CURLOPT_SSL_VERIFYPEER, 0L);
-  curl_easy_setopt(handle, CURLOPT_SSL_VERIFYHOST, 0L);
-
-  auto connectTimeout = static_cast<long>(requestItem->_options.connectionTimeout);
-
-  // mop: although curl is offering a MS scale connecttimeout this gets ignored
-  // in at least 7.50.3; in doubt change the timeout to _MS below and hardcode
-  // it to 999 and see if the requests immediately fail if not this hack can go
-  // away
-
-  if (connectTimeout <= 0) {
-    connectTimeout = 1;
+  header.append(" HTTP/1.1\r\n");
+  header.append("Host: ");
+  header.append(_configuration._host);
+  header.append("\r\n");
+  // TODO add option to configuration
+  header.append("Connection: Keep-Alive\r\n");
+  //header.append("Connection: Close\r\n");
+  for (auto const& pair : request->header.meta) {
+    header.append(pair.first);
+    header.append(": ");
+    header.append(pair.second);
+    header.append("\r\n");
   }
-
-  auto reqTimeout = std::chrono::duration_cast<std::chrono::milliseconds>(requestItem->_request->timeout());
-  curl_easy_setopt(handle, CURLOPT_TIMEOUT_MS, reqTimeout.count());
-  curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT, connectTimeout);
-
-  auto verb = fuRequest->header.restVerb.get();
-
-  switch (verb) {
-    case RestVerb::Post:
-      curl_easy_setopt(handle, CURLOPT_POST, 1);
-      break;
-
-    case RestVerb::Put:
-      // mop: apparently CURLOPT_PUT implies more stuff in curl
-      // (for example it adds an expect 100 header)
-      // this is not what we want so we make it a custom request
-      curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, "PUT");
-      break;
-
-    case RestVerb::Delete:
-      curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, "DELETE");
-      break;
-
-    case RestVerb::Head:
-      curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, "HEAD");
-      break;
-
-    case RestVerb::Patch:
-      curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, "PATCH");
-      break;
-
-    case RestVerb::Options:
-      curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, "OPTIONS");
-      break;
-
-    case RestVerb::Get:
-      break;
-
-    case RestVerb::Illegal:
-      throw std::runtime_error("Invalid request type " + to_string(verb));
-      break;
+  
+  if (request->header.restVerb != RestVerb::Get) {
+    header.append("Content-Length: ");
+    header.append(std::to_string(request->payloadSize()));
+    header.append("\r\n\r\n");
+  } else {
+    header.append("\r\n");
   }
+  // body will be appended later
+  
+  // TODO authentication
+  /*if (!_params._jwt.empty()) {
+    _writeBuffer.appendText(TRI_CHAR_LENGTH_PAIR("Authorization: bearer "));
+    _writeBuffer.appendText(_params._jwt);
+    _writeBuffer.appendText(TRI_CHAR_LENGTH_PAIR("\r\n"));
+  } else if (!_params._basicAuth.empty()) {
+    _writeBuffer.appendText(TRI_CHAR_LENGTH_PAIR("Authorization: Basic "));
+    _writeBuffer.appendText(_params._basicAuth);
+    _writeBuffer.appendText(TRI_CHAR_LENGTH_PAIR("\r\n"));
+  }*/
 
-  // Setup authentication 
-  switch (_configuration._authenticationType) {
-    case AuthenticationType::None:
-      // Do nothing
-      break;
-    case AuthenticationType::Basic:
-      curl_easy_setopt(handle, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-      curl_easy_setopt(handle, CURLOPT_USERNAME, _configuration._user.c_str());
-      curl_easy_setopt(handle, CURLOPT_PASSWORD, _configuration._password.c_str());
-      break;
-    case AuthenticationType::Jwt:
-      throw std::invalid_argument("Jwt authentication is not yet support");
-      break;
-    default:
-      throw std::runtime_error("Invalid authentication type " + to_string(_configuration._authenticationType));
-      break;
-  }
-
-  std::string empty("");
-  std::string& body = empty;
-
-  auto pay = fuRequest->payload();
-  auto paySize = boost::asio::buffer_size(pay);
-
-  if (paySize > 0) {
-    // https://curl.haxx.se/libcurl/c/CURLOPT_COPYPOSTFIELDS.html
-    // DO NOT CHANGE BODY SIZE LATER!!
-    curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, paySize);
-    curl_easy_setopt(handle, CURLOPT_COPYPOSTFIELDS, boost::asio::buffer_cast<const char*>(pay));
-  }
-
-  requestItem->_startTime = std::chrono::steady_clock::now();
-  _messageStore.add(std::move(requestItem));
-
-  _curlm->addRequest(handle);
+  // construct in-flight RequestItem
+  std::unique_ptr<RequestItem> requestItem(new RequestItem());// std::make_shared<RequestItem>(, callback);
+  requestItem->_request = std::move(request);
+  requestItem->_callback = std::move(callback);
+  //requestItem->_response later
+  requestItem->_requestHeader = std::move(header);
+  return requestItem;
 }
-
-// CURL request is DONE, handle the results.
-void HttpConnection::handleResult(CURL* handle, CURLcode rc) {
-  RequestItem* requestItem = nullptr;
-  curl_easy_getinfo(handle, CURLINFO_PRIVATE, &requestItem);
-  if (requestItem == nullptr) {
-    return;
+  
+// socket connection is up (with optional SSL)
+void HttpConnection::finishInitialization() {
+  _connected = true;
+  assert(!(_loopState & READ_LOOP_ACTIVE));
+  startWriting(); // starts writing queue if non-empty
+}
+  
+// called on shutdown, always call superclass
+void HttpConnection::shutdownConnection(const ErrorCondition ec)  {
+  AsioConnection::shutdownConnection(ec);
+  // simon: thread-safe, only called from IO-Thread (which holds shared_ptr) and destructor
+  if (_inFlight) {
+    // Item has failed, remove from message store
+    _messageStore.removeByID(_inFlight->_request->messageID);
+    _inFlight->invokeOnError(errorToInt(ec), std::move(_inFlight->_request), {nullptr});
+    _inFlight.reset();
   }
-
-  std::string prefix("Communicator(" + std::to_string(requestItem->_request->messageID) +
-                     "): ");
-
-  FUERTE_LOG_DEBUG << prefix << "curl rc is : " << rc << " after "
-                   << std::chrono::duration_cast<std::chrono::duration<double>>(
-                          std::chrono::steady_clock::now() - requestItem->_startTime)
-                          .count()
-                   << " s\n";
-
-  if (strlen(requestItem->_errorBuffer) != 0) {
-    FUERTE_LOG_HTTPTRACE << prefix << "curl error details: " << requestItem->_errorBuffer
-                     << "\n";
-  }
-
-  auto request_id = requestItem->_request->messageID;
-  try {
-    switch (rc) {
-      case CURLE_OK: {
-        long httpStatusCode = 200;
-        curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &httpStatusCode);
-
-        std::unique_ptr<Response> fuResponse(new Response());
-        fuResponse->header.responseCode = static_cast<unsigned>(httpStatusCode);
-        fuResponse->messageID = requestItem->_request->messageID;
-        transformResult(handle, std::move(requestItem->_responseHeaders),
-                        std::move(requestItem->_responseBody),
-                        dynamic_cast<Response*>(fuResponse.get()));
-
-        auto response_id = fuResponse->messageID;
-#if ENABLE_FUERTE_LOG_HTTPTRACE > 0
-        std::cout << "CALLING ON SUCESS CALLBACK IN HTTP COMMUNICATOR" << std::endl;
-        std::cout << "request id: " << request_id << std::endl;
-        std::cout << "response id: " << response_id << std::endl;
-        std::cout << "in progress: " << _messageStore.keys() << std::endl;
-        //std::cout << std::endl << to_string(*rip->_request);
-        //std::cout << to_string(*fuResponse);
-#endif
-        requestItem->_callback.invoke(0, std::move(requestItem->_request), std::move(fuResponse));
-        requestItem->_request = nullptr;
+}
+  
+// fetch the buffers for the write-loop (called from IO thread)
+std::vector<boost::asio::const_buffer> HttpConnection::fetchBuffers(std::shared_ptr<RequestItem> const& item) {
+  _messageStore.add(item);
+  return {boost::asio::buffer(item->_requestHeader.data(), item->_requestHeader.size()),
+    item->_request->payload()
+  };
+}
+  
+// called by the async_write handler (called from IO thread)
+bool HttpConnection::asyncWriteCallback(::boost::system::error_code const& error,
+                                        size_t transferred, std::shared_ptr<RequestItem> item) {
+  // Cancel deadline
+  //_deadline.cancel();
+  
+  if (error) {
+    // Send failed
+    FUERTE_LOG_CALLBACKS << "asyncWriteCallback: error " << error.message() << std::endl;
+    FUERTE_LOG_ERROR << error.message() << std::endl;
+    
+    // Item has failed, remove from message store
+    _messageStore.removeByID(item->_request->messageID);
+    
+    // let user know that this request caused the error
+    item->_callback.invoke(errorToInt(ErrorCondition::VstWriteError), std::move(item->_request), nullptr);
+    
+    // Stop current connection and try to restart a new one.
+    // This will reset the current write loop.
+    restartConnection(ErrorCondition::VstWriteError);
+    return false; // abort writing
+  } else {
+    // Send succeeded
+    FUERTE_LOG_CALLBACKS << "asyncWriteCallback: send succeeded, " << transferred << " bytes transferred\n";
+    // async-calls=" << pendingAsyncCalls << std::endl;
+    
+    // request is written we no longer need data for that
+    item->_requestHeader.clear();
+    
+    // thead-safe we are on the single IO-Thread
+    _inFlight = std::move(item);
+    assert(_inFlight->_response == nullptr);
+    _inFlight->_response.reset(new Response());
+    _inFlight->_response->messageID = _inFlight->_request->messageID;
+    
+    http_parser_init(&_parser, HTTP_RESPONSE);
+    _parser.data = static_cast<void*>(_inFlight.get());
+    
+    // start listening for the response
+    uint32_t state = _loopState.load(std::memory_order_seq_cst);
+    // start the loop if necessary
+    while (!(state & READ_LOOP_ACTIVE) || (state & WRITE_LOOP_ACTIVE)) {
+      uint32_t desired = (state & ~WRITE_LOOP_ACTIVE) | READ_LOOP_ACTIVE;
+      if (_loopState.compare_exchange_weak(state, desired)) {
+        asyncReadSome();
         break;
       }
-
-      case CURLE_COULDNT_CONNECT:
-        onFailure(static_cast<Error>(ErrorCondition::CouldNotConnect), "connect failed");
-        requestItem->_callback.invoke(static_cast<Error>(ErrorCondition::CouldNotConnect), std::move(requestItem->_request), {nullptr});
-        break;
-      case CURLE_SSL_CONNECT_ERROR:
-        onFailure(static_cast<Error>(ErrorCondition::CouldNotConnect), "ssl connect failed");
-        requestItem->_callback.invoke(static_cast<Error>(ErrorCondition::CouldNotConnect), std::move(requestItem->_request), {nullptr});
-        break;
-      case CURLE_COULDNT_RESOLVE_HOST:
-        onFailure(static_cast<Error>(ErrorCondition::CouldNotConnect), "resolve host failed");
-        requestItem->_callback.invoke(static_cast<Error>(ErrorCondition::CouldNotConnect), std::move(requestItem->_request), {nullptr});
-        break;
-      case CURLE_URL_MALFORMAT:
-        requestItem->_callback.invoke(static_cast<Error>(ErrorCondition::MalformedURL), std::move(requestItem->_request), {nullptr});
-        break;
-      case CURLE_SEND_ERROR:
-        requestItem->_callback.invoke(static_cast<Error>(ErrorCondition::CouldNotConnect), std::move(requestItem->_request), {nullptr});
-        break;
-
-      case CURLE_OPERATION_TIMEDOUT:
-      case CURLE_RECV_ERROR:
-      case CURLE_GOT_NOTHING:
-        requestItem->_callback.invoke(static_cast<Error>(ErrorCondition::Timeout), std::move(requestItem->_request), {nullptr});
-        break;
-
-      default:
-        FUERTE_LOG_ERROR << "Curl return " << rc << "\n";
-        onFailure(static_cast<Error>(ErrorCondition::CurlError), "unknown curl error");
-        requestItem->_callback.invoke(static_cast<Error>(ErrorCondition::CurlError), std::move(requestItem->_request), {nullptr});
-        break;
     }
-  } catch (std::exception const& e) {
-    _messageStore.removeByID(request_id);
-    throw e;
-  }  catch (...) {
-    _messageStore.removeByID(request_id);
-    throw;
+    
+    FUERTE_LOG_HTTPTRACE<< "asyncWriteCallback: wait for response" << std::endl;
+    return false;
   }
+}
+  
+// called by the async_read handler (called from IO thread)
+bool HttpConnection::asyncReadCallback(::boost::system::error_code const& ec, size_t transferred) {
+  if (ec) {
+    FUERTE_LOG_CALLBACKS << "asyncReadCallback: Error while reading from socket";
+    FUERTE_LOG_ERROR << ec.message() << std::endl;
+    
+    // Restart connection, this will trigger a release of the readloop.
+    restartConnection(ErrorCondition::ConnectionError); // will invoke _inFlight cb
+    return false;
+  } else {
+    FUERTE_LOG_CALLBACKS << "asyncReadCallback: received " << transferred << " bytes\n";// async-calls=" << pendingAsyncCalls << std::endl;
+    
+    // Inspect the data we've received so far.
+    /*auto buffers = _receiveBuffer.data(); // no copy
+     for (auto const& buffer : buffers) {
+     buffer.data()
+     }*/
+    
+    // Inspect the data we've received so far.
+    auto recvBuffs = _receiveBuffer.data(); // no copy
+    auto cursor = boost::asio::buffer_cast<const char*>(recvBuffs); // TODO this is deprecated
+    auto available = boost::asio::buffer_size(recvBuffs);
+    
+    assert(_inFlight); // must be set earlier
+    /* Start up / continue the parser.
+     * Note we pass recved==0 to signal that EOF has been received.
+     */
+    size_t nparsed = http_parser_execute(&_parser, &_parserSettings, cursor, available);
 
-  _messageStore.removeByID(request_id);
+    // Remove consumed data from receive buffer.
+    _receiveBuffer.consume(nparsed);
+
+    if (_parser.upgrade) {
+      /* handle new protocol */
+      FUERTE_LOG_ERROR << "Upgrading is not supported" << std::endl;
+      shutdownConnection(ErrorCondition::ProtocolError); // will cleanup _inFlight
+      return false;
+    } else if (nparsed != transferred) {
+      /* Handle error. Usually just close the connection. */
+      FUERTE_LOG_ERROR << "Invalid HTTP response in parser" << std::endl;
+      shutdownConnection(ErrorCondition::ProtocolError); // will cleanup _inFlight
+      return false;
+    } else if (_inFlight->message_complete) {
+      // remove processed item from the message store
+      _messageStore.removeByID(_inFlight->_request->messageID);
+       // thread-safe access on IO-Thread
+      _inFlight->_response->setPayload(std::move(_inFlight->_responseBuffer), 0);
+      _inFlight->_callback.invoke(0, std::move(_inFlight->_request),
+                                  std::move(_inFlight->_response));
+      _inFlight.reset();
+      
+      FUERTE_LOG_HTTPTRACE << "asyncReadCallback (http): completed parsing response\n";
+      
+      assert(_loopState & READ_LOOP_ACTIVE);
+      assert(!(_loopState & WRITE_LOOP_ACTIVE));
+      stopReading();
+      startWritingExclusive();
+      
+      return false; // response completed
+    }
+    
+    FUERTE_LOG_HTTPTRACE << "asyncReadCallback (http): response not complete yet\n";
+    
+    return true; // http response is still incomplete
+  }
 }
 
-}
-}
-}
-}
+}}}}

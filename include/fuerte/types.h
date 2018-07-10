@@ -44,16 +44,16 @@ using Error = std::uint32_t;
 using MessageID = uint64_t; // id that identifies a Request.
 using StatusCode = uint32_t;
 
-StatusCode const StatusUndefined = 0;
-StatusCode const StatusOK = 200;
-StatusCode const StatusCreated = 201;
-StatusCode const StatusAccepted = 202;
-StatusCode const StatusBadRequest = 400;
-StatusCode const StatusUnauthorized = 401;
-StatusCode const StatusForbidden = 403;
-StatusCode const StatusNotFound = 404;
-StatusCode const StatusMethodNotAllowed = 405;
-StatusCode const StatusConflict = 409;
+StatusCode constexpr StatusUndefined = 0;
+StatusCode constexpr StatusOK = 200;
+StatusCode constexpr StatusCreated = 201;
+StatusCode constexpr StatusAccepted = 202;
+StatusCode constexpr StatusBadRequest = 400;
+StatusCode constexpr StatusUnauthorized = 401;
+StatusCode constexpr StatusForbidden = 403;
+StatusCode constexpr StatusNotFound = 404;
+StatusCode constexpr StatusMethodNotAllowed = 405;
+StatusCode constexpr StatusConflict = 409;
 
 // RequestCallback is called for finished connection requests.
 // If the given Error is zero, the request succeeded, otherwise an error occurred.
@@ -70,6 +70,7 @@ using VBuffer = arangodb::velocypack::Buffer<uint8_t>;
 using VSlice = arangodb::velocypack::Slice;
 using VBuilder = arangodb::velocypack::Builder;
 using VValue = arangodb::velocypack::Value;
+using VValueType = arangodb::velocypack::ValueType;
 
 using StringMap = std::map<std::string, std::string>;
 
@@ -84,13 +85,13 @@ enum class ErrorCondition : Error {
   ConnectionError = 1000,
   CouldNotConnect = 1001,
   Timeout = 1002,
+  QueueCapacityExceeded = 1003,
   VstReadError = 1102,
   VstWriteError = 1103,
   CanceledDuringReset = 1104,
   MalformedURL = 1105,
 
-  CurlError = 3000,
-
+  ProtocolError = 3000,
 };
 
 inline Error errorToInt(ErrorCondition cond){
@@ -159,9 +160,9 @@ std::string to_string(AuthenticationType type);
 
 namespace vst {
 
-  enum VSTVersion {
-    VST1_0,
-    VST1_1
+  enum VSTVersion : char {
+    VST1_0 = 0,
+    VST1_1 = 1
   };
 
 }

@@ -69,25 +69,25 @@ std::string to_string(RestVerb type) {
       return "illegal";
 
     case RestVerb::Delete:
-      return "delete";
+      return "DELETE";
 
     case RestVerb::Get:
-      return "get";
+      return "GET";
 
     case RestVerb::Post:
-      return "post";
+      return "POST";
 
     case RestVerb::Put:
-      return "put";
+      return "PUT";
 
     case RestVerb::Head:
-      return "head";
+      return "HEAD";
 
     case RestVerb::Patch:
-      return "patch";
+      return "PATCH";
 
     case RestVerb::Options:
-      return "options";
+      return "OPTIONS";
   }
 
   return "undefined";
@@ -219,6 +219,7 @@ ErrorCondition intToError(Error integral){
       1000, // ConnectionError
       1001, // CouldNotConnect
       1002, // TimeOut
+      1003, // queue capacity exceeded
       1102, // VstReadError
       1103, // VstWriteError
       1104, // CancelledDuringReset
@@ -251,6 +252,8 @@ std::string to_string(ErrorCondition error){
       return "Error: unable to connect";
     case ErrorCondition::Timeout:
       return "Error: timeout";
+    case ErrorCondition::QueueCapacityExceeded:
+      return "Error: queue capacity exceeded";
     case ErrorCondition::VstReadError:
       return "Error: reading vst";
     case ErrorCondition::VstWriteError:
@@ -259,11 +262,11 @@ std::string to_string(ErrorCondition error){
       return "Error: cancel as result of other error";
     case ErrorCondition::MalformedURL:
       return "Error: malformed URL";
-
-    case ErrorCondition::CurlError:
-      return "Error: in curl";
-
+      
+    case ErrorCondition::ProtocolError:
+      return "Error: invalid server response";
   }
+  return "unkown error";
 }
 
 

@@ -45,14 +45,15 @@ struct MessageHeader {
   MessageHeader() = default;
   MessageHeader(MessageHeader&&) = default;
 
-  int version = 0;
+  
+  int version = 1;                            /// arangodb message format version
   MessageType type = MessageType::Undefined;  // Type of message
   StatusCode responseCode = StatusUndefined;  // Response code (response only)
-  ::boost::optional<std::string> database;    // Database that is the target of the request
-  ::boost::optional<RestVerb> restVerb;       // HTTP method
-  ::boost::optional<std::string> path;        // Local path of the request
-  ::boost::optional<StringMap> parameters;    // Query parameters
-  ::boost::optional<StringMap> meta;          // Header meta data
+  std::string database;                       // Database that is the target of the request
+  RestVerb restVerb = RestVerb::Illegal;      // HTTP method
+  std::string path;                           // Local path of the request
+  StringMap parameters;                       // Query parameters
+  StringMap meta;                            // Header meta data
   ::boost::optional<std::string> encryption;  // Authentication: encryption field
   ::boost::optional<std::string> user;        // Authentication: username
   ::boost::optional<std::string> password;    // Authentication: password
@@ -107,7 +108,8 @@ public:
   // get payload
   ///////////////////////////////////////////////
   virtual std::vector<VSlice>const & slices() = 0;
-  virtual boost::asio::const_buffer payload() const = 0; 
+  virtual boost::asio::const_buffer payload() const = 0;
+  virtual size_t payloadSize() const = 0;
   std::string payloadAsString() const {
     auto p = payload();
     return std::string(boost::asio::buffer_cast<char const*>(p), boost::asio::buffer_size(p));
@@ -123,7 +125,7 @@ public:
 };
 
 // Request contains the message send to a server in a request.
-class Request : public Message {
+class Request final : public Message {
   static std::chrono::milliseconds _defaultTimeout;
 public:
   Request(MessageHeader&& messageHeader = MessageHeader())
@@ -169,8 +171,9 @@ public:
   ///////////////////////////////////////////////
   // get payload
   ///////////////////////////////////////////////
-  virtual std::vector<VSlice>const & slices() override;
-  virtual boost::asio::const_buffer payload() const override; 
+  std::vector<VSlice>const & slices() override;
+  boost::asio::const_buffer payload() const override;
+  size_t payloadSize() const override;
 
   // get timeout 
   inline std::chrono::milliseconds timeout() const { return _timeout; }
@@ -190,10 +193,10 @@ private:
 };
 
 // Response contains the message resulting from a request to a server.
-class Response : public Message {
+class Response final : public Message {
 public:
   Response(MessageHeader&& messageHeader = MessageHeader())
-    : Message(std::move(messageHeader))
+    : Message(std::move(messageHeader)), _payloadOffset(0)
           {
             header.type = MessageType::Response;
           }
@@ -226,8 +229,9 @@ public:
   bool isContentTypeVPack() const;
   bool isContentTypeHtml() const;
   bool isContentTypeText() const;
-  virtual std::vector<VSlice>const & slices() override;
-  virtual boost::asio::const_buffer payload() const override; 
+  std::vector<VSlice>const & slices() override;
+  boost::asio::const_buffer payload() const override;
+  size_t payloadSize() const override;
 
   void setPayload(VBuffer&& buffer, size_t payloadOffset);
 

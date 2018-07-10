@@ -22,9 +22,6 @@
 
 #include <memory>
 
-#include <boost/asio/io_service.hpp>
-#include <curl/curl.h>
-
 #include <fuerte/FuerteLogger.h>
 #include <fuerte/loop.h>
 #include <fuerte/types.h>
@@ -38,24 +35,32 @@ class VstConnection;
 GlobalService::GlobalService() :
   _vpack_init(new impl::VpackInit()) { 
   FUERTE_LOG_DEBUG << "GlobalService init" << std::endl;
-  ::curl_global_init(CURL_GLOBAL_ALL); 
+  //::curl_global_init(CURL_GLOBAL_ALL);
 }
 GlobalService::~GlobalService() { 
   FUERTE_LOG_DEBUG << "GlobalService cleanup" << std::endl;
-  ::curl_global_cleanup(); 
+  //::curl_global_cleanup();
 }
 
-EventLoopService::EventLoopService(unsigned int threadCount)
-    : EventLoopService(threadCount, std::make_shared<asio_io_service>()) {}
+EventLoopService::EventLoopService(unsigned int threadCount) : 
+global_service_(GlobalService::get()),
+_lastUsed(0) {
+  for (unsigned i = 0; i < threadCount; i++) {
+    _ioContexts.emplace_back(new boost::asio::io_context());
+    _guards.emplace_back(boost::asio::make_work_guard(*_ioContexts.back()));
+    _threads.emplace_back([this, i]() { _ioContexts[i]->run(); });
+  }
+}
 
-// run is called for each thread. It calls io_service.run() and
-// invokes the curl handlers.
-// You only need to invoke this if you want a custom event loop service.
-void EventLoopService::run() {
-  try {
-    io_service_->run();
-  } catch (std::exception const& ex) {
-    handleRunException(ex);
+EventLoopService::~EventLoopService() {
+  for (auto& guard : _guards) {
+    guard.reset(); // allow run() to exit
+  }
+  for (auto& ctx : _ioContexts) {
+    ctx->stop();
+  }
+  for (std::thread& thread : _threads) {
+    thread.join();
   }
 }
 

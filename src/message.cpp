@@ -57,29 +57,29 @@ std::string to_string(MessageHeader const& header){
     ss << "responseCode: " << header.responseCode << std::endl;
   }
 
-  if(header.database){
-    ss << "database: " << header.database.get() << std::endl;
+  if (!header.database.empty()){
+    ss << "database: " << header.database << std::endl;
   }
 
-  if(header.restVerb){
-    ss << "restVerb: " << to_string(header.restVerb.get()) << std::endl;
+  if (header.restVerb != RestVerb::Illegal){
+    ss << "restVerb: " << to_string(header.restVerb) << std::endl;
   }
 
-  if(header.path){
-    ss << "path: " << header.path.get() << std::endl;
+  if (!header.path.empty()){
+    ss << "path: " << header.path << std::endl;
   }
 
-  if(header.parameters){
+  if (!header.parameters.empty()){
     ss << "parameters: ";
-    for(auto const& item : header.parameters.get()){
+    for(auto const& item : header.parameters){
       ss << item.first <<  " -:- " << item.second << "\n";
     }
     ss<< std::endl;
   }
 
-  if(header.meta){
+  if (!header.meta.empty()){
     ss << "meta:\n";
-    for(auto const& item : header.meta.get()){
+    for(auto const& item : header.meta){
       ss << "\t" << item.first <<  " -:- " << item.second << "\n";
     }
     ss<< std::endl;
@@ -137,27 +137,20 @@ void MessageHeader::acceptType(ContentType type){
 }
 
 void MessageHeader::addParameter(std::string const& key, std::string const& value) {
-  if (!parameters) {
-    parameters = StringMap();
-  }
-  parameters.get()[key] = value;
+  parameters.emplace(key, value);
 }
 
 void MessageHeader::addMeta(std::string const& key, std::string const& value) {
-  if (!meta) {
-    meta = StringMap();
-  }
-  meta.get()[key] = value;
+  meta.emplace(key, value);
 }
 
 // Get value for header metadata key, returns empty string if not found.
 std::string MessageHeader::metaByKey(std::string const& key) const {
-  if (!meta) {
+  if (meta.empty()) {
     return "";
   }
-  auto& hmap = meta.get();
-  auto found =  hmap.find(key);
-  return (found == hmap.end()) ? "" : found->second;
+  auto found =  meta.find(key);
+  return (found == meta.end()) ? "" : found->second;
 }
 
 ///////////////////////////////////////////////
@@ -321,6 +314,10 @@ std::vector<VSlice>const & Request::slices() {
 boost::asio::const_buffer Request::payload() const {
   return boost::asio::const_buffer(_payload.data(), _payloadLength);
 }
+  
+size_t Request::payloadSize() const {
+  return _payloadLength;
+}
 
 ///////////////////////////////////////////////
 // class Response
@@ -361,6 +358,10 @@ std::vector<VSlice>const & Response::slices() {
 
 boost::asio::const_buffer Response::payload() const {
   return boost::asio::const_buffer(_payload.data() + _payloadOffset, _payload.byteSize());
+}
+  
+size_t Response::payloadSize() const {
+  return _payload.byteSize() - _payloadOffset;
 }
 
 void Response::setPayload(VBuffer&& buffer, size_t payloadOffset) {

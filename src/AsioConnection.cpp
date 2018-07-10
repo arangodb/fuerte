@@ -1,0 +1,440 @@
+////////////////////////////////////////////////////////////////////////////////
+/// DISCLAIMER
+///
+/// Copyright 2018 ArangoDB GmbH, Cologne, Germany
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+/// Copyright holder is ArangoDB GmbH, Cologne, Germany
+///
+/// @author Simon Grätzer
+////////////////////////////////////////////////////////////////////////////////
+
+
+#include "AsioConnection.h"
+
+#include <boost/asio/connect.hpp>
+#include <boost/asio/read.hpp>
+#include <boost/asio/write.hpp>
+#include <fuerte/FuerteLogger.h>
+
+#include "http.h"
+#include "vst.h"
+
+namespace arangodb { namespace fuerte { inline namespace v1 {
+
+using bt = ::boost::asio::ip::tcp;
+using be = ::boost::asio::ip::tcp::endpoint;
+using BoostEC = ::boost::system::error_code;
+
+template<typename T>
+AsioConnection<T>::AsioConnection(std::shared_ptr<boost::asio::io_context> const& ctx, 
+                                  detail::ConnectionConfiguration const& config)
+    : Connection(config)
+    , _io_context(ctx)
+    , _resolver(*ctx)
+    , _socket(nullptr)
+    , _sslContext(nullptr)
+    , _sslSocket(nullptr)
+    , _connected(false)
+    , _permanent_failure(false),
+    _loopState(0),
+    _writeQueue(128)
+{}
+
+// Deconstruct.
+template<typename T>
+AsioConnection<T>::~AsioConnection() {
+  _resolver.cancel();
+  if (!_messageStore.empty()){
+    FUERTE_LOG_HTTPTRACE << "DESTROYING CONNECTION WITH: "
+    << _messageStore.size()
+    << " outstanding requests!"
+    << std::endl;
+  }
+  shutdownConnection();
+}
+
+// Activate this connection.
+template<typename T>
+void AsioConnection<T>::start() {
+  startResolveHost();
+}
+
+// resolve the host into a series of endpoints 
+template<typename T>
+void AsioConnection<T>::startResolveHost() {
+  // Resolve the host asynchronous.
+  auto self = shared_from_this();
+  _resolver.async_resolve({_configuration._host, _configuration._port},
+    [this, self](const boost::system::error_code& error, bt::resolver::iterator iterator) {
+      if (error) {
+        FUERTE_LOG_ERROR << "resolve failed: error=" << error << std::endl;
+        onFailure(errorToInt(ErrorCondition::CouldNotConnect), "resolved failed: error" + error.message());
+      } else {
+        FUERTE_LOG_CALLBACKS << "resolve succeeded" << std::endl;
+        _endpoints = iterator;
+        if (_endpoints == bt::resolver::iterator()){
+          FUERTE_LOG_ERROR << "unable to resolve endpoints" << std::endl;
+          onFailure(errorToInt(ErrorCondition::CouldNotConnect), "unable to resolve endpoints");
+        } else {
+          initSocket();
+        }
+      }
+    });
+}
+
+// CONNECT RECONNECT //////////////////////////////////////////////////////////
+
+template<typename T>
+void AsioConnection<T>::initSocket() {
+  //std::lock_guard<std::mutex> lock(_socket_mutex);
+
+  // socket must be empty before. Check that 
+  assert(!_socket);
+  assert(!_sslSocket);
+
+  FUERTE_LOG_CALLBACKS << "begin init" << std::endl;
+  _socket.reset(new bt::socket(*_io_context));
+  if (_configuration._ssl) {
+    _sslContext.reset(new boost::asio::ssl::context(boost::asio::ssl::context::method::sslv23));
+    _sslSocket.reset(new boost::asio::ssl::stream<bt::socket&>(*_socket, *_sslContext));
+  }
+  
+  auto endpoints = _endpoints; // copy as connect modifies iterator
+  startConnect(endpoints);
+}
+
+// close the TCP & SSL socket.
+template<typename T>
+void AsioConnection<T>::shutdownSocket() {
+  std::lock_guard<std::mutex> lock(_socket_mutex);
+
+  FUERTE_LOG_CALLBACKS << "begin shutdown socket\n";
+  
+  ::boost::system::error_code error;
+  if (_sslSocket) {
+    _sslSocket->shutdown(error);
+  }
+  if (_socket) {
+    _socket->cancel();
+    _socket->shutdown(bt::socket::shutdown_both, error);
+    _socket->close(error);
+  }
+  _sslSocket = nullptr;
+  _socket = nullptr;
+}
+
+// shutdown the connection and cancel all pending messages.
+template<typename T>
+void AsioConnection<T>::shutdownConnection(const ErrorCondition ec) {
+  FUERTE_LOG_CALLBACKS << "shutdownConnection\n";
+  _connected = false;
+
+  // Stop the read & write loop 
+  stopWriting();
+  stopReading();
+
+  // Close socket
+  shutdownSocket();
+  
+  // Cancel all items and remove them from the message store.
+  _messageStore.cancelAll(ec);
+}
+
+template<typename T>
+void AsioConnection<T>::restartConnection(const ErrorCondition error){
+  // Read & write loop must have been reset by now 
+
+  FUERTE_LOG_CALLBACKS << "restartConnection" << std::endl;
+  // Terminate connection
+  shutdownConnection(error);
+
+  // Initiate new connection
+  if (!_permanent_failure) {
+    startResolveHost();
+  }
+}
+
+// ------------------------------------
+// Creating a connection
+// ------------------------------------
+
+// try to open the socket connection to the first endpoint.
+template<typename T>
+void AsioConnection<T>::startConnect(bt::resolver::iterator endpointItr){
+  if (endpointItr != boost::asio::ip::tcp::resolver::iterator()) {
+    FUERTE_LOG_CALLBACKS << "trying to connect to: " << endpointItr->endpoint() << "..." << std::endl;
+
+    // Set a deadline for the connect operation.
+    //_deadline.expires_from_now(boost::posix_time::seconds(60));
+    // TODO wait for connect timeout
+
+    // Start the asynchronous connect operation.
+    auto self = shared_from_this();
+    boost::asio::async_connect(*_socket, endpointItr, 
+      std::bind(&AsioConnection<T>::asyncConnectCallback, std::dynamic_pointer_cast<AsioConnection>(self), 
+      std::placeholders::_1, endpointItr));
+  }
+}
+
+// callback handler for async_callback (called in startConnect).
+template<typename T>
+void AsioConnection<T>::asyncConnectCallback(BoostEC const& error, bt::resolver::iterator endpointItr) {
+  if (error) {
+    // Connection failed
+    FUERTE_LOG_ERROR << error.message() << std::endl;
+    shutdownConnection();
+    if(endpointItr == bt::resolver::iterator()) {
+      FUERTE_LOG_CALLBACKS << "no further endpoint" << std::endl;
+    }
+    onFailure(errorToInt(ErrorCondition::CouldNotConnect), "unable to connect -- " + error.message());
+    _messageStore.cancelAll(ErrorCondition::CouldNotConnect);
+  } else {
+    // Connection established
+    FUERTE_LOG_CALLBACKS << "TCP socket connected" << std::endl;
+    if(_configuration._ssl) {
+      startSSLHandshake();
+    } else {
+      finishInitialization();
+    }
+  }
+}
+
+// start intiating an SSL connection (on top of an established TCP socket)
+template<typename T>
+void AsioConnection<T>::startSSLHandshake() {
+  if(!_configuration._ssl){
+    finishInitialization();
+  }
+  FUERTE_LOG_CALLBACKS << "starting ssl handshake " << std::endl;
+  auto self = shared_from_this();
+  _sslSocket->async_handshake(
+      boost::asio::ssl::stream_base::client, [this, self] (BoostEC const& error) {
+        if (error) {
+          FUERTE_LOG_ERROR << error.message() << std::endl;
+          shutdownSocket();
+          onFailure(errorToInt(ErrorCondition::CouldNotConnect),
+            "unable to perform ssl handshake: error=" + error.message());
+          _messageStore.cancelAll(ErrorCondition::CouldNotConnect);
+        } else {
+          FUERTE_LOG_CALLBACKS << "ssl handshake done" << std::endl;
+          finishInitialization();
+        }
+      });
+}
+
+
+// ------------------------------------
+// Writing data
+// ------------------------------------
+
+
+// Thread-Safe: activate the writer loop (if off and items are queud)
+template<typename T>
+void AsioConnection<T>::startWriting() {
+  assert(_connected);
+  FUERTE_LOG_TRACE << "startWriting: this=" << this << std::endl;
+
+  
+  uint32_t state = _loopState.load(std::memory_order_seq_cst);
+  // start the loop if necessary
+  while (!(state & WRITE_LOOP_ACTIVE) && (state & WRITE_LOOP_QUEUE_MASK) > 0) {
+    if (_loopState.compare_exchange_weak(state, state | WRITE_LOOP_ACTIVE,
+                                         std::memory_order_seq_cst)) {
+      FUERTE_LOG_TRACE << "startWriting: starting write\n";
+        auto self = shared_from_this();
+        _io_context->post([this, self] {
+          asyncWrite();
+        });
+        return;
+    }
+  }
+  if ((state & WRITE_LOOP_QUEUE_MASK) == 0) {
+    FUERTE_LOG_TRACE << "startWriting: nothing is queued\n";
+  }
+}
+  
+// Thread-Safe: stop the write loop
+template<typename T>
+void AsioConnection<T>::stopWriting() {
+  FUERTE_LOG_TRACE << "stopWriting: this=" << this << std::endl;
+  
+  uint32_t state = _loopState.load(std::memory_order_relaxed);
+  // while the write loop is active
+  while (state & WRITE_LOOP_ACTIVE) {
+    if (_loopState.compare_exchange_weak(state, state & ~WRITE_LOOP_ACTIVE,
+                                         std::memory_order_seq_cst)) {
+      return;
+    }
+  }
+}
+
+// Thread-Safe: queue a new request
+template<typename T>
+void AsioConnection<T>::queueRequest(std::unique_ptr<T> item) {
+  if (!_writeQueue.push(item.get())) {
+    throw std::length_error("connection queue capactiy exceeded");
+  }
+  item.release();
+  _loopState.fetch_add(WRITE_LOOP_QUEUE_INC, std::memory_order_seq_cst);
+}
+
+
+// writes data from task queue to network using boost::asio::async_write
+template<typename T>
+void AsioConnection<T>::asyncWrite() {
+  FUERTE_LOG_TRACE << "asyncWrite: preparing to send next" << std::endl;
+  assert(_connected);
+  
+  // reduce queue length and check active flag
+  uint32_t state = _loopState.fetch_sub(WRITE_LOOP_QUEUE_INC, std::memory_order_seq_cst);
+  if (!(state & WRITE_LOOP_ACTIVE)) { // loop was stopped while we weren't looking
+    // revert queue decrement operation
+    _loopState.fetch_add(WRITE_LOOP_QUEUE_INC, std::memory_order_seq_cst);
+    FUERTE_LOG_TRACE << "asyncWrite: was turned off\n";
+    return;
+  }
+
+  // once we get here there must be an item in the queue
+  assert((state & WRITE_LOOP_QUEUE_MASK) > 0);
+  T* ptr;
+  assert(_writeQueue.pop(ptr)); // should never fail here
+  std::shared_ptr<T> item(ptr);
+  
+  // check if the write loop should stop after this iteration
+  state -= WRITE_LOOP_QUEUE_INC; // fetch_sub delivers state + 1
+  if ((state & WRITE_LOOP_QUEUE_MASK) == 0) {
+    assert(state & WRITE_LOOP_ACTIVE); // we should only get here while active
+    // nothing is queued, lets try to halt the write queue while
+    // the write loop is active and nothing is queued
+    while ((state & WRITE_LOOP_ACTIVE) && (state & WRITE_LOOP_QUEUE_MASK) == 0) {
+      if (_loopState.compare_exchange_weak(state, state & ~WRITE_LOOP_ACTIVE)) {
+        FUERTE_LOG_TRACE << "asyncWrite: no more queued items" << std::endl;
+        break; // we turned flag off while no request was queued
+      }
+    }
+  }
+  
+  // we stop the write-loop if we stopped it ourselves.
+  auto self = shared_from_this();
+  auto cb = [this, self, item, state] (BoostEC const& ec, std::size_t transferred) {
+    bool cnt = asyncWriteCallback(ec, transferred, std::move(item));
+    if (cnt && (state & WRITE_LOOP_ACTIVE)) {
+      asyncWrite(); // asyncWriteCallback may reset ACTIVE flag
+    }
+  };
+  auto buffers = this->fetchBuffers(item);
+  if (_configuration._ssl) {
+    boost::asio::async_write(*_sslSocket, buffers, cb);
+  } else {
+    boost::asio::async_write(*_socket, buffers, cb);
+  }
+
+  FUERTE_LOG_TRACE << "asyncWrite: done" << std::endl;
+}
+
+// ------------------------------------
+// Reading data
+// ------------------------------------
+
+// aThread-Safe: ctivate the receiver loop (if needed)
+template<typename T>
+void AsioConnection<T>::startReading() {
+  FUERTE_LOG_TRACE << "startReading: this=" << this << std::endl;
+  
+  uint32_t state = _loopState.load(std::memory_order_seq_cst);
+  // start the loop if necessary
+  while (!(state & READ_LOOP_ACTIVE)) {
+    if (_loopState.compare_exchange_weak(state, state | READ_LOOP_ACTIVE,
+                                         std::memory_order_seq_cst)) {
+      auto self = shared_from_this();
+      _io_context->post([this, self] {
+        asyncReadSome();
+      });
+      return;
+    }
+  }
+  // There is already a read loop, do nothing 
+}
+
+// Thread-Safe: Stop the read loop
+template<typename T>
+void AsioConnection<T>::stopReading() {
+  FUERTE_LOG_TRACE << "stopReading: this=" << this << std::endl;
+
+  uint32_t state = _loopState.load(std::memory_order_relaxed);
+  // start the loop if necessary
+  while (state & READ_LOOP_ACTIVE) {
+    if (_loopState.compare_exchange_weak(state, state & ~READ_LOOP_ACTIVE,
+                                         std::memory_order_seq_cst)) {
+      auto self = shared_from_this();
+      _io_context->post([this, self] {
+        asyncReadSome();
+      });
+      return;
+    }
+  }
+}
+
+// asyncReadSome reads the next bytes from the server.
+template<typename T>
+void AsioConnection<T>::asyncReadSome() {
+  FUERTE_LOG_TRACE << "asyncReadSome: this=" << this << std::endl;
+  FUERTE_LOG_CALLBACKS << "-";
+
+  uint32_t state = _loopState.load(std::memory_order_seq_cst);
+  if (!(state & READ_LOOP_ACTIVE)) {
+    FUERTE_LOG_TRACE << "asyncReadSome: read-loop was stopped\n";
+    return; // just stop
+  }
+  if (_permanent_failure) {
+    FUERTE_LOG_TRACE << "asyncReadSome: permanent failure\n";
+    stopReading(); // will set the flag
+    return;
+  }
+
+  // Start reading data from the network.
+  FUERTE_LOG_CALLBACKS << "r";
+#if ENABLE_FUERTE_LOG_CALLBACKS > 0
+  std::cout << "_messageMap = " << _messageStore.keys() << std::endl;
+#endif
+
+  // Set timeout 
+  /*auto self = shared_from_this();
+  _deadline.expires_from_now(boost::posix_time::milliseconds(timeout.count()));
+  _deadline.async_wait(boost::bind(&ReadLoop::deadlineHandler, self, _1));
+
+  _connection->_async_calls++;*/
+
+  assert(_socket);
+  auto self = shared_from_this();
+
+  // reserve 32kB in output buffer
+  auto mutableBuff = _receiveBuffer.prepare(READ_BLOCK_SIZE);
+  _socket->async_read_some(mutableBuff, 
+  [this, self](BoostEC ec, size_t transferred) {
+    // received data is "committed" from output sequence to input sequence
+    _receiveBuffer.commit(transferred);
+    if (asyncReadCallback(ec, transferred)) {
+      asyncReadSome();
+    }
+  });
+
+  FUERTE_LOG_TRACE << "asyncReadSome: done" << std::endl;
+}
+
+template class arangodb::fuerte::v1::AsioConnection<arangodb::fuerte::v1::vst::RequestItem>;
+template class arangodb::fuerte::v1::AsioConnection<arangodb::fuerte::v1::http::RequestItem>;
+
+}}}

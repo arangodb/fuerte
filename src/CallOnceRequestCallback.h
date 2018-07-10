@@ -34,16 +34,15 @@ namespace arangodb { namespace fuerte { inline namespace v1 { namespace impl {
 class CallOnceRequestCallback {
  public:
   CallOnceRequestCallback() 
-    : _invoked(false), _cb(nullptr) {}
+    : _invoked(ATOMIC_FLAG_INIT), _cb(nullptr) {}
   CallOnceRequestCallback(RequestCallback cb) 
-    : _invoked(false), _cb(cb) {}
+    : _invoked(ATOMIC_FLAG_INIT), _cb(std::move(cb)) {}
   CallOnceRequestCallback& operator=(RequestCallback cb) { _cb = cb; return *this; }
 
   // Invoke the callback.
   // If the callback was already invoked, the callback is not invoked.
   inline void invoke(Error error, std::unique_ptr<Request> req, std::unique_ptr<Response> resp) {
-    auto invoked = _invoked.exchange(true);
-    if (!invoked) {
+    if (!_invoked.test_and_set()) { //
       assert(_cb);
       _cb(error, std::move(req), std::move(resp));
       _cb = nullptr;
@@ -51,7 +50,7 @@ class CallOnceRequestCallback {
   }
 
  private:
-  std::atomic<bool> _invoked;
+  std::atomic_flag _invoked;
   RequestCallback _cb;
 };
 

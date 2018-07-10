@@ -39,7 +39,6 @@
 
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
-class IncompleteMessage;
 using MessageID = uint64_t;
 
 static size_t const bufferLength = 4096UL;
@@ -101,10 +100,11 @@ struct ChunkHeader {
 
 // buildChunks builds a list of chunks that are ready to be send to the server.
 // The resulting set of chunks are added to the given result vector.
-void buildChunks(uint64_t messageID, uint32_t maxChunkSize, std::vector<VSlice> const& messageParts, std::vector<ChunkHeader>& result);
+void buildChunks(uint64_t messageID, uint32_t maxChunkSize, std::vector<VSlice> const& messageParts, 
+                 std::vector<ChunkHeader>& result);
 
 // chunkHeaderLength returns the length of a VST chunk header for given arguments.
-inline std::size_t chunkHeaderLength(VSTVersion vstVersion, bool isFirst, bool isSingle) {
+/*inline std::size_t chunkHeaderLength(VSTVersion vstVersion, bool isFirst, bool isSingle) {
   switch (vstVersion) {
     case VST1_0:
       if (isFirst && !isSingle) {
@@ -116,12 +116,12 @@ inline std::size_t chunkHeaderLength(VSTVersion vstVersion, bool isFirst, bool i
     default:
       throw std::logic_error("Unknown VST version");
   }
-}
+}*/
 
 // Item that represents a Request in flight
 struct RequestItem {
   std::unique_ptr<Request> _request;  // Reference to the request we're processing 
-  impl::CallOnceRequestCallback _callback;           // Callback for when request is done (in error or succeeded)
+  impl::CallOnceRequestCallback _callback; // Callback for when request is done (in error or succeeded)
   MessageID _messageID;               // ID of this message
   // Request variables
   std::string _msgHdr;                // VST message header
@@ -173,10 +173,10 @@ ChunkHeader readChunkHeaderVST1_0(uint8_t const * const bufferBegin);
 ChunkHeader readChunkHeaderVST1_1(uint8_t const * const bufferBegin);
 
 // creates a MessageHeader form a given slice
-MessageHeader messageHeaderFromSlice(VSlice const& headerSlice);
+MessageHeader messageHeaderFromSlice(vst::VSTVersion version, VSlice const& header);
 // validates if a data range contains a slice and converts it
 // to a message Hader and returns size occupied by the sloce via reference
-MessageHeader validateAndExtractMessageHeader(int const& vstVersionID, 
+MessageHeader validateAndExtractMessageHeader(vst::VSTVersion version,
                                               uint8_t const * const vpStart, 
                                               std::size_t length, std::size_t& headerLength);
 

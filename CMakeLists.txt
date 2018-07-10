@@ -54,9 +54,9 @@ endif()
 add_library(fuerte STATIC
     src/connection.cpp
     src/ConnectionBuilder.cpp
-    src/CurlMultiAsio.cpp
     src/database.cpp
     src/helper.cpp
+    src/http.cpp
     src/HttpConnection.cpp
     src/loop.cpp
     src/message.cpp
@@ -64,8 +64,10 @@ add_library(fuerte STATIC
     src/types.cpp
     src/vst.cpp
     src/VstConnection.cpp
+    src/AsioConnection.cpp
     src/collection.cpp
     src/connection.cpp
+    src/http_parser/http_parser.c
 )
 
 if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
@@ -75,7 +77,6 @@ endif()
 
 target_link_libraries(fuerte PUBLIC
     ${VELOCYPACK_LIBRARIES}
-    ${CURL_LIBRARIES}
     ${Boost_LIBRARIES}
     ${OPENSSL_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
@@ -93,6 +94,14 @@ add_executable(fuerte-get
 target_link_libraries(fuerte-get PRIVATE
     fuerte
 )
+
+#add_executable(vst-echo-server
+#    tools/vst-echo-server.cpp
+#)
+#
+#target_link_libraries(vst-echo-server PRIVATE
+#    fuerte
+#)
 
 #########################################################################################
 # Tests

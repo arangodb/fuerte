@@ -56,13 +56,13 @@ createRequest(MessageHeader&& messageHeader
              );
 
 // wrapper for const paramters
-std::unique_ptr<Request>
+/*std::unique_ptr<Request>
 createRequest(MessageHeader const& messageHeader
              ,StringMap const& headerStrings
              ,std::string const& database
              ,RestVerb const& verb
              ,ContentType const& contentType
-             );
+             );*/
 
 std::unique_ptr<Request>
 createRequest(RestVerb const& verb

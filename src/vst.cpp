@@ -107,7 +107,7 @@ void buildChunks(uint64_t messageID, uint32_t maxChunkSize, std::vector<VSlice> 
 
   // Build the chunks 
   result.clear();
-  auto minChunkCount = messageLength / maxChunkSize;
+  //auto minChunkCount = messageLength / maxChunkSize;
   auto maxDataLength = maxChunkSize - maxChunkHeaderSize;
   uint32_t chunkIndex = 0;
   for (auto it = std::begin(messageParts); it!=std::end(messageParts); ++it) {
@@ -178,24 +178,24 @@ static std::string createVstMessageHeader(MessageHeader const& header)
 
     case MessageType::Request:
       // 2 - database
-      if(!header.database){ throw std::runtime_error("database" + message); }
-      builder.add(VValue(header.database.get()));
-      FUERTE_LOG_DEBUG << "MessageHeader.database=" << header.database.get() << std::endl;
+      if(header.database.empty()) { throw std::runtime_error("database" + message); }
+      builder.add(VValue(header.database));
+      FUERTE_LOG_DEBUG << "MessageHeader.database=" << header.database << std::endl;
 
       // 3 - RestVerb
-      if(!header.restVerb){ throw std::runtime_error("rest verb" + message); }
-      builder.add(VValue(static_cast<int>(header.restVerb.get())));
-      FUERTE_LOG_DEBUG << "MessageHeader.restVerb=" << static_cast<int>(header.restVerb.get()) << std::endl;
+      if(header.restVerb == RestVerb::Illegal){ throw std::runtime_error("rest verb" + message); }
+      builder.add(VValue(static_cast<int>(header.restVerb)));
+      FUERTE_LOG_DEBUG << "MessageHeader.restVerb=" << static_cast<int>(header.restVerb) << std::endl;
 
       // 4 - path
-      if(!header.path){ throw std::runtime_error("path" + message); }
-      builder.add(VValue(header.path.get()));
-      FUERTE_LOG_DEBUG << "MessageHeader.path=" << header.path.get() << std::endl;
+      //if(!header.path){ throw std::runtime_error("path" + message); }
+      builder.add(VValue(header.path));
+      FUERTE_LOG_DEBUG << "MessageHeader.path=" << header.path << std::endl;
 
       // 5 - parameters - not optional in current server
       builder.openObject();
-      if (header.parameters) {
-        for (auto const& item : header.parameters.get()) {
+      if (!header.parameters.empty()) {
+        for (auto const& item : header.parameters) {
           builder.add(item.first,VValue(item.second));
         }
       }
@@ -203,8 +203,8 @@ static std::string createVstMessageHeader(MessageHeader const& header)
 
       // 6 - meta
       builder.openObject();
-      if (header.meta){
-        for(auto const& item : header.meta.get()){
+      if (!header.meta.empty()){
+        for(auto const& item : header.meta){
           builder.add(item.first,VValue(item.second));
         }
       }
@@ -231,7 +231,7 @@ static std::string createVstMessageHeader(MessageHeader const& header)
 void RequestItem::prepareForNetwork(VSTVersion vstVersion) {
   // setting defaults
   _request->header.version = 1; // TODO vstVersionID;
-  if(!_request->header.database){
+  if(_request->header.database.empty()){
     _request->header.database = "_system";
   }
 
@@ -329,13 +329,12 @@ ChunkHeader readChunkHeaderVST1_1(uint8_t const * const bufferBegin) {
   return header;
 }
 
-MessageHeader messageHeaderFromSlice(int vstVersionID, VSlice const& headerSlice){
+MessageHeader messageHeaderFromSlice(vst::VSTVersion version, VSlice const& headerSlice){
   assert(headerSlice.isArray());
   MessageHeader header;
   header.byteSize = headerSlice.byteSize(); //for debugging
 
-  header.meta = StringMap();
-  if(vstVersionID == 1) {
+  if(version == vst::VSTVersion::VST1_1) {
     header.contentType(ContentType::VPack);
   } else {
     // found in params
@@ -361,13 +360,13 @@ MessageHeader messageHeaderFromSlice(int vstVersionID, VSlice const& headerSlice
 
     //resoponse should get content type
     case MessageType::Response:
-      header.responseCode = headerSlice.at(2).getUInt(); // TODO fix me
-      header.contentType(ContentType::VPack); // empty meta
+      header.responseCode = headerSlice.at(2).getNumber<StatusCode>();
+      //header.contentType(ContentType::VPack); // empty meta
       if (headerSlice.length() >= 4) {
         VSlice meta = headerSlice.at(3);
         assert(meta.isObject());
         for(auto it : VPackObjectIterator(meta)) {
-          header.meta.get().emplace(it.key.copyString(), it.value.copyString());
+          header.meta.emplace(it.key.copyString(), it.value.copyString());
         }
       }
       break;
@@ -378,7 +377,7 @@ MessageHeader messageHeaderFromSlice(int vstVersionID, VSlice const& headerSlice
   return header;
 };
 
-MessageHeader validateAndExtractMessageHeader(int const& vstVersionID, uint8_t const * const vpStart, 
+MessageHeader validateAndExtractMessageHeader(vst::VSTVersion version, uint8_t const * const vpStart,
                                               std::size_t length, std::size_t& headerLength){
   using VValidator = ::arangodb::velocypack::Validator;
   // there must be at least one velocypack for the header
@@ -396,7 +395,7 @@ MessageHeader validateAndExtractMessageHeader(int const& vstVersionID, uint8_t c
   VSlice slice = VSlice(vpStart);
   headerLength = slice.byteSize();
 
-  return messageHeaderFromSlice(vstVersionID, slice);
+  return messageHeaderFromSlice(version, slice);
 }
 
 std::size_t validateAndCount(uint8_t const * const vpStart, std::size_t length){
