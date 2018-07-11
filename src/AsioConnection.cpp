@@ -252,18 +252,19 @@ void AsioConnection<T>::startWriting() {
   assert(_connected);
   FUERTE_LOG_TRACE << "startWriting: this=" << this << std::endl;
 
-  uint32_t state = _loopState.load(std::memory_order_seq_cst);
+  uint32_t state = _loopState.load(std::memory_order_acquire);
   // start the loop if necessary
   while (!(state & WRITE_LOOP_ACTIVE) && (state & WRITE_LOOP_QUEUE_MASK) > 0) {
     if (_loopState.compare_exchange_weak(state, state | WRITE_LOOP_ACTIVE,
                                          std::memory_order_seq_cst)) {
       FUERTE_LOG_TRACE << "startWriting: starting write\n";
-        auto self = shared_from_this();
-        _io_context->post([this, self] {
+        //auto self = shared_from_this();
+        //_io_context->post([this, self] {
           asyncWrite();
-        });
+        //});
         return;
     }
+    std::this_thread::yield();
   }
   if ((state & WRITE_LOOP_QUEUE_MASK) == 0) {
     FUERTE_LOG_TRACE << "startWriting: nothing is queued\n";
@@ -287,13 +288,13 @@ void AsioConnection<T>::stopWriting() {
 
 // Thread-Safe: queue a new request
 template<typename T>
-void AsioConnection<T>::queueRequest(std::unique_ptr<T> item) {
+uint32_t AsioConnection<T>::queueRequest(std::unique_ptr<T> item) {
   if (!_writeQueue.push(item.get())) {
     FUERTE_LOG_ERROR << "connection queue capactiy exceeded" << std::endl;
     throw std::length_error("connection queue capactiy exceeded");
   }
   item.release();
-  _loopState.fetch_add(WRITE_LOOP_QUEUE_INC, std::memory_order_seq_cst);
+  return _loopState.fetch_add(WRITE_LOOP_QUEUE_INC, std::memory_order_release);
 }
 
 
@@ -325,6 +326,7 @@ void AsioConnection<T>::asyncWrite() {
     while ((state & WRITE_LOOP_ACTIVE) && (state & WRITE_LOOP_QUEUE_MASK) == 0) {
       if (_loopState.compare_exchange_weak(state, state & ~WRITE_LOOP_ACTIVE)) {
         FUERTE_LOG_TRACE << "asyncWrite: no more queued items" << std::endl;
+        state = state & ~WRITE_LOOP_ACTIVE;
         break; // we turned flag off while nothin was queued
       }
     }
@@ -358,12 +360,13 @@ void AsioConnection<T>::startReading() {
   while (!(state & READ_LOOP_ACTIVE)) {
     if (_loopState.compare_exchange_weak(state, state | READ_LOOP_ACTIVE,
                                          std::memory_order_seq_cst)) {
-      auto self = shared_from_this();
-      _io_context->post([this, self] {
+      //auto self = shared_from_this();
+      //_io_context->post([this, self] {
         asyncReadSome();
-      });
+      //});
       return;
     }
+    std::this_thread::yield();
   }
   // There is already a read loop, do nothing 
 }
@@ -394,7 +397,7 @@ void AsioConnection<T>::asyncReadSome() {
 
   uint32_t state = _loopState.load(std::memory_order_seq_cst);
   if (!(state & READ_LOOP_ACTIVE)) {
-    FUERTE_LOG_ERROR << "asyncReadSome: read-loop was stopped\n";
+    FUERTE_LOG_TRACE << "asyncReadSome: read-loop was stopped\n";
     return; // just stop
   }
   if (_permanent_failure || !_connected) {

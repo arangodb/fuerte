@@ -59,13 +59,15 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request, RequestCa
   auto item = createRequestItem(std::move(request), cb);
   uint64_t mid = item->_messageID;
   // Add item to send queue
-  this->queueRequest(std::move(item));
+  uint32_t state = queueRequest(std::move(item));
 
   // this allows sendRequest to return immediately and
   // not to block until all writing is done
   if (_connected) {
     FUERTE_LOG_VSTTRACE << "sendRequest (vst): start sending & reading" << std::endl;
-    startWriting(); // start writing if necessary
+    if (!(state & WRITE_LOOP_ACTIVE)) {
+      startWriting();
+    }
   } else {
     FUERTE_LOG_VSTTRACE << "sendRequest (vst): not connected" << std::endl;
   }
@@ -218,7 +220,7 @@ bool VstConnection::asyncReadCallback(const boost::system::error_code& e, std::s
     }
     
     // check for more messages that could arrive
-    if (_messageStore.empty(true) && !(_loopState.load() & WRITE_LOOP_ACTIVE)) {
+    if (_messageStore.empty(true) && !(_loopState.load(std::memory_order_acquire) & WRITE_LOOP_ACTIVE)) {
       stopReading(); // write-loop restarts read-loop if necessary
       FUERTE_LOG_VSTTRACE << "shouldStopReading: no more pending messages/requests, stopping read";
       return false;

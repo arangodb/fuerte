@@ -101,7 +101,7 @@ protected:
   void stopWriting();
   
   // Thread-Safe: queue a new request. Returns loop state
-  void queueRequest(std::unique_ptr<T>);
+  uint32_t queueRequest(std::unique_ptr<T>);
   
   ///  Call on IO-Thread: writes out one queue request
   void asyncWrite();
@@ -169,6 +169,7 @@ protected:
   static constexpr uint32_t WRITE_LOOP_QUEUE_INC = 1;
   static constexpr uint32_t WRITE_LOOP_QUEUE_MASK = WRITE_LOOP_ACTIVE - 1;
   static_assert((WRITE_LOOP_ACTIVE & WRITE_LOOP_QUEUE_MASK) == 0, "");
+  static_assert((WRITE_LOOP_ACTIVE & READ_LOOP_ACTIVE) == 0, "");
 
   /// elements to send out
   boost::lockfree::queue<T*> _writeQueue;
