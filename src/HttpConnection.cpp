@@ -100,10 +100,10 @@ HttpConnection::HttpConnection(std::shared_ptr<asio_io_context>& ctx,
   _parserSettings.on_message_complete = ::on_message_complete;
   http_parser_init(&_parser, HTTP_RESPONSE);
 }
-
+/*
 HttpConnection::~HttpConnection() { 
   FUERTE_LOG_HTTPTRACE << "Destroying HttpConnection" << std::endl;
-}
+}*/
 
 MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request, RequestCallback callback) {
   
@@ -112,7 +112,6 @@ MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request, RequestC
   
   // Prepare a new request
   uint64_t id = ticketId.fetch_add(1, std::memory_order_relaxed);
-  FUERTE_LOG_HTTPTRACE << "sendRequest (http): queuing " << id << std::endl;
   request->messageID = id;
   auto item = createRequestItem(std::move(request), callback);
   
@@ -120,7 +119,7 @@ MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request, RequestC
   if (_connected) {
     FUERTE_LOG_HTTPTRACE << "sendRequest (http): start sending & reading" << std::endl;
     // HTTP is half-duplex protocol: we only write if there is no reading
-    startWritingExclusive(); // start writing if possible
+    startWritingExclusive(); // start writing if nothing is running
   } else {
     FUERTE_LOG_HTTPTRACE << "sendRequest (http): not connected" << std::endl;
   }
@@ -132,17 +131,16 @@ MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request, RequestC
 // -----------------------------------------------------------------------------
   
   
-// Thread-Safe: activate the writer loop only if no read-loop is on
+// Thread-Safe: activate the combined write-read loop
 void HttpConnection::startWritingExclusive() {
   assert(_connected);
   FUERTE_LOG_TRACE << "startWritingExclusive: this=" << this << std::endl;
   
+  // we want to turn on both flags at once
+  const uint32_t flags = WRITE_LOOP_ACTIVE | READ_LOOP_ACTIVE;
   uint32_t state = _loopState.load(std::memory_order_seq_cst);
-  // start the loop if necessary
-  while (!(state & WRITE_LOOP_ACTIVE) && !(state & READ_LOOP_ACTIVE) &&
-         (state & WRITE_LOOP_QUEUE_MASK) > 0 ) {
-    if (_loopState.compare_exchange_weak(state, state | WRITE_LOOP_ACTIVE,
-                                         std::memory_order_seq_cst)) {
+  while ((state & flags) != flags && (state & WRITE_LOOP_QUEUE_MASK) > 0) {
+    if (_loopState.compare_exchange_weak(state, state | flags, std::memory_order_seq_cst)) {
       FUERTE_LOG_TRACE << "startWritingExclusive: starting write\n";
       auto self = shared_from_this();
       _io_context->post([this, self] {
@@ -155,32 +153,6 @@ void HttpConnection::startWritingExclusive() {
     FUERTE_LOG_TRACE << "startWritingExclusive: nothing is queued\n";
   }
 }
-
-/*
-std::string HttpConnection::createSafeDottedCurlUrl(
-    std::string const& originalUrl) {
-  std::string url;
-  url.reserve(originalUrl.length());
-
-  size_t length = originalUrl.length();
-  size_t currentFind = 0;
-  std::size_t found;
-  std::vector<char> urlDotSeparators{'/', '#', '?'};
-
-  while ((found = originalUrl.find("/.", currentFind)) != std::string::npos) {
-    if (found + 2 == length) {
-      url += originalUrl.substr(currentFind, found - currentFind) + "/%2E";
-    } else if (std::find(urlDotSeparators.begin(), urlDotSeparators.end(),
-                         originalUrl.at(found + 2)) != urlDotSeparators.end()) {
-      url += originalUrl.substr(currentFind, found - currentFind) + "/%2E";
-    } else {
-      url += originalUrl.substr(currentFind, found - currentFind) + "/.";
-    }
-    currentFind = found + 2;
-  }
-  url += originalUrl.substr(currentFind);
-  return url;
-}*/
 
 std::unique_ptr<RequestItem> HttpConnection::createRequestItem(std::unique_ptr<Request> request,
                                                                RequestCallback callback) {
@@ -230,6 +202,17 @@ std::unique_ptr<RequestItem> HttpConnection::createRequestItem(std::unique_ptr<R
     header.append("\r\n");
   }
   
+  if (_configuration._authenticationType == AuthenticationType::Basic) {
+    header.append("Authorization: Basic ");
+    header.append(fu::encodeBase64(_configuration._user + ":" + _configuration._password));
+    header.append("\r\n");
+  } else if  (_configuration._authenticationType == AuthenticationType::Jwt) {
+    assert(false);
+    /*header.append("Authorization: bearer ");
+    header.append(_configuration._);
+    header.append("\r\n");*/
+  }
+  
   if (request->header.restVerb != RestVerb::Get) {
     header.append("Content-Length: ");
     header.append(std::to_string(request->payloadSize()));
@@ -237,20 +220,9 @@ std::unique_ptr<RequestItem> HttpConnection::createRequestItem(std::unique_ptr<R
   } else {
     header.append("\r\n");
   }
-  // body will be appended later
-  
-  // TODO authentication
-  /*if (!_params._jwt.empty()) {
-    _writeBuffer.appendText(TRI_CHAR_LENGTH_PAIR("Authorization: bearer "));
-    _writeBuffer.appendText(_params._jwt);
-    _writeBuffer.appendText(TRI_CHAR_LENGTH_PAIR("\r\n"));
-  } else if (!_params._basicAuth.empty()) {
-    _writeBuffer.appendText(TRI_CHAR_LENGTH_PAIR("Authorization: Basic "));
-    _writeBuffer.appendText(_params._basicAuth);
-    _writeBuffer.appendText(TRI_CHAR_LENGTH_PAIR("\r\n"));
-  }*/
+  // body will be appended seperately
 
-  // construct in-flight RequestItem
+  // construct RequestItem
   std::unique_ptr<RequestItem> requestItem(new RequestItem());// std::make_shared<RequestItem>(, callback);
   requestItem->_request = std::move(request);
   requestItem->_callback = std::move(callback);
@@ -262,8 +234,7 @@ std::unique_ptr<RequestItem> HttpConnection::createRequestItem(std::unique_ptr<R
 // socket connection is up (with optional SSL)
 void HttpConnection::finishInitialization() {
   _connected = true;
-  assert(!(_loopState & READ_LOOP_ACTIVE));
-  startWriting(); // starts writing queue if non-empty
+  startWritingExclusive(); // starts writing queue if non-empty
 }
   
 // called on shutdown, always call superclass
@@ -316,6 +287,7 @@ bool HttpConnection::asyncWriteCallback(::boost::system::error_code const& error
     item->_requestHeader.clear();
     
     // thead-safe we are on the single IO-Thread
+    assert(_inFlight == nullptr);
     _inFlight = std::move(item);
     assert(_inFlight->_response == nullptr);
     _inFlight->_response.reset(new Response());
@@ -324,19 +296,10 @@ bool HttpConnection::asyncWriteCallback(::boost::system::error_code const& error
     http_parser_init(&_parser, HTTP_RESPONSE);
     _parser.data = static_cast<void*>(_inFlight.get());
     
-    // start listening for the response
-    uint32_t state = _loopState.load(std::memory_order_seq_cst);
-    // start the loop if necessary
-    while (!(state & READ_LOOP_ACTIVE) || (state & WRITE_LOOP_ACTIVE)) {
-      uint32_t desired = (state & ~WRITE_LOOP_ACTIVE) | READ_LOOP_ACTIVE;
-      if (_loopState.compare_exchange_weak(state, desired)) {
-        asyncReadSome();
-        break;
-      }
-    }
+    asyncReadSome(); // listen for the response
     
     FUERTE_LOG_HTTPTRACE<< "asyncWriteCallback: wait for response" << std::endl;
-    return false;
+    return false; // do not write next request immediately
   }
 }
   
@@ -393,12 +356,13 @@ bool HttpConnection::asyncReadCallback(::boost::system::error_code const& ec, si
       
       FUERTE_LOG_HTTPTRACE << "asyncReadCallback (http): completed parsing response\n";
       
-      assert(_loopState & READ_LOOP_ACTIVE);
-      assert(!(_loopState & WRITE_LOOP_ACTIVE));
-      stopReading();
-      startWritingExclusive();
+      uint32_t state = _loopState.load(std::memory_order_acquire);
+      if (state & WRITE_LOOP_ACTIVE) {
+        assert((state & WRITE_LOOP_QUEUE_MASK) > 0);
+        asyncWrite();
+      }
       
-      return false; // response completed
+      return false; // response completed do not read further
     }
     
     FUERTE_LOG_HTTPTRACE << "asyncReadCallback (http): response not complete yet\n";

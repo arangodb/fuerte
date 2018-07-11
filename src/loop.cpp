@@ -56,11 +56,11 @@ EventLoopService::~EventLoopService() {
   for (auto& guard : _guards) {
     guard.reset(); // allow run() to exit
   }
-  for (auto& ctx : _ioContexts) {
-    ctx->stop();
-  }
   for (std::thread& thread : _threads) {
     thread.join();
+  }
+  for (auto& ctx : _ioContexts) {
+    ctx->stop();
   }
 }
 

@@ -57,53 +57,48 @@ namespace fu = ::arangodb::fuerte;
 TEST_P(ConnectionTestF, CreateDocumentsParallel){
   
   // create the collection
-  fu::VBuilder coll;
-  coll.openObject();
-  coll.add("name", fu::VValue("parallel"));
-  coll.close();
+  fu::VBuilder builder;
+  builder.openObject();
+  builder.add("name", fu::VValue("parallel"));
+  builder.close();
   auto request = fu::createRequest(fu::RestVerb::Post, "/_api/collection");
-  request->addVPack(coll.slice());
+  request->addVPack(builder.slice());
   auto response = _connection->sendRequest(std::move(request));
   ASSERT_EQ(response->statusCode(), fu::StatusOK);
   
   size_t numThreads = GetParam()._threads;
   size_t repeat = GetParam()._repeat;
   
-  //std::atomic<size_t> counter(0);
+  std::atomic<size_t> counter(0);
   fu::WaitGroup wg;
+  auto cb = [&](fu::Error error, std::unique_ptr<fu::Request> req,
+                std::unique_ptr<fu::Response> res) {
+    counter.fetch_add(1, std::memory_order_relaxed);
+    fu::WaitGroupDone done(wg);
+    if (error) {
+      ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
+    } else {
+      ASSERT_EQ(res->statusCode(), fu::StatusAccepted);
+      auto slice = res->slices().front();
+      ASSERT_TRUE(slice.get("_id").isString());
+      ASSERT_TRUE(slice.get("_key").isString());
+      ASSERT_TRUE(slice.get("_rev").isString());
+    }
+  };
+  
+  builder.clear();
+  builder.openObject();
+  builder.add("hello", fu::VValue("world"));
+  builder.close();
   
   std::vector<std::thread> threads;
   for (size_t t = 0; t < numThreads; t++) {
     wg.add(repeat);
     threads.emplace_back([&]{
-      fu::StringMap params;
-      params["returnNew"] = "true";
-      
-      fu::VBuilder builder;
       for (size_t i = 0; i < repeat; i++) {
-        builder.clear();
-        builder.openObject();
-        builder.add("hello", fu::VValue(i));
-        builder.close();
-        auto request = fu::createRequest(fu::RestVerb::Post, "/_api/document/parallel", params);
+        auto request = fu::createRequest(fu::RestVerb::Post, "/_api/document/parallel");
         request->addVPack(builder.slice());
-        _connection->sendRequest(std::move(request), [&](fu::Error error, std::unique_ptr<fu::Request> req,
-                                                         std::unique_ptr<fu::Response> res) {
-          //counter.fetch_add(1, std::memory_order_relaxed);
-          fu::WaitGroupDone done(wg);
-          if (error) {
-            ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
-          } else {
-            ASSERT_EQ(res->statusCode(), fu::StatusAccepted);
-            auto slice = res->slices().front();
-            ASSERT_TRUE(slice.get("_id").isString());
-            ASSERT_TRUE(slice.get("_key").isString());
-            ASSERT_TRUE(slice.get("_rev").isString());
-            fu::VSlice val = slice.get("hello");
-            ASSERT_TRUE(val.isNumber());
-            ASSERT_EQ(val.getUInt(), i);
-          }
-        });
+        _connection->sendRequest(std::move(request), cb);
       }
     });
   }
@@ -114,7 +109,7 @@ TEST_P(ConnectionTestF, CreateDocumentsParallel){
     t.join();
   }
   
-  //ASSERT_EQ(repeat * numThreads, counter);
+  ASSERT_EQ(repeat * numThreads, counter);
   
   // drop the collection
   request = fu::createRequest(fu::RestVerb::Delete, "/_api/collection/parallel");
@@ -123,10 +118,10 @@ TEST_P(ConnectionTestF, CreateDocumentsParallel){
 }
 
 static const ConnectionTestParams connectionTestConcurrentParams[] = {
-  {._url= "http://127.0.0.1:8529", ._threads=1, ._repeat=100},
-  //{._url= "vst://127.0.0.1:8529", ._threads=1, ._repeat=1000},
-  //{._url= "http://127.0.0.1:8529", ._threads=4, ._repeat=1000},
-  //{._url= "vst://127.0.0.1:8529", ._threads=4, ._repeat=10000},
+  {._url= "http://127.0.0.1:8529", ._threads=1, ._repeat=1000},
+  {._url= "vst://127.0.0.1:8529", ._threads=2, ._repeat=1000},
+  {._url= "http://127.0.0.1:8529", ._threads=4, ._repeat=10000},
+  {._url= "vst://127.0.0.1:8529", ._threads=4, ._repeat=10000},
 };
 
 INSTANTIATE_TEST_CASE_P(ConcurrentConnectionTests, ConnectionTestF,

@@ -104,6 +104,8 @@ template<typename K, typename V, typename A>
 std::string mapToKeys(std::unordered_map<K,V,A> map){
   return _detail::mapToKeys(map.begin(),map.end());
 }
+  
+std::string encodeBase64(std::string const&);
 
 }}}
 #endif

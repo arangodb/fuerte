@@ -50,7 +50,6 @@ class HttpConnection : public AsioConnection<arangodb::fuerte::v1::http::Request
  public:
   explicit HttpConnection(std::shared_ptr<asio_io_context>& ctx,
                           detail::ConnectionConfiguration const&);
-  virtual ~HttpConnection();
 
  public:
   // Start an asynchronous request.

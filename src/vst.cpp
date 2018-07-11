@@ -40,7 +40,7 @@ using VValidator = ::arangodb::velocypack::Validator;
 
 // ### not exported ###############################################################
 // sending vst
-static std::string chunkHeaderToString(ChunkHeader const& header){
+/*static std::string chunkHeaderToString(ChunkHeader const& header){
   std::stringstream ss;
   ss << "### ChunkHeader ###"
      << "\nchunk length:         " << header.chunkLength()
@@ -51,7 +51,7 @@ static std::string chunkHeaderToString(ChunkHeader const& header){
      << "\ntotal message length: " << header.messageLength()
      << std::endl;
   return ss.str();
-}
+}*/
 
 // writeHeaderToVST1_0 write the chunk to the given buffer in VST 1.0 format.
 // The length of the buffer is returned.

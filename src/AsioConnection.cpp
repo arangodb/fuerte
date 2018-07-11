@@ -108,6 +108,7 @@ void AsioConnection<T>::initSocket() {
   _socket.reset(new bt::socket(*_io_context));
   if (_configuration._ssl) {
     _sslContext.reset(new boost::asio::ssl::context(boost::asio::ssl::context::method::sslv23));
+    _sslContext->set_default_verify_paths();
     _sslSocket.reset(new boost::asio::ssl::stream<bt::socket&>(*_socket, *_sslContext));
   }
   
@@ -140,14 +141,14 @@ template<typename T>
 void AsioConnection<T>::shutdownConnection(const ErrorCondition ec) {
   FUERTE_LOG_CALLBACKS << "shutdownConnection\n";
   _connected = false;
-
-  // Stop the read & write loop 
+  
+  // Stop the read & write loop
   stopWriting();
   stopReading();
-
+  
   // Close socket
   shutdownSocket();
-  
+
   // Cancel all items and remove them from the message store.
   _messageStore.cancelAll(ec);
 }
@@ -217,6 +218,11 @@ void AsioConnection<T>::startSSLHandshake() {
   if(!_configuration._ssl){
     finishInitialization();
   }
+  // https://www.boost.org/doc/libs/1_67_0/doc/html/boost_asio/overview/ssl.html
+  // Perform SSL handshake and verify the remote host's certificate.
+  _sslSocket->set_verify_mode(boost::asio::ssl::verify_peer);
+  _sslSocket->set_verify_callback(boost::asio::ssl::rfc2818_verification(_configuration._host));
+  
   FUERTE_LOG_CALLBACKS << "starting ssl handshake " << std::endl;
   auto self = shared_from_this();
   _sslSocket->async_handshake(
@@ -246,7 +252,6 @@ void AsioConnection<T>::startWriting() {
   assert(_connected);
   FUERTE_LOG_TRACE << "startWriting: this=" << this << std::endl;
 
-  
   uint32_t state = _loopState.load(std::memory_order_seq_cst);
   // start the loop if necessary
   while (!(state & WRITE_LOOP_ACTIVE) && (state & WRITE_LOOP_QUEUE_MASK) > 0) {
@@ -270,7 +275,7 @@ template<typename T>
 void AsioConnection<T>::stopWriting() {
   FUERTE_LOG_TRACE << "stopWriting: this=" << this << std::endl;
   
-  uint32_t state = _loopState.load(std::memory_order_relaxed);
+  uint32_t state = _loopState.load(std::memory_order_seq_cst);
   // while the write loop is active
   while (state & WRITE_LOOP_ACTIVE) {
     if (_loopState.compare_exchange_weak(state, state & ~WRITE_LOOP_ACTIVE,
@@ -284,6 +289,7 @@ void AsioConnection<T>::stopWriting() {
 template<typename T>
 void AsioConnection<T>::queueRequest(std::unique_ptr<T> item) {
   if (!_writeQueue.push(item.get())) {
+    FUERTE_LOG_ERROR << "connection queue capactiy exceeded" << std::endl;
     throw std::length_error("connection queue capactiy exceeded");
   }
   item.release();
@@ -295,43 +301,37 @@ void AsioConnection<T>::queueRequest(std::unique_ptr<T> item) {
 template<typename T>
 void AsioConnection<T>::asyncWrite() {
   FUERTE_LOG_TRACE << "asyncWrite: preparing to send next" << std::endl;
-  assert(_connected);
+  if (_permanent_failure || !_connected) {
+    FUERTE_LOG_TRACE << "asyncReadSome: permanent failure\n";
+    stopWriting();
+    return;
+  }
   
   // reduce queue length and check active flag
   uint32_t state = _loopState.fetch_sub(WRITE_LOOP_QUEUE_INC, std::memory_order_seq_cst);
-  if (!(state & WRITE_LOOP_ACTIVE)) { // loop was stopped while we weren't looking
-    // revert queue decrement operation
-    _loopState.fetch_add(WRITE_LOOP_QUEUE_INC, std::memory_order_seq_cst);
-    FUERTE_LOG_TRACE << "asyncWrite: was turned off\n";
-    return;
-  }
-
-  // once we get here there must be an item in the queue
   assert((state & WRITE_LOOP_QUEUE_MASK) > 0);
+  
   T* ptr;
   assert(_writeQueue.pop(ptr)); // should never fail here
   std::shared_ptr<T> item(ptr);
   
-  // check if the write loop should stop after this iteration
-  state -= WRITE_LOOP_QUEUE_INC; // fetch_sub delivers state + 1
-  if ((state & WRITE_LOOP_QUEUE_MASK) == 0) {
-    assert(state & WRITE_LOOP_ACTIVE); // we should only get here while active
+  // we stop the write-loop if we stopped it ourselves.
+  auto self = shared_from_this();
+  auto cb = [this, self, item] (BoostEC const& ec, std::size_t transferred) {
+
+    uint32_t state = _loopState.load(std::memory_order_seq_cst);
     // nothing is queued, lets try to halt the write queue while
     // the write loop is active and nothing is queued
     while ((state & WRITE_LOOP_ACTIVE) && (state & WRITE_LOOP_QUEUE_MASK) == 0) {
       if (_loopState.compare_exchange_weak(state, state & ~WRITE_LOOP_ACTIVE)) {
         FUERTE_LOG_TRACE << "asyncWrite: no more queued items" << std::endl;
-        break; // we turned flag off while no request was queued
+        break; // we turned flag off while nothin was queued
       }
     }
-  }
-  
-  // we stop the write-loop if we stopped it ourselves.
-  auto self = shared_from_this();
-  auto cb = [this, self, item, state] (BoostEC const& ec, std::size_t transferred) {
+
     bool cnt = asyncWriteCallback(ec, transferred, std::move(item));
     if (cnt && (state & WRITE_LOOP_ACTIVE)) {
-      asyncWrite(); // asyncWriteCallback may reset ACTIVE flag
+      asyncWrite(); // continue write loop
     }
   };
   auto buffers = this->fetchBuffers(item);
@@ -391,14 +391,13 @@ void AsioConnection<T>::stopReading() {
 template<typename T>
 void AsioConnection<T>::asyncReadSome() {
   FUERTE_LOG_TRACE << "asyncReadSome: this=" << this << std::endl;
-  FUERTE_LOG_CALLBACKS << "-";
 
   uint32_t state = _loopState.load(std::memory_order_seq_cst);
   if (!(state & READ_LOOP_ACTIVE)) {
-    FUERTE_LOG_TRACE << "asyncReadSome: read-loop was stopped\n";
+    FUERTE_LOG_ERROR << "asyncReadSome: read-loop was stopped\n";
     return; // just stop
   }
-  if (_permanent_failure) {
+  if (_permanent_failure || !_connected) {
     FUERTE_LOG_TRACE << "asyncReadSome: permanent failure\n";
     stopReading(); // will set the flag
     return;
@@ -419,17 +418,21 @@ void AsioConnection<T>::asyncReadSome() {
 
   assert(_socket);
   auto self = shared_from_this();
-
-  // reserve 32kB in output buffer
-  auto mutableBuff = _receiveBuffer.prepare(READ_BLOCK_SIZE);
-  _socket->async_read_some(mutableBuff, 
-  [this, self](BoostEC ec, size_t transferred) {
+  auto cb = [this, self](BoostEC ec, size_t transferred) {
     // received data is "committed" from output sequence to input sequence
     _receiveBuffer.commit(transferred);
     if (asyncReadCallback(ec, transferred)) {
       asyncReadSome();
     }
-  });
+  };
+
+  // reserve 32kB in output buffer
+  auto mutableBuff = _receiveBuffer.prepare(READ_BLOCK_SIZE);
+  if (_configuration._ssl) {
+    _sslSocket->async_read_some(mutableBuff, cb);
+  } else {
+    _socket->async_read_some(mutableBuff, cb);
+  }
 
   FUERTE_LOG_TRACE << "asyncReadSome: done" << std::endl;
 }
