@@ -28,6 +28,7 @@
 #include <boost/asio/write.hpp>
 #include <fuerte/FuerteLogger.h>
 
+#include "Basics/cpu-relax.h"
 #include "http.h"
 #include "vst.h"
 
@@ -143,8 +144,7 @@ void AsioConnection<T>::shutdownConnection(const ErrorCondition ec) {
   _connected = false;
   
   // Stop the read & write loop
-  stopWriting();
-  stopReading();
+  stopIOLoops();
   
   // Close socket
   shutdownSocket();
@@ -164,6 +164,19 @@ void AsioConnection<T>::restartConnection(const ErrorCondition error){
   // Initiate new connection
   if (!_permanent_failure) {
     startResolveHost();
+  }
+}
+  
+// Thread-Safe: reset io loop flags
+template<typename T>
+void AsioConnection<T>::stopIOLoops() {
+  uint32_t state = _loopState.load(std::memory_order_seq_cst);
+  while (state & LOOP_FLAGS) {
+    if (_loopState.compare_exchange_weak(state, state & ~LOOP_FLAGS, std::memory_order_seq_cst)) {
+      FUERTE_LOG_TRACE << "stopIOLoops: loops stopped" << std::endl;
+      return; // we turned flag off while nothin was queued
+    }
+    cpu_relax();
   }
 }
 
@@ -245,47 +258,6 @@ void AsioConnection<T>::startSSLHandshake() {
 // Writing data
 // ------------------------------------
 
-
-// Thread-Safe: activate the writer loop (if off and items are queud)
-template<typename T>
-void AsioConnection<T>::startWriting() {
-  assert(_connected);
-  FUERTE_LOG_TRACE << "startWriting: this=" << this << std::endl;
-
-  uint32_t state = _loopState.load(std::memory_order_acquire);
-  // start the loop if necessary
-  while (!(state & WRITE_LOOP_ACTIVE) && (state & WRITE_LOOP_QUEUE_MASK) > 0) {
-    if (_loopState.compare_exchange_weak(state, state | WRITE_LOOP_ACTIVE,
-                                         std::memory_order_seq_cst)) {
-      FUERTE_LOG_TRACE << "startWriting: starting write\n";
-        //auto self = shared_from_this();
-        //_io_context->post([this, self] {
-          asyncWrite();
-        //});
-        return;
-    }
-    std::this_thread::yield();
-  }
-  if ((state & WRITE_LOOP_QUEUE_MASK) == 0) {
-    FUERTE_LOG_TRACE << "startWriting: nothing is queued\n";
-  }
-}
-  
-// Thread-Safe: stop the write loop
-template<typename T>
-void AsioConnection<T>::stopWriting() {
-  FUERTE_LOG_TRACE << "stopWriting: this=" << this << std::endl;
-  
-  uint32_t state = _loopState.load(std::memory_order_seq_cst);
-  // while the write loop is active
-  while (state & WRITE_LOOP_ACTIVE) {
-    if (_loopState.compare_exchange_weak(state, state & ~WRITE_LOOP_ACTIVE,
-                                         std::memory_order_seq_cst)) {
-      return;
-    }
-  }
-}
-
 // Thread-Safe: queue a new request
 template<typename T>
 uint32_t AsioConnection<T>::queueRequest(std::unique_ptr<T> item) {
@@ -294,7 +266,8 @@ uint32_t AsioConnection<T>::queueRequest(std::unique_ptr<T> item) {
     throw std::length_error("connection queue capactiy exceeded");
   }
   item.release();
-  return _loopState.fetch_add(WRITE_LOOP_QUEUE_INC, std::memory_order_release);
+  // WRITE_LOOP_ACTIVE, READ_LOOP_ACTIVE are synchronized via cmpxchg
+  return _loopState.fetch_add(WRITE_LOOP_QUEUE_INC, std::memory_order_seq_cst);
 }
 
 
@@ -304,12 +277,12 @@ void AsioConnection<T>::asyncWrite() {
   FUERTE_LOG_TRACE << "asyncWrite: preparing to send next" << std::endl;
   if (_permanent_failure || !_connected) {
     FUERTE_LOG_TRACE << "asyncReadSome: permanent failure\n";
-    stopWriting();
+    stopIOLoops(); // will set the flag
     return;
   }
   
   // reduce queue length and check active flag
-  uint32_t state = _loopState.fetch_sub(WRITE_LOOP_QUEUE_INC, std::memory_order_seq_cst);
+  uint32_t state = _loopState.fetch_sub(WRITE_LOOP_QUEUE_INC, std::memory_order_acquire);
   assert((state & WRITE_LOOP_QUEUE_MASK) > 0);
   
   T* ptr;
@@ -319,22 +292,7 @@ void AsioConnection<T>::asyncWrite() {
   // we stop the write-loop if we stopped it ourselves.
   auto self = shared_from_this();
   auto cb = [this, self, item] (BoostEC const& ec, std::size_t transferred) {
-
-    uint32_t state = _loopState.load(std::memory_order_seq_cst);
-    // nothing is queued, lets try to halt the write queue while
-    // the write loop is active and nothing is queued
-    while ((state & WRITE_LOOP_ACTIVE) && (state & WRITE_LOOP_QUEUE_MASK) == 0) {
-      if (_loopState.compare_exchange_weak(state, state & ~WRITE_LOOP_ACTIVE)) {
-        FUERTE_LOG_TRACE << "asyncWrite: no more queued items" << std::endl;
-        state = state & ~WRITE_LOOP_ACTIVE;
-        break; // we turned flag off while nothin was queued
-      }
-    }
-
-    bool cnt = asyncWriteCallback(ec, transferred, std::move(item));
-    if (cnt && (state & WRITE_LOOP_ACTIVE)) {
-      asyncWrite(); // continue write loop
-    }
+    asyncWriteCallback(ec, transferred, std::move(item));
   };
   auto buffers = this->fetchBuffers(item);
   if (_configuration._ssl) {
@@ -350,59 +308,18 @@ void AsioConnection<T>::asyncWrite() {
 // Reading data
 // ------------------------------------
 
-// aThread-Safe: ctivate the receiver loop (if needed)
-template<typename T>
-void AsioConnection<T>::startReading() {
-  FUERTE_LOG_TRACE << "startReading: this=" << this << std::endl;
-  
-  uint32_t state = _loopState.load(std::memory_order_seq_cst);
-  // start the loop if necessary
-  while (!(state & READ_LOOP_ACTIVE)) {
-    if (_loopState.compare_exchange_weak(state, state | READ_LOOP_ACTIVE,
-                                         std::memory_order_seq_cst)) {
-      //auto self = shared_from_this();
-      //_io_context->post([this, self] {
-        asyncReadSome();
-      //});
-      return;
-    }
-    std::this_thread::yield();
-  }
-  // There is already a read loop, do nothing 
-}
-
-// Thread-Safe: Stop the read loop
-template<typename T>
-void AsioConnection<T>::stopReading() {
-  FUERTE_LOG_TRACE << "stopReading: this=" << this << std::endl;
-
-  uint32_t state = _loopState.load(std::memory_order_relaxed);
-  // start the loop if necessary
-  while (state & READ_LOOP_ACTIVE) {
-    if (_loopState.compare_exchange_weak(state, state & ~READ_LOOP_ACTIVE,
-                                         std::memory_order_seq_cst)) {
-      auto self = shared_from_this();
-      _io_context->post([this, self] {
-        asyncReadSome();
-      });
-      return;
-    }
-  }
-}
-
 // asyncReadSome reads the next bytes from the server.
 template<typename T>
 void AsioConnection<T>::asyncReadSome() {
   FUERTE_LOG_TRACE << "asyncReadSome: this=" << this << std::endl;
 
-  uint32_t state = _loopState.load(std::memory_order_seq_cst);
-  if (!(state & READ_LOOP_ACTIVE)) {
+  if (!(_loopState.load(std::memory_order_seq_cst) & READ_LOOP_ACTIVE)) {
     FUERTE_LOG_TRACE << "asyncReadSome: read-loop was stopped\n";
     return; // just stop
   }
   if (_permanent_failure || !_connected) {
     FUERTE_LOG_TRACE << "asyncReadSome: permanent failure\n";
-    stopReading(); // will set the flag
+    stopIOLoops(); // will set the flags
     return;
   }
 
@@ -424,9 +341,7 @@ void AsioConnection<T>::asyncReadSome() {
   auto cb = [this, self](BoostEC ec, size_t transferred) {
     // received data is "committed" from output sequence to input sequence
     _receiveBuffer.commit(transferred);
-    if (asyncReadCallback(ec, transferred)) {
-      asyncReadSome();
-    }
+    asyncReadCallback(ec, transferred);
   };
 
   // reserve 32kB in output buffer

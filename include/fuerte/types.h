@@ -87,7 +87,7 @@ enum class ErrorCondition : Error {
   Timeout = 1002,
   QueueCapacityExceeded = 1003,
   VstReadError = 1102,
-  VstWriteError = 1103,
+  WriteError = 1103,
   CanceledDuringReset = 1104,
   MalformedURL = 1105,
 

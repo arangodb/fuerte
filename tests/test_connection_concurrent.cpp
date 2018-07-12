@@ -66,7 +66,7 @@ TEST_P(ConnectionTestF, CreateDocumentsParallel){
   auto response = _connection->sendRequest(std::move(request));
   ASSERT_EQ(response->statusCode(), fu::StatusOK);
   
-  size_t numThreads = GetParam()._threads;
+  size_t numThreads = 4;//GetParam()._threads;
   size_t repeat = GetParam()._repeat;
   
   std::atomic<size_t> counter(0);
@@ -120,8 +120,8 @@ TEST_P(ConnectionTestF, CreateDocumentsParallel){
 static const ConnectionTestParams connectionTestConcurrentParams[] = {
   {._url= "http://127.0.0.1:8529", ._threads=1, ._repeat=1000},
   {._url= "vst://127.0.0.1:8529", ._threads=2, ._repeat=1000},
-  {._url= "http://127.0.0.1:8529", ._threads=4, ._repeat=10000},
-  {._url= "vst://127.0.0.1:8529", ._threads=4, ._repeat=10000},
+  {._url= "http://127.0.0.1:8529", ._threads=1, ._repeat=10000},
+  {._url= "vst://127.0.0.1:8529", ._threads=1, ._repeat=10000},
 };
 
 INSTANTIATE_TEST_CASE_P(ConcurrentConnectionTests, ConnectionTestF,

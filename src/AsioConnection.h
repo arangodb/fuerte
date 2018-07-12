@@ -93,12 +93,13 @@ protected:
 
   void restartConnection(const ErrorCondition = ErrorCondition::CanceledDuringReset);
 
+  // Thread-Safe: reset io loop flags
+  void stopIOLoops();
+  
   // Thread-Safe: activate the writer loop (if off and items are queud)
-  void startWriting();
-  // Thread-Safe: activate the writer loop only if no read-loop is on
-  void startWritingExclusive();
+  //void startWriting();
   // Thread-Safe: stop the write loop
-  void stopWriting();
+  //void stopWriting();
   
   // Thread-Safe: queue a new request. Returns loop state
   uint32_t queueRequest(std::unique_ptr<T>);
@@ -107,9 +108,9 @@ protected:
   void asyncWrite();
 
   // Thread-Safe: activate the receiver loop (if needed)
-  void startReading();
+  //void startReading();
   // Thread-Safe: stop the read loop
-  void stopReading();
+  //uint32_t stopReading();
   
   // Call on IO-Thread: read from socket
   void asyncReadSome();
@@ -126,10 +127,10 @@ protected:
   virtual std::vector<boost::asio::const_buffer> fetchBuffers(std::shared_ptr<T> const&) = 0;
 
   // called by the async_write handler (called from IO thread)
-  virtual bool asyncWriteCallback(::boost::system::error_code const& error, 
+  virtual void asyncWriteCallback(::boost::system::error_code const& error,
                                   size_t transferred, std::shared_ptr<T>) = 0;
   // called by the async_read handler (called from IO thread)
-  virtual bool asyncReadCallback(::boost::system::error_code const&, size_t transferred) = 0;
+  virtual void asyncReadCallback(::boost::system::error_code const&, size_t transferred) = 0;
 
 protected:
   /// io context to use
@@ -166,6 +167,7 @@ protected:
   std::atomic<uint32_t> _loopState;
   static constexpr uint32_t READ_LOOP_ACTIVE = 1 << 31;
   static constexpr uint32_t WRITE_LOOP_ACTIVE = 1 << 30;
+  static constexpr uint32_t LOOP_FLAGS = READ_LOOP_ACTIVE | WRITE_LOOP_ACTIVE;
   static constexpr uint32_t WRITE_LOOP_QUEUE_INC = 1;
   static constexpr uint32_t WRITE_LOOP_QUEUE_MASK = WRITE_LOOP_ACTIVE - 1;
   static_assert((WRITE_LOOP_ACTIVE & WRITE_LOOP_QUEUE_MASK) == 0, "");

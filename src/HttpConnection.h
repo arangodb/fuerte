@@ -71,11 +71,15 @@ protected:
   // fetch the buffers for the write-loop (called from IO thread)
   std::vector<boost::asio::const_buffer> fetchBuffers(std::shared_ptr<RequestItem> const&) override;
   
-  // called by the async_write handler (called from IO thread)
-  bool asyncWriteCallback(::boost::system::error_code const& error,
-                          size_t transferred, std::shared_ptr<RequestItem>) override;
   // called by the async_read handler (called from IO thread)
-  bool asyncReadCallback(::boost::system::error_code const&, size_t transferred) override;
+  void asyncReadCallback(::boost::system::error_code const&, size_t transferred) override;
+  
+  // Thread-Safe: activate the writer if needed
+  void startWriting();
+  
+  // called by the async_write handler (called from IO thread)
+  void asyncWriteCallback(::boost::system::error_code const& error,
+                          size_t transferred, std::shared_ptr<RequestItem>) override;
   
  private:
   class Options {
@@ -84,9 +88,6 @@ protected:
   };
 
 private:
-  
-  // Thread-Safe: activate the writer loop only if no read-loop is on
-  void startWritingExclusive();
   
   // createRequestItem prepares a RequestItem for the given parameters.
   std::unique_ptr<RequestItem> createRequestItem(std::unique_ptr<Request> request, RequestCallback cb);

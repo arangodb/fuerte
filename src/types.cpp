@@ -255,9 +255,9 @@ std::string to_string(ErrorCondition error){
     case ErrorCondition::QueueCapacityExceeded:
       return "Error: queue capacity exceeded";
     case ErrorCondition::VstReadError:
-      return "Error: reading vst";
-    case ErrorCondition::VstWriteError:
-      return "Error: writing vst";
+      return "Error: reading from connection";
+    case ErrorCondition::WriteError:
+      return "Error: writing to connection";
     case ErrorCondition::CanceledDuringReset:
       return "Error: cancel as result of other error";
     case ErrorCondition::MalformedURL:

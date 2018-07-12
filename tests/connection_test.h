@@ -71,6 +71,7 @@ class ConnectionTestF : public ::testing::TestWithParam<ConnectionTestParams> {
   }
 
   virtual void TearDown() override {
+    _connection->shutdownConnection();
     _connection.reset();
   }
 

@@ -22,6 +22,11 @@
 /// @author Simon Grätzer
 ////////////////////////////////////////////////////////////////////////////////
 
+#include "VstConnection.h"
+
+#include "Basics/cpu-relax.h"
+#include "vst.h"
+
 #include <boost/asio/read.hpp>
 #include <boost/asio/write.hpp>
 
@@ -30,9 +35,6 @@
 #include <fuerte/loop.h>
 #include <fuerte/message.h>
 #include <fuerte/types.h>
-
-#include "VstConnection.h"
-#include "vst.h"
 
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
@@ -120,7 +122,7 @@ void VstConnection::finishInitialization() {
                     if (error) {
                       FUERTE_LOG_ERROR << error.message() << std::endl;
                       _connected = false;
-                      shutdownConnection(ErrorCondition::VstWriteError);
+                      shutdownConnection(ErrorCondition::WriteError);
                       onFailure(errorToInt(ErrorCondition::CouldNotConnect), "unable to initialize connection: error=" + error.message());
                     } else {
                       FUERTE_LOG_CALLBACKS << "VST connection established; starting send/read loop" << std::endl;
@@ -161,17 +163,151 @@ void VstConnection::insertAuthenticationRequests() {
       break;
   }
 }
+  
 
-void VstConnection::shutdownConnection(const ErrorCondition ec) {
-  AsioConnection::shutdownConnection(ec);
+// ------------------------------------
+// Writing data
+// ------------------------------------
+
+
+// fetch the buffers for the write-loop (called from IO thread)
+std::vector<boost::asio::const_buffer> VstConnection::fetchBuffers(std::shared_ptr<RequestItem> const& next) {
+  _messageStore.add(next); // Add item to message store
+  startReading(); // Make sure we're listening for a response
+  return next->_requestBuffers;
 }
+
+// Thread-Safe: activate the writer loop (if off and items are queud)
+void VstConnection::startWriting() {
+  assert(_connected);
+  FUERTE_LOG_TRACE << "startWriting (vst): this=" << this << std::endl;
+  
+  uint32_t state = _loopState.load(std::memory_order_acquire);
+  // start the loop if necessary
+  while (!(state & WRITE_LOOP_ACTIVE) && (state & WRITE_LOOP_QUEUE_MASK) > 0) {
+    if (_loopState.compare_exchange_weak(state, state | WRITE_LOOP_ACTIVE,
+                                         std::memory_order_seq_cst)) {
+      FUERTE_LOG_TRACE << "startWriting (vst): starting write\n";
+      //auto self = shared_from_this();
+      //_io_context->post([this, self] {
+      asyncWrite();
+      //});
+      return;
+    }
+    cpu_relax();
+  }
+  if ((state & WRITE_LOOP_QUEUE_MASK) == 0) {
+    FUERTE_LOG_TRACE << "startWriting (vst): nothing is queued\n";
+  }
+}
+
+// callback of async_write function that is called in sendNextRequest.
+void VstConnection::asyncWriteCallback(::boost::system::error_code const& error, std::size_t transferred,
+                                       std::shared_ptr<RequestItem> item) {
+  // Cancel deadline
+  //_deadline.cancel();
+  
+  //auto pendingAsyncCalls = --_connection->_async_calls;
+  if (error) {
+    // Send failed
+    FUERTE_LOG_CALLBACKS << "asyncWriteCallback (vst): error " << error.message() << std::endl;
+    FUERTE_LOG_ERROR << error.message() << std::endl;
+    
+    // Item has failed, remove from message store
+    _messageStore.removeByID(item->_messageID);
+    
+    // let user know that this request caused the error
+    item->_callback.invoke(errorToInt(ErrorCondition::WriteError), std::move(item->_request), nullptr);
+    
+    // Stop current connection and try to restart a new one.
+    // This will reset the current write loop.
+    restartConnection(ErrorCondition::WriteError);
+    
+  } else {
+    // Send succeeded
+    FUERTE_LOG_CALLBACKS << "asyncWriteCallback (vst): send succeeded, " << transferred << " bytes transferred\n";
+    // async-calls=" << pendingAsyncCalls << std::endl;
+    
+    // request is written we no longer need data for that
+    item->resetSendData();
+    
+    // check the queue length, stop write loop if necessary
+    uint32_t state = _loopState.load(std::memory_order_seq_cst);
+    // nothing is queued, lets try to halt the write queue while
+    // the write loop is active and nothing is queued
+    while ((state & WRITE_LOOP_ACTIVE) && (state & WRITE_LOOP_QUEUE_MASK) == 0) {
+      if (_loopState.compare_exchange_weak(state, state & ~WRITE_LOOP_ACTIVE)) {
+        FUERTE_LOG_TRACE << "asyncWrite: no more queued items" << std::endl;
+        state = state & ~WRITE_LOOP_ACTIVE;
+        break; // we turned flag off while nothin was queued
+      }
+      cpu_relax();
+    }
+    
+    if (!(state & READ_LOOP_ACTIVE)) {
+      startReading(); // Make sure we're listening for a response
+    }
+    
+    // Continue with next request (if any)
+    FUERTE_LOG_CALLBACKS << "asyncWriteCallback (vst): send next request (if any)" << std::endl;
+    
+    if (state & WRITE_LOOP_ACTIVE) {
+      asyncWrite(); // continue writing
+    }
+  }
+}
+
+// handler for deadline timer
+/*void VstConnection::WriteLoop::deadlineHandler(const boost::system::error_code& error) {
+ if (!error) {
+ // Stop current connection and try to restart a new one.
+ // This will reset the current write loop.
+ _connection->restartConnection(this, ErrorCondition::Timeout);
+ }
+ }*/
 
 // ------------------------------------
 // Reading data
 // ------------------------------------
+  
+  
+// Thread-Safe: activate the read loop (if needed)
+void VstConnection::startReading() {
+  FUERTE_LOG_TRACE << "startReading: this=" << this << std::endl;
+  
+  uint32_t state = _loopState.load(std::memory_order_seq_cst);
+  // start the loop if necessary
+  while (!(state & READ_LOOP_ACTIVE)) {
+    if (_loopState.compare_exchange_weak(state, state | READ_LOOP_ACTIVE,
+                                         std::memory_order_seq_cst)) {
+      //auto self = shared_from_this();
+      //_io_context->post([this, self] {
+      asyncReadSome();
+      //});
+      return;
+    }
+    cpu_relax();
+  }
+  // There is already a read loop, do nothing
+}
+
+
+// Thread-Safe: Stop the read loop
+void VstConnection::stopReading() {
+  FUERTE_LOG_TRACE << "stopReading: this=" << this << std::endl;
+  
+  uint32_t state = _loopState.load(std::memory_order_relaxed);
+  // start the loop if necessary
+  while (state & READ_LOOP_ACTIVE) {
+    if (_loopState.compare_exchange_weak(state, state & ~READ_LOOP_ACTIVE,
+                                         std::memory_order_seq_cst)) {
+      return;
+    }
+  }
+}
 
 // asyncReadCallback is called when asyncReadSome is resulting in some data.
-bool VstConnection::asyncReadCallback(const boost::system::error_code& e, std::size_t transferred) {
+void VstConnection::asyncReadCallback(const boost::system::error_code& e, std::size_t transferred) {
   // Cancel deadline
   //_deadline.cancel();
 
@@ -182,7 +318,7 @@ bool VstConnection::asyncReadCallback(const boost::system::error_code& e, std::s
 
     // Restart connection, this will trigger a release of the readloop.
     restartConnection(ErrorCondition::VstReadError);
-    return false; // halt read-loop
+    
   } else {
     FUERTE_LOG_CALLBACKS << "asyncReadCallback: received " << transferred << " bytes\n";// async-calls=" << pendingAsyncCalls << std::endl;
     
@@ -221,16 +357,15 @@ bool VstConnection::asyncReadCallback(const boost::system::error_code& e, std::s
     
     // check for more messages that could arrive
     if (_messageStore.empty(true) && !(_loopState.load(std::memory_order_acquire) & WRITE_LOOP_ACTIVE)) {
-      stopReading(); // write-loop restarts read-loop if necessary
       FUERTE_LOG_VSTTRACE << "shouldStopReading: no more pending messages/requests, stopping read";
-      return false;
+      stopReading();
+      return; // write-loop restarts read-loop if necessary
     }
     
-#warning fix timeouts
-    // Continue read loop
-    //timeout = _messageStore.minimumTimeout(true);
+    asyncReadSome(); // Continue read loop
     
-    return true; // continue
+#warning fix timeouts
+    //timeout = _messageStore.minimumTimeout(true);
   }
 }
 
@@ -284,70 +419,11 @@ std::unique_ptr<Response> VstConnection::createResponse(RequestItem& item, std::
 
   MessageHeader messageHeader = parser::validateAndExtractMessageHeader(_vstVersion, itemCursor,
                                                                         itemLength, messageHeaderLength);
-
   auto response = std::unique_ptr<Response>(new Response(std::move(messageHeader)));
   response->messageID = item._messageID;
   response->setPayload(std::move(*responseBuffer), messageHeaderLength);
 
   return response;
 }
-
-// ------------------------------------
-// Writing data
-// ------------------------------------
-
-
-// fetch the buffers for the write-loop (called from IO thread)
-std::vector<boost::asio::const_buffer> VstConnection::fetchBuffers(std::shared_ptr<RequestItem> const& next) {
-  _messageStore.add(next); // Add item to message store
-  startReading(); // Make sure we're listening for a response
-  return next->_requestBuffers;
-}
-  
-// callback of async_write function that is called in sendNextRequest.
-bool VstConnection::asyncWriteCallback(::boost::system::error_code const& error, std::size_t transferred,
-                                       std::shared_ptr<RequestItem> item) {
-  // Cancel deadline 
-  //_deadline.cancel();
-
-  //auto pendingAsyncCalls = --_connection->_async_calls;
-  if (error) {
-    // Send failed
-    FUERTE_LOG_CALLBACKS << "asyncWriteCallback: error " << error.message() << std::endl;
-    FUERTE_LOG_ERROR << error.message() << std::endl;
-
-    // Item has failed, remove from message store
-    _messageStore.removeByID(item->_messageID);
-
-    // let user know that this request caused the error
-    item->_callback.invoke(errorToInt(ErrorCondition::VstWriteError), std::move(item->_request), nullptr);
-
-    // Stop current connection and try to restart a new one.
-    // This will reset the current write loop.
-    restartConnection(ErrorCondition::VstWriteError);
-    return false; // continue writing
-  } else {
-    // Send succeeded
-    FUERTE_LOG_CALLBACKS << "asyncWriteCallback: send succeeded, " << transferred << " bytes transferred\n";
-    // async-calls=" << pendingAsyncCalls << std::endl;
-
-    // request is written we no longer need data for that
-    item->resetSendData();
-    startReading(); // Make sure we're listening for a response
-
-    // Continue with next request (if any)
-    FUERTE_LOG_CALLBACKS << "asyncWriteCallback: send next request (if any)" << std::endl;
-    return true; // continue writing
-  }
-}
-
-// handler for deadline timer
-/*void VstConnection::WriteLoop::deadlineHandler(const boost::system::error_code& error) {
-  if (!error) {
-    // Stop current connection and try to restart a new one.
-    // This will reset the current write loop.
-    _connection->restartConnection(this, ErrorCondition::Timeout);
-  }
-}*/
 
 }}}}

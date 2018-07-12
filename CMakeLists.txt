@@ -8,11 +8,6 @@ enable_testing()
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(UNIX)
-    # -fPIC here as curlpp is borken
-   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-endif()
-
 #########################################################################################
 # Configuration
 option(FUERTE_TESTS    "Build Tests" OFF)
@@ -28,8 +23,6 @@ find_package(Threads REQUIRED)
 
 set(CMAKE_BOOST_COMPONENTS "system" "thread")
 find_package(Boost REQUIRED COMPONENTS ${CMAKE_BOOST_COMPONENTS})
-
-find_package(CURL REQUIRED)
 
 if(VELOCYPACK_SOURCE_DIR)
     option(BuildVelocyPackExamples "Build examples" OFF)

@@ -176,12 +176,7 @@ int main(int argc, char* argv[]) {
     std::cerr << "exception: " << ex.what() << std::endl;
     exit(EXIT_FAILURE);
   }
-
-  while (connection->requestsLeft() > 0) {
-    std::this_thread::yield();
-  }
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
+  
   /*try {
     arangodb::fuerte::run();
   } catch (std::exception const& ex) {

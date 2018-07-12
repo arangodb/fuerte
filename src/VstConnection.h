@@ -58,24 +58,32 @@ public:
   // Return the number of unfinished requests.
   size_t requestsLeft() const override;
 
- protected:
+ private:
 
   // socket connection is up (with optional SSL), now initiate the VST protocol.
   void finishInitialization() override;
 
-  void shutdownConnection(const ErrorCondition) override;
-
   // fetch the buffers for the write-loop (called from IO thread)
   std::vector<boost::asio::const_buffer> fetchBuffers(std::shared_ptr<RequestItem> const&) override;
 
+  // Thread-Safe: activate the writer loop (if off and items are queud)
+  void startWriting();
+  
   // called by the async_write handler (called from IO thread)
-  bool asyncWriteCallback(::boost::system::error_code const& error,
+  void asyncWriteCallback(::boost::system::error_code const& error,
                           size_t transferred, std::shared_ptr<RequestItem>) override;
+  
+  // Thread-Safe: activate the read loop (if needed)
+  void startReading();
+  
+  // Thread-Safe: stops read loop
+  void stopReading();
+  
   // called by the async_read handler (called from IO thread)
-  bool asyncReadCallback(::boost::system::error_code const&, size_t transferred) override;
+  void asyncReadCallback(::boost::system::error_code const&, size_t transferred) override;
 
 private:
-
+  
   // Insert all requests needed for authenticating a new connection at the front of the send queue.
   void insertAuthenticationRequests();
 

@@ -21,9 +21,11 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "HttpConnection.h"
+
+#include "Basics/cpu-relax.h"
+
 #include <velocypack/Parser.h>
 #include <cassert>
-#include <sstream>
 #include <atomic>
 #include <cassert>
 
@@ -100,10 +102,6 @@ HttpConnection::HttpConnection(std::shared_ptr<asio_io_context>& ctx,
   _parserSettings.on_message_complete = ::on_message_complete;
   http_parser_init(&_parser, HTTP_RESPONSE);
 }
-/*
-HttpConnection::~HttpConnection() { 
-  FUERTE_LOG_HTTPTRACE << "Destroying HttpConnection" << std::endl;
-}*/
 
 MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request, RequestCallback callback) {
   
@@ -115,11 +113,13 @@ MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request, RequestC
   request->messageID = id;
   auto item = createRequestItem(std::move(request), callback);
   
-  queueRequest(std::move(item));
+  uint32_t state = queueRequest(std::move(item));
   if (_connected) {
     FUERTE_LOG_HTTPTRACE << "sendRequest (http): start sending & reading" << std::endl;
     // HTTP is half-duplex protocol: we only write if there is no reading
-    startWritingExclusive(); // start writing if nothing is running
+    if (!(state & LOOP_FLAGS)) {
+      startWriting();
+    }
   } else {
     FUERTE_LOG_HTTPTRACE << "sendRequest (http): not connected" << std::endl;
   }
@@ -129,30 +129,6 @@ MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request, RequestC
 // -----------------------------------------------------------------------------
 // --SECTION--                                                   private methods
 // -----------------------------------------------------------------------------
-  
-  
-// Thread-Safe: activate the combined write-read loop
-void HttpConnection::startWritingExclusive() {
-  assert(_connected);
-  FUERTE_LOG_TRACE << "startWritingExclusive: this=" << this << std::endl;
-  
-  // we want to turn on both flags at once
-  const uint32_t flags = WRITE_LOOP_ACTIVE | READ_LOOP_ACTIVE;
-  uint32_t state = _loopState.load(std::memory_order_seq_cst);
-  while ((state & flags) != flags && (state & WRITE_LOOP_QUEUE_MASK) > 0) {
-    if (_loopState.compare_exchange_weak(state, state | flags, std::memory_order_seq_cst)) {
-      FUERTE_LOG_TRACE << "startWritingExclusive: starting write\n";
-      auto self = shared_from_this();
-      _io_context->post([this, self] {
-        asyncWrite();
-      });
-      return;
-    }
-  }
-  if ((state & WRITE_LOOP_QUEUE_MASK) == 0) {
-    FUERTE_LOG_TRACE << "startWritingExclusive: nothing is queued\n";
-  }
-}
 
 std::unique_ptr<RequestItem> HttpConnection::createRequestItem(std::unique_ptr<Request> request,
                                                                RequestCallback callback) {
@@ -234,7 +210,7 @@ std::unique_ptr<RequestItem> HttpConnection::createRequestItem(std::unique_ptr<R
 // socket connection is up (with optional SSL)
 void HttpConnection::finishInitialization() {
   _connected = true;
-  startWritingExclusive(); // starts writing queue if non-empty
+  startWriting(); // starts writing queue if non-empty
 }
   
 // called on shutdown, always call superclass
@@ -257,30 +233,50 @@ std::vector<boost::asio::const_buffer> HttpConnection::fetchBuffers(std::shared_
   };
 }
   
+// Thread-Safe: activate the combined write-read loop
+void HttpConnection::startWriting() {
+  assert(_connected);
+  FUERTE_LOG_TRACE << "startWriting (http): this=" << this << std::endl;
+  
+  // we want to turn on both flags at once
+  uint32_t state = _loopState.load(std::memory_order_seq_cst);
+  while (!(state & LOOP_FLAGS) && (state & WRITE_LOOP_QUEUE_MASK) > 0) {
+    if (_loopState.compare_exchange_weak(state, state | LOOP_FLAGS, std::memory_order_seq_cst)) {
+      FUERTE_LOG_TRACE << "startWriting (http: starting write\n";
+      asyncWrite();
+      return;
+    }
+    cpu_relax();
+  }
+  if ((state & WRITE_LOOP_QUEUE_MASK) == 0) {
+    FUERTE_LOG_TRACE << "startWriting (http: nothing is queued\n";
+  }
+}
+  
 // called by the async_write handler (called from IO thread)
-bool HttpConnection::asyncWriteCallback(::boost::system::error_code const& error,
+void HttpConnection::asyncWriteCallback(::boost::system::error_code const& error,
                                         size_t transferred, std::shared_ptr<RequestItem> item) {
   // Cancel deadline
   //_deadline.cancel();
   
   if (error) {
     // Send failed
-    FUERTE_LOG_CALLBACKS << "asyncWriteCallback: error " << error.message() << std::endl;
+    FUERTE_LOG_CALLBACKS << "asyncWriteCallback (http): error " << error.message() << std::endl;
     FUERTE_LOG_ERROR << error.message() << std::endl;
     
     // Item has failed, remove from message store
     _messageStore.removeByID(item->_request->messageID);
     
     // let user know that this request caused the error
-    item->_callback.invoke(errorToInt(ErrorCondition::VstWriteError), std::move(item->_request), nullptr);
+    item->_callback.invoke(errorToInt(ErrorCondition::WriteError), std::move(item->_request), nullptr);
     
     // Stop current connection and try to restart a new one.
     // This will reset the current write loop.
-    restartConnection(ErrorCondition::VstWriteError);
-    return false; // abort writing
+    restartConnection(ErrorCondition::WriteError);
+    
   } else {
     // Send succeeded
-    FUERTE_LOG_CALLBACKS << "asyncWriteCallback: send succeeded, " << transferred << " bytes transferred\n";
+    FUERTE_LOG_CALLBACKS << "asyncWriteCallback (http): send succeeded, " << transferred << " bytes transferred\n";
     // async-calls=" << pendingAsyncCalls << std::endl;
     
     // request is written we no longer need data for that
@@ -296,22 +292,23 @@ bool HttpConnection::asyncWriteCallback(::boost::system::error_code const& error
     http_parser_init(&_parser, HTTP_RESPONSE);
     _parser.data = static_cast<void*>(_inFlight.get());
     
+    // check queue length later
     asyncReadSome(); // listen for the response
     
-    FUERTE_LOG_HTTPTRACE<< "asyncWriteCallback: wait for response" << std::endl;
-    return false; // do not write next request immediately
+    FUERTE_LOG_HTTPTRACE<< "asyncWriteCallback (http): wait for response" << std::endl;
+    return; // do not write next request immediately
   }
 }
   
 // called by the async_read handler (called from IO thread)
-bool HttpConnection::asyncReadCallback(::boost::system::error_code const& ec, size_t transferred) {
+void HttpConnection::asyncReadCallback(::boost::system::error_code const& ec, size_t transferred) {
   if (ec) {
     FUERTE_LOG_CALLBACKS << "asyncReadCallback: Error while reading from socket";
     FUERTE_LOG_ERROR << ec.message() << std::endl;
     
     // Restart connection, this will trigger a release of the readloop.
     restartConnection(ErrorCondition::ConnectionError); // will invoke _inFlight cb
-    return false;
+
   } else {
     FUERTE_LOG_CALLBACKS << "asyncReadCallback: received " << transferred << " bytes\n";// async-calls=" << pendingAsyncCalls << std::endl;
     
@@ -339,12 +336,12 @@ bool HttpConnection::asyncReadCallback(::boost::system::error_code const& ec, si
       /* handle new protocol */
       FUERTE_LOG_ERROR << "Upgrading is not supported" << std::endl;
       shutdownConnection(ErrorCondition::ProtocolError); // will cleanup _inFlight
-      return false;
+      return;
     } else if (nparsed != transferred) {
       /* Handle error. Usually just close the connection. */
       FUERTE_LOG_ERROR << "Invalid HTTP response in parser" << std::endl;
       shutdownConnection(ErrorCondition::ProtocolError); // will cleanup _inFlight
-      return false;
+      return;
     } else if (_inFlight->message_complete) {
       // remove processed item from the message store
       _messageStore.removeByID(_inFlight->_request->messageID);
@@ -356,18 +353,28 @@ bool HttpConnection::asyncReadCallback(::boost::system::error_code const& ec, si
       
       FUERTE_LOG_HTTPTRACE << "asyncReadCallback (http): completed parsing response\n";
       
-      uint32_t state = _loopState.load(std::memory_order_acquire);
-      if (state & WRITE_LOOP_ACTIVE) {
-        assert((state & WRITE_LOOP_QUEUE_MASK) > 0);
-        asyncWrite();
+      
+      // check the queue length, stop IO loop if empty
+      uint32_t state = _loopState.load(std::memory_order_seq_cst);
+      // nothing is queued, lets try to halt the write queue while
+      // the write loop is active and nothing is queued
+      while ((state & LOOP_FLAGS) && (state & WRITE_LOOP_QUEUE_MASK) == 0) {
+        if (_loopState.compare_exchange_weak(state, state & ~LOOP_FLAGS)) {
+          FUERTE_LOG_TRACE << "asyncWrite: no more queued items" << std::endl;
+          return; // we turned loop off while nothing was queued
+        }
+        cpu_relax();
       }
       
-      return false; // response completed do not read further
+      assert (state & LOOP_FLAGS);
+      assert((state & WRITE_LOOP_QUEUE_MASK) > 0);
+      
+      asyncWrite(); // send next request, do not keep reading
+      return;
     }
     
     FUERTE_LOG_HTTPTRACE << "asyncReadCallback (http): response not complete yet\n";
-    
-    return true; // http response is still incomplete
+    asyncReadSome(); // keep reading from socket
   }
 }
 

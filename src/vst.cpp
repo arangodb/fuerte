@@ -23,7 +23,8 @@
 #include <fuerte/helper.h>
 #include <fuerte/types.h>
 #include <sstream>
-#include "portable_endian.h"
+
+#include "Basics/Format.h"
 #include "vst.h"
 
 #include <velocypack/HexDump.h>
@@ -61,15 +62,15 @@ size_t ChunkHeader::writeHeaderToVST1_0(VBuffer& buffer) const {
   if (isFirst() && numberOfChunks() > 1) {
 		// Use extended header
     hdrLength = maxChunkHeaderSize;
-    *(reinterpret_cast<uint64_t*>(hdr+16)) = htole64(_messageLength); // total message length
+    basics::uintToPersistentLittleEndian<uint64_t>(hdr+16, _messageLength); // total message length
 	} else {
 		// Use minimal header
     hdrLength = minChunkHeaderSize;
 	}
   auto dataSize = boost::asio::buffer_size(_data);
-  *(reinterpret_cast<uint32_t*>(hdr+0)) = htole32(hdrLength + dataSize); // chunk length (header+data)
-  *(reinterpret_cast<uint32_t*>(hdr+4)) = htole32(_chunkX);              // chunkX
-  *(reinterpret_cast<uint64_t*>(hdr+8)) = htole64(_messageID);           // messageID
+  basics::uintToPersistentLittleEndian<uint32_t>(hdr+0, hdrLength + dataSize);  // chunk length (header+data)
+  basics::uintToPersistentLittleEndian<uint32_t>(hdr+4, _chunkX); // chunkX
+  basics::uintToPersistentLittleEndian<uint64_t>(hdr+8, _messageID);  // messageID
 
   // Now add hdr to buffer 
   buffer.append(hdr, hdrLength);
@@ -82,10 +83,11 @@ size_t ChunkHeader::writeHeaderToVST1_1(VBuffer& buffer) const {
   size_t hdrLength = maxChunkHeaderSize;
   uint8_t hdr[maxChunkHeaderSize];
   auto dataSize = boost::asio::buffer_size(_data);
-  *(reinterpret_cast<uint32_t*>(hdr+0)) = htole32(hdrLength + dataSize); // chunk length (header+data)
-  *(reinterpret_cast<uint32_t*>(hdr+4)) = htole32(_chunkX);              // chunkX
-  *(reinterpret_cast<uint64_t*>(hdr+8)) = htole64(_messageID);           // messageID
-  *(reinterpret_cast<uint64_t*>(hdr+16)) = htole64(_messageLength);      // total message length
+  basics::uintToPersistentLittleEndian<uint32_t>(hdr+0, hdrLength + dataSize);  // chunk length (header+data)
+  basics::uintToPersistentLittleEndian<uint32_t>(hdr+4, _chunkX); // chunkX
+  basics::uintToPersistentLittleEndian<uint64_t>(hdr+8, _messageID);  // messageID
+  basics::uintToPersistentLittleEndian<uint64_t>(hdr+16, _messageLength); // total message length
+
 
   // Now add hdr to buffer 
   buffer.append(hdr, hdrLength);
@@ -281,7 +283,7 @@ std::size_t isChunkComplete(uint8_t const * const begin, std::size_t const lengt
     return 0;
   }
   // read chunk length
-  uint32_t lengthThisChunk = le32toh(*reinterpret_cast<const uint32_t*>(begin));
+  uint32_t lengthThisChunk = basics::uintFromPersistentLittleEndian<uint32_t>(begin);
   if (lengthAvailable < lengthThisChunk) {
     FUERTE_LOG_VSTCHUNKTRACE << "\nchunk incomplete: " << lengthAvailable << "/" << lengthThisChunk << "(available/len)" << std::endl;
     return 0;
@@ -295,14 +297,14 @@ ChunkHeader readChunkHeaderVST1_0(uint8_t const * const bufferBegin) {
   ChunkHeader header;
 
   auto hdr = bufferBegin;
-  header._chunkLength = le32toh(*reinterpret_cast<const uint32_t*>(hdr+0));
-  header._chunkX = le32toh(*reinterpret_cast<const uint32_t*>(hdr+4));
-  header._messageID = le64toh(*reinterpret_cast<const uint64_t*>(hdr+8));
+  header._chunkLength = basics::uintFromPersistentLittleEndian<uint32_t>(hdr+0);
+  header._chunkX = basics::uintFromPersistentLittleEndian<uint32_t>(hdr+4);
+  header._messageID = basics::uintFromPersistentLittleEndian<uint64_t>(hdr+8);
   size_t hdrLen = minChunkHeaderSize;
 
 	if (header.isFirst() && header.numberOfChunks() > 1) {
 		// First chunk, numberOfChunks>1 -> read messageLength
-		header._messageLength = le64toh(*reinterpret_cast<const uint64_t*>(hdr+16));
+		header._messageLength = basics::uintFromPersistentLittleEndian<uint64_t>(hdr+16);
     hdrLen = maxChunkHeaderSize;
 	}
 
@@ -318,10 +320,10 @@ ChunkHeader readChunkHeaderVST1_1(uint8_t const * const bufferBegin) {
   ChunkHeader header;
 
   auto hdr = bufferBegin;
-  header._chunkLength = le32toh(*reinterpret_cast<const uint32_t*>(hdr+0));
-  header._chunkX = le32toh(*reinterpret_cast<const uint32_t*>(hdr+4));
-  header._messageID = le64toh(*reinterpret_cast<const uint64_t*>(hdr+8));
-  header._messageLength = le64toh(*reinterpret_cast<const uint64_t*>(hdr+16));
+  header._chunkLength = basics::uintFromPersistentLittleEndian<uint32_t>(hdr+0);
+  header._chunkX = basics::uintFromPersistentLittleEndian<uint32_t>(hdr+4);
+  header._messageID = basics::uintFromPersistentLittleEndian<uint64_t>(hdr+8);
+  header._messageLength = basics::uintFromPersistentLittleEndian<uint64_t>(hdr+16);
   size_t contentLength = header._chunkLength - maxChunkHeaderSize;
   header._data = boost::asio::const_buffer(hdr+maxChunkHeaderSize, contentLength);
   FUERTE_LOG_VSTCHUNKTRACE << "readChunkHeaderVST1_1: got " << contentLength << " data bytes after " << std::endl;

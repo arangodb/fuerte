@@ -17,6 +17,10 @@ target_link_libraries(test_main
     ${CMAKE_THREAD_LIBS_INIT}
 )
 
+target_include_directories(test_main PRIVATE
+${CMAKE_CURRENT_SOURCE_DIR}/../src
+)
+
 # -------------------------------------
 # Configure tests (general)
 # -------------------------------------
