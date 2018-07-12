@@ -236,20 +236,19 @@ std::vector<boost::asio::const_buffer> HttpConnection::fetchBuffers(std::shared_
 // Thread-Safe: activate the combined write-read loop
 void HttpConnection::startWriting() {
   assert(_connected);
-  FUERTE_LOG_TRACE << "startWriting (http): this=" << this << std::endl;
+  FUERTE_LOG_HTTPTRACE << "startWriting (http): this=" << this << std::endl;
   
   // we want to turn on both flags at once
   uint32_t state = _loopState.load(std::memory_order_seq_cst);
   while (!(state & LOOP_FLAGS) && (state & WRITE_LOOP_QUEUE_MASK) > 0) {
     if (_loopState.compare_exchange_weak(state, state | LOOP_FLAGS, std::memory_order_seq_cst)) {
-      FUERTE_LOG_TRACE << "startWriting (http: starting write\n";
-      asyncWrite();
-      return;
+      FUERTE_LOG_HTTPTRACE << "startWriting (http: starting write\n";
+      asyncWrite(); // only one thread can get here 
     }
     cpu_relax();
   }
   if ((state & WRITE_LOOP_QUEUE_MASK) == 0) {
-    FUERTE_LOG_TRACE << "startWriting (http: nothing is queued\n";
+    FUERTE_LOG_HTTPTRACE << "startWriting (http: nothing is queued\n";
   }
 }
   
@@ -295,8 +294,7 @@ void HttpConnection::asyncWriteCallback(::boost::system::error_code const& error
     // check queue length later
     asyncReadSome(); // listen for the response
     
-    FUERTE_LOG_HTTPTRACE<< "asyncWriteCallback (http): wait for response" << std::endl;
-    return; // do not write next request immediately
+    FUERTE_LOG_HTTPTRACE<< "asyncWriteCallback (http): waiting for response" << std::endl;
   }
 }
   
@@ -368,13 +366,12 @@ void HttpConnection::asyncReadCallback(::boost::system::error_code const& ec, si
       
       assert (state & LOOP_FLAGS);
       assert((state & WRITE_LOOP_QUEUE_MASK) > 0);
-      
       asyncWrite(); // send next request, do not keep reading
-      return;
+      
+    } else {
+      FUERTE_LOG_HTTPTRACE << "asyncReadCallback (http): response not complete yet\n";
+      asyncReadSome(); // keep reading from socket
     }
-    
-    FUERTE_LOG_HTTPTRACE << "asyncReadCallback (http): response not complete yet\n";
-    asyncReadSome(); // keep reading from socket
   }
 }
 

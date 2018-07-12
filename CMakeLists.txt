@@ -38,6 +38,82 @@ else()
 endif()
 
 #########################################################################################
+# compiler options
+if (CMAKE_COMPILER_IS_GNUCC)
+  if (VERBOSE)
+    message(STATUS "Compiler type GNU: ${CMAKE_CXX_COMPILER}")
+  endif ()
+
+  set(BASE_FLAGS "-Wall -Wextra -Wno-unused-parameter ${BASE_FLAGS}")
+
+  set(CMAKE_C_FLAGS                "-g"                             CACHE INTERNAL "default C compiler flags")
+  set(CMAKE_C_FLAGS_DEBUG          "-O0 -g -D_DEBUG=1"              CACHE INTERNAL "C debug flags")
+  set(CMAKE_C_FLAGS_MINSIZEREL     "-Os"                            CACHE INTERNAL "C minimal size flags")
+  set(CMAKE_C_FLAGS_RELEASE        "-O3 -fomit-frame-pointer"       CACHE INTERNAL "C release flags")
+  set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O3 -g -fno-omit-frame-pointer" CACHE INTERNAL "C release with debug info flags")
+
+  set(CMAKE_CXX_FLAGS                "-g -Wnon-virtual-dtor"          CACHE INTERNAL "default C++ compiler flags")
+  set(CMAKE_CXX_FLAGS_DEBUG          "-O0 -g -D_DEBUG=1"              CACHE INTERNAL "C++ debug flags")
+  set(CMAKE_CXX_FLAGS_MINSIZEREL     "-Os"                            CACHE INTERNAL "C++ minimal size flags")
+  set(CMAKE_CXX_FLAGS_RELEASE        "-O3 -fomit-frame-pointer"       CACHE INTERNAL "C++ release flags")
+  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g -fno-omit-frame-pointer" CACHE INTERNAL "C++ release with debug info flags")
+
+elseif (CMAKE_COMPILER_IS_CLANG)
+  if (VERBOSE)
+    message(STATUS "Compiler type CLANG: ${CMAKE_CXX_COMPILER}")
+  endif ()
+
+  set(BASE_FLAGS "-Wall -Wextra -Wno-unused-parameter ${BASE_FLAGS}")
+
+  set(CMAKE_C_FLAGS                "-g"                             CACHE INTERNAL "default C compiler flags")
+  set(CMAKE_C_FLAGS_DEBUG          "-O0 -g -D_DEBUG=1"              CACHE INTERNAL "C debug flags")
+  set(CMAKE_C_FLAGS_MINSIZEREL     "-Os"                            CACHE INTERNAL "C minimal size flags")
+  set(CMAKE_C_FLAGS_RELEASE        "-O3 -fomit-frame-pointer"       CACHE INTERNAL "C release flags")
+  set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O3 -g -fno-omit-frame-pointer" CACHE INTERNAL "C release with debug info flags")
+
+  set(CMAKE_CXX_FLAGS                "-g -Wnon-virtual-dtor"          CACHE INTERNAL "default C++ compiler flags")
+  set(CMAKE_CXX_FLAGS_DEBUG          "-O0 -g -D_DEBUG=1"              CACHE INTERNAL "C++ debug flags")
+  set(CMAKE_CXX_FLAGS_MINSIZEREL     "-Os"                            CACHE INTERNAL "C++ minimal size flags")
+  set(CMAKE_CXX_FLAGS_RELEASE        "-O3 -fomit-frame-pointer"       CACHE INTERNAL "C++ release flags")
+  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g -fno-omit-frame-pointer" CACHE INTERNAL "C++ release with debug info flags")
+
+elseif (MSVC)
+  if (VERBOSE)
+    message(STATUS "Compiler type MSVC: ${CMAKE_CXX_COMPILER}")
+  endif ()
+
+  set(CMAKE_C_FLAGS                "/MTd"                              CACHE INTERNAL "default C++ compiler flags")
+  set(CMAKE_C_FLAGS_DEBUG          "/D _DEBUG /MTd /Zi /Ob0 /Od /RTC1 /bigobj" CACHE INTERNAL "C++ debug flags")
+  set(CMAKE_C_FLAGS_MINSIZEREL     "/MT /O1 /Ob1"                      CACHE INTERNAL "C++ minimal size flags")
+  set(CMAKE_C_FLAGS_RELEASE        "/MT /O2 /Ob2"                      CACHE INTERNAL "C++ release flags")
+  set(CMAKE_C_FLAGS_RELWITHDEBINFO "/MT /Zi /O2 /Ob1"                  CACHE INTERNAL "C++ release with debug info flags")
+
+  set(CMAKE_CXX_FLAGS                "/MTd"                              CACHE INTERNAL "default C++ compiler flags")
+  set(CMAKE_CXX_FLAGS_DEBUG          "/D _DEBUG /MTd /Zi /Ob0 /Od /RTC1 /bigobj" CACHE INTERNAL "C++ debug flags")
+  set(CMAKE_CXX_FLAGS_MINSIZEREL     "/MT /O1 /Ob1"                      CACHE INTERNAL "C++ minimal size flags")
+  set(CMAKE_CXX_FLAGS_RELEASE        "/MT /O2 /Ob2"                      CACHE INTERNAL "C++ release flags")
+  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/MT /Zi /O2 /Ob1"                  CACHE INTERNAL "C++ release with debug info flags")
+
+else ()
+  # unknown compiler
+  message(STATUS "Compiler type UNKNOWN: ${CMAKE_CXX_COMPILER}")
+
+  set(BASE_FLAGS "-Wall ${BASE_FLAGS}")
+
+  set(CMAKE_C_FLAGS                "-g"                             CACHE INTERNAL "default C compiler flags")
+  set(CMAKE_C_FLAGS_DEBUG          "-O0 -g"                         CACHE INTERNAL "C debug flags")
+  set(CMAKE_C_FLAGS_MINSIZEREL     "-Os"                            CACHE INTERNAL "C minimal size flags")
+  set(CMAKE_C_FLAGS_RELEASE        "-O3 -fomit-frame-pointer"       CACHE INTERNAL "C release flags")
+  set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O3 -g -fno-omit-frame-pointer" CACHE INTERNAL "C release with debug info flags")
+
+  set(CMAKE_CXX_FLAGS                "-g"                             CACHE INTERNAL "default C++ compiler flags")
+  set(CMAKE_CXX_FLAGS_DEBUG          "-O0 -g"                         CACHE INTERNAL "C++ debug flags")
+  set(CMAKE_CXX_FLAGS_MINSIZEREL     "-Os"                            CACHE INTERNAL "C++ minimal size flags")
+  set(CMAKE_CXX_FLAGS_RELEASE        "-O3 -fomit-frame-pointer"       CACHE INTERNAL "C++ release flags")
+  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g -fno-omit-frame-pointer" CACHE INTERNAL "C++ release with debug info flags")
+endif ()
+
+#########################################################################################
 # Main Project
 # FIXME -FPIC does not end up in curlpp
 #set_target_properties(fuerte-old velocypack curlpp PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -47,10 +123,11 @@ endif()
 add_library(fuerte STATIC
     src/connection.cpp
     src/ConnectionBuilder.cpp
-    src/database.cpp
+#    src/database.cpp
     src/helper.cpp
     src/http.cpp
     src/HttpConnection.cpp
+    src/jwt.cpp
     src/loop.cpp
     src/message.cpp
     src/requests.cpp
@@ -58,7 +135,7 @@ add_library(fuerte STATIC
     src/vst.cpp
     src/VstConnection.cpp
     src/AsioConnection.cpp
-    src/collection.cpp
+#    src/collection.cpp
     src/connection.cpp
     src/http_parser/http_parser.c
 )

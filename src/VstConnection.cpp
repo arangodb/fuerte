@@ -273,7 +273,7 @@ void VstConnection::asyncWriteCallback(::boost::system::error_code const& error,
   
 // Thread-Safe: activate the read loop (if needed)
 void VstConnection::startReading() {
-  FUERTE_LOG_TRACE << "startReading: this=" << this << std::endl;
+  FUERTE_LOG_VSTTRACE << "startReading: this=" << this << std::endl;
   
   uint32_t state = _loopState.load(std::memory_order_seq_cst);
   // start the loop if necessary
@@ -294,7 +294,7 @@ void VstConnection::startReading() {
 
 // Thread-Safe: Stop the read loop
 void VstConnection::stopReading() {
-  FUERTE_LOG_TRACE << "stopReading: this=" << this << std::endl;
+  FUERTE_LOG_VSTTRACE << "stopReading: this=" << this << std::endl;
   
   uint32_t state = _loopState.load(std::memory_order_relaxed);
   // start the loop if necessary

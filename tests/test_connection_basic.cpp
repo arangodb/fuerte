@@ -176,13 +176,12 @@ TEST_P(ConnectionTestF, ShortAndLongASync){
   wg.wait();
 }
 
+// threads parameter has no effect in this testsuite
 static const ConnectionTestParams connectionTestBasicParams[] = {
-//  {._url= "http://127.0.0.1:8529", ._threads=1, ._repeat=10},
-  {._url= "vst://127.0.0.1:8529", ._threads=1, ._repeat=10},
-//  {._url= "http://localhost:8529", ._threads=1, ._repeat=100},
-  {._url= "vst://localhost:8529", ._threads=1, ._repeat=100},
-//  {._url= "http://127.0.0.1:8529", ._threads=4, ._repeat=1000},
-  {._url= "vst://127.0.0.1:8529", ._threads=4, ._repeat=1000},
+  {._url= "http://127.0.0.1:8529", ._threads=1, ._repeat=100},
+  {._url= "vst://127.0.0.1:8529", ._threads=1, ._repeat=100},
+  {._url= "http://localhost:8529", ._threads=1, ._repeat=10000},
+  {._url= "vst://localhost:8529", ._threads=1, ._repeat=10000}
 };
 
 INSTANTIATE_TEST_CASE_P(BasicConnectionTests, ConnectionTestF,

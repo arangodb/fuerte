@@ -150,5 +150,13 @@ std::string encodeBase64(std::string const& in) {
   
   return ret;
 }
+  
+std::string encodeBase64U(std::string const& in) {
+  std::string encoded = encodeBase64(in);
+  // replace '+', '/' with '-' and '_'
+  std::replace(encoded.begin(), encoded.end(), '+', '-');
+  std::replace(encoded.begin(), encoded.end(), '/', '_');
+  return encoded;
+}
 
 }}}

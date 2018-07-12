@@ -176,13 +176,6 @@ int main(int argc, char* argv[]) {
     std::cerr << "exception: " << ex.what() << std::endl;
     exit(EXIT_FAILURE);
   }
-  
-  /*try {
-    arangodb::fuerte::run();
-  } catch (std::exception const& ex) {
-    std::cerr << "exception: " << ex.what() << std::endl;
-    exit(EXIT_FAILURE);
-  }*/
 
   return EXIT_SUCCESS;
 }

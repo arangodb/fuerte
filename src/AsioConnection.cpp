@@ -45,12 +45,13 @@ AsioConnection<T>::AsioConnection(std::shared_ptr<boost::asio::io_context> const
     , _io_context(ctx)
     , _resolver(*ctx)
     , _socket(nullptr)
+    , _timeout(*ctx)
     , _sslContext(nullptr)
     , _sslSocket(nullptr)
     , _connected(false)
     , _permanent_failure(false),
     _loopState(0),
-    _writeQueue(128)
+    _writeQueue(1024)
 {}
 
 // Deconstruct.

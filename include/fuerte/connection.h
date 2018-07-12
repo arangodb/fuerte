@@ -65,9 +65,6 @@ class Connection : public std::enable_shared_from_this<Connection> {
     // Return the number of requests that have not yet finished.
     virtual std::size_t requestsLeft() const = 0;
 
-    // called on shutdown, always call superclass
-    virtual void shutdownConnection(const ErrorCondition = ErrorCondition::CanceledDuringReset) = 0;
-
   private:
     // Activate the connection.  
     virtual void start() {}

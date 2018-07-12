@@ -29,11 +29,10 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/streambuf.hpp>
-#include <boost/asio/deadline_timer.hpp>
+#include <boost/asio/basic_waitable_timer.hpp>
 #include <boost/lockfree/queue.hpp>
 
 #include <fuerte/connection.h>
-#include <fuerte/helper.h>
 #include <fuerte/loop.h>
 
 #include "MessageStore.h"
@@ -41,15 +40,17 @@
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
   
-#warning add more documentation
 // Connection object that handles sending and receiving of Velocystream
 // Messages.
 //
 // A AsioConnection tries to create a connection to one of the given peers on a
 // a socket. Then it tries to do an asyncronous ssl handshake. When the
-// handshake is done it starts the async read loop on the socket. And tries a
-// first write.
-//
+// handshake is done it calls the finishInitialization method to notify
+// the protocol subclass. Subclasses are responsible for the proper starting
+// and stopping of IO operations. They may use the _loopState variable to
+// synchronize in a thread-safe manner.
+// Error conditions will usually trigger a connection restart. Subclasses can
+// perform cleanup operations in their shutdownConnection method
 template<typename T>
 class AsioConnection : public Connection {
 
@@ -66,11 +67,11 @@ public:
 
   // Return the number of unfinished requests.
   virtual size_t requestsLeft() const override {
-    return _loopState.load() & WRITE_LOOP_QUEUE_MASK;
+    return _loopState.load(std::memory_order_acquire) & WRITE_LOOP_QUEUE_MASK;
   }
 
   bool hasCapacity() const {
-    return (_loopState.load() & WRITE_LOOP_QUEUE_MASK) < 128;
+    return (_loopState.load() & WRITE_LOOP_QUEUE_MASK) < 1024;
   }
 
 private:
@@ -144,15 +145,17 @@ protected:
   std::mutex _socket_mutex;
   /// socket to use
   std::shared_ptr<boost::asio::ip::tcp::socket> _socket;
+  /// timer to handle request timeouts
+  boost::asio::steady_timer _timeout;
 
   /// SSL context, may be null
   std::shared_ptr<boost::asio::ssl::context> _sslContext;
   /// SSL steam socket, may be null
   std::shared_ptr<boost::asio::ssl::stream<::boost::asio::ip::tcp::socket&>> _sslSocket;
 
-  /// is the connection established (set by subclass)
+  /// @brief is the connection established (set by subclass)
   std::atomic<bool> _connected;
-  /// did we receive an error which breaks the connection
+  /// @brief we received an error which breaks the connection (i.e. bad authentication)
   std::atomic<bool> _permanent_failure;
   
   /// stores in-flight messages (thread-safe)
