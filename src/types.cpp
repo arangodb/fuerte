@@ -22,13 +22,11 @@
 #include <fuerte/types.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
-
 RestVerb to_RestVerb(std::string const& value) {
   std::string lowercase;
   lowercase.reserve(value.size());
-  std::transform(value.begin(), value.end()
-                ,std::back_inserter(lowercase), ::tolower
-                );
+  std::transform(value.begin(), value.end(), std::back_inserter(lowercase),
+                 ::tolower);
 
   auto p = lowercase.c_str();
 
@@ -104,7 +102,7 @@ std::string to_string(MessageType type) {
     case MessageType::Response:
       return "response";
 
-    case MessageType::ResponseUnfinished: //needed for vst
+    case MessageType::ResponseUnfinished:  // needed for vst
       return "unfinised response";
 
     case MessageType::Authentication:
@@ -128,7 +126,6 @@ std::string to_string(TransportType type) {
 
   return "undefined";
 }
-
 
 const std::string fu_content_type_unset("unset");
 const std::string fu_content_type_vpack("application/x-velocypack");
@@ -170,7 +167,6 @@ ContentType to_ContentType(std::string const& val) {
   return ContentType::Custom;
 }
 
-
 std::string to_string(ContentType type) {
   switch (type) {
     case ContentType::Unset:
@@ -192,8 +188,9 @@ std::string to_string(ContentType type) {
       return fu_content_type_dump;
 
     case ContentType::Custom:
-      throw std::logic_error("custom content type could take different "
-                             "values and is therefor not convertible to string");
+      throw std::logic_error(
+          "custom content type could take different "
+          "values and is therefor not convertible to string");
   }
 
   throw std::logic_error("unknown content type");
@@ -211,36 +208,33 @@ std::string to_string(AuthenticationType type) {
   return "unknown";
 }
 
-
-ErrorCondition intToError(Error integral){
+ErrorCondition intToError(Error integral) {
   static const std::vector<Error> valid = {
-      0,    // NoError
-      //1,  // ErrorCastError
-      1000, // ConnectionError
-      1001, // CouldNotConnect
-      1002, // TimeOut
-      1003, // queue capacity exceeded
-      1102, // VstReadError
-      1103, // VstWriteError
-      1104, // CancelledDuringReset
-      1105, // MalformedURL
-      3000, // CurlError
+      0,  // NoError
+      // 1,  // ErrorCastError
+      1000,  // ConnectionError
+      1001,  // CouldNotConnect
+      1002,  // TimeOut
+      1003,  // queue capacity exceeded
+      1102,  // VstReadError
+      1103,  // VstWriteError
+      1104,  // CancelledDuringReset
+      1105,  // MalformedURL
+      3000,  // CurlError
   };
   auto pos = std::find(valid.begin(), valid.end(), integral);
-  if(pos != valid.end()){
+  if (pos != valid.end()) {
     return static_cast<ErrorCondition>(integral);
   }
 #ifdef FUERTE_DEVBUILD
-  throw std::logic_error(
-    std::string("Error: casting int to ErrorCondition: ")
-               + std::to_string(integral)
-  );
+  throw std::logic_error(std::string("Error: casting int to ErrorCondition: ") +
+                         std::to_string(integral));
 #endif
   return ErrorCondition::ErrorCastError;
 }
 
-std::string to_string(ErrorCondition error){
-  switch(error){
+std::string to_string(ErrorCondition error) {
+  switch (error) {
     case ErrorCondition::NoError:
       return "No Error";
     case ErrorCondition::ErrorCastError:
@@ -262,12 +256,10 @@ std::string to_string(ErrorCondition error){
       return "Error: cancel as result of other error";
     case ErrorCondition::MalformedURL:
       return "Error: malformed URL";
-      
+
     case ErrorCondition::ProtocolError:
       return "Error: invalid server response";
   }
   return "unkown error";
 }
-
-
-}}}
+}}}  // namespace arangodb::fuerte::v1

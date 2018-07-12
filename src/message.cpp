@@ -27,69 +27,70 @@
 #include "vst.h"
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
-
-std::string to_string(MessageHeader const& header){
-/*  ::boost::optional<int> version;
-  ::boost::optional<MessageType> type;
-  ::boost::optional<unsigned> responseCode;
-  ::boost::optional<std::string> database;
-  ::boost::optional<RestVerb> restVerb;           // GET POST ...
-  ::boost::optional<std::string> path;            // equivalent of http path
-  ::boost::optional<StringMap> parameters;        // equivalent of http parametes ?foo=bar
-  ::boost::optional<StringMap> meta;              // equivalent of http headers
-  ::boost::optional<std::string> user;
-  ::boost::optional<std::string> password;*/
+std::string to_string(MessageHeader const& header) {
+  /*  ::boost::optional<int> version;
+    ::boost::optional<MessageType> type;
+    ::boost::optional<unsigned> responseCode;
+    ::boost::optional<std::string> database;
+    ::boost::optional<RestVerb> restVerb;           // GET POST ...
+    ::boost::optional<std::string> path;            // equivalent of http path
+    ::boost::optional<StringMap> parameters;        // equivalent of http
+    parametes ?foo=bar
+    ::boost::optional<StringMap> meta;              // equivalent of http
+    headers
+    ::boost::optional<std::string> user;
+    ::boost::optional<std::string> password;*/
   std::stringstream ss;
 
-  if(header.byteSize){
+  if (header.byteSize) {
     ss << "byteSize: " << header.byteSize.get() << std::endl;
   }
 
-  if(header.version){
+  if (header.version) {
     ss << "version: " << header.version << std::endl;
   }
 
-  if(header.type != MessageType::Undefined){
+  if (header.type != MessageType::Undefined) {
     ss << "type: " << static_cast<int>(header.type) << std::endl;
   }
 
-  if(header.responseCode){
+  if (header.responseCode) {
     ss << "responseCode: " << header.responseCode << std::endl;
   }
 
-  if (!header.database.empty()){
+  if (!header.database.empty()) {
     ss << "database: " << header.database << std::endl;
   }
 
-  if (header.restVerb != RestVerb::Illegal){
+  if (header.restVerb != RestVerb::Illegal) {
     ss << "restVerb: " << to_string(header.restVerb) << std::endl;
   }
 
-  if (!header.path.empty()){
+  if (!header.path.empty()) {
     ss << "path: " << header.path << std::endl;
   }
 
-  if (!header.parameters.empty()){
+  if (!header.parameters.empty()) {
     ss << "parameters: ";
-    for(auto const& item : header.parameters){
-      ss << item.first <<  " -:- " << item.second << "\n";
+    for (auto const& item : header.parameters) {
+      ss << item.first << " -:- " << item.second << "\n";
     }
-    ss<< std::endl;
+    ss << std::endl;
   }
 
-  if (!header.meta.empty()){
+  if (!header.meta.empty()) {
     ss << "meta:\n";
-    for(auto const& item : header.meta){
-      ss << "\t" << item.first <<  " -:- " << item.second << "\n";
+    for (auto const& item : header.meta) {
+      ss << "\t" << item.first << " -:- " << item.second << "\n";
     }
-    ss<< std::endl;
+    ss << std::endl;
   }
 
-  if(header.user){
+  if (header.user) {
     ss << "user: " << header.user.get() << std::endl;
   }
 
-  if(header.password){
+  if (header.password) {
     ss << "password: " << header.password.get() << std::endl;
   }
 
@@ -115,7 +116,7 @@ void MessageHeader::contentType(std::string const& type) {
   addMeta(fu_content_type_key, type);
 }
 
-void MessageHeader::contentType(ContentType type){
+void MessageHeader::contentType(ContentType type) {
   contentType(to_string(type));
 }
 
@@ -132,11 +133,12 @@ void MessageHeader::acceptType(std::string const& type) {
   addMeta(fu_accept_key, type);
 }
 
-void MessageHeader::acceptType(ContentType type){
+void MessageHeader::acceptType(ContentType type) {
   acceptType(to_string(type));
 }
 
-void MessageHeader::addParameter(std::string const& key, std::string const& value) {
+void MessageHeader::addParameter(std::string const& key,
+                                 std::string const& value) {
   parameters.emplace(key, value);
 }
 
@@ -149,7 +151,7 @@ std::string MessageHeader::metaByKey(std::string const& key) const {
   if (meta.empty()) {
     return "";
   }
-  auto found =  meta.find(key);
+  auto found = meta.find(key);
   return (found == meta.end()) ? "" : found->second;
 }
 
@@ -162,70 +164,61 @@ std::string Message::contentTypeString() const {
   return header.contentTypeString();
 }
 
-ContentType Message::contentType() const {
-  return header.contentType();
-}
+ContentType Message::contentType() const { return header.contentType(); }
 
-void Request::contentType(std::string const& type) {
-  header.contentType(type);
-}
+void Request::contentType(std::string const& type) { header.contentType(type); }
 
-void Request::contentType(ContentType type) {
-  header.contentType(type);
-}
+void Request::contentType(ContentType type) { header.contentType(type); }
 
 // accept header accessors
 std::string Message::acceptTypeString() const {
   return header.acceptTypeString();
 }
 
-ContentType Message::acceptType() const {
-  return header.acceptType();
-}
+ContentType Message::acceptType() const { return header.acceptType(); }
 
 ///////////////////////////////////////////////
 // class Request
 ///////////////////////////////////////////////
 
-std::chrono::milliseconds Request::_defaultTimeout = std::chrono::milliseconds(30*1000);
+std::chrono::milliseconds Request::_defaultTimeout =
+    std::chrono::milliseconds(30 * 1000);
 
-void Request::acceptType(std::string const& type) {
-  header.acceptType(type);
-}
+void Request::acceptType(std::string const& type) { header.acceptType(type); }
 
-void Request::acceptType(ContentType type) {
-  header.acceptType(type);
-}
+void Request::acceptType(ContentType type) { header.acceptType(type); }
 
 //// add payload
 // add VelocyPackData
-void Request::addVPack(VSlice const& slice){
+void Request::addVPack(VSlice const& slice) {
 #ifdef FUERTE_CHECKED_MODE
-  //FUERTE_LOG_ERROR << "Checking data that is added to the message: " << std::endl;
-  vst::parser::validateAndCount(slice.start(),slice.byteSize());
+  // FUERTE_LOG_ERROR << "Checking data that is added to the message: " <<
+  // std::endl;
+  vst::parser::validateAndCount(slice.start(), slice.byteSize());
 #endif
-  if(_sealed || (_isVpack && !_isVpack.get())){
+  if (_sealed || (_isVpack && !_isVpack.get())) {
     throw std::logic_error("Message is sealed or of wrong type (vst/binary)");
   };
 
-  if(!_builder){
+  if (!_builder) {
     _builder = std::make_shared<VBuilder>(_payload);
   }
 
   contentType(ContentType::VPack);
-  _isVpack=true;
+  _isVpack = true;
   _modified = true;
   _builder->add(slice);
   _payloadLength += slice.byteSize();
   _payload.resetTo(_payloadLength);
 }
 
-void Request::addVPack(VBuffer const& buffer){
+void Request::addVPack(VBuffer const& buffer) {
 #ifdef FUERTE_CHECKED_MODE
-  //FUERTE_LOG_ERROR << "Checking data that is added to the message: " << std::endl;
-  vst::parser::validateAndCount(buffer.data(),buffer.byteSize());
+  // FUERTE_LOG_ERROR << "Checking data that is added to the message: " <<
+  // std::endl;
+  vst::parser::validateAndCount(buffer.data(), buffer.byteSize());
 #endif
-  if(_sealed || (_isVpack && !_isVpack.get())){
+  if (_sealed || (_isVpack && !_isVpack.get())) {
     throw std::logic_error("Message is sealed or of wrong type (vst/binary)");
   };
   _isVpack = true;
@@ -235,15 +228,15 @@ void Request::addVPack(VBuffer const& buffer){
   auto length = buffer.byteSize();
   auto cursor = buffer.data();
 
-  if(!_builder){
+  if (!_builder) {
     _builder = std::make_shared<VBuilder>(_payload);
   }
 
-  while(length){
+  while (length) {
     VSlice slice(cursor);
     _builder->add(slice);
     auto sliceSize = _slices.back().byteSize();
-    if(length < sliceSize){
+    if (length < sliceSize) {
       throw std::logic_error("invalid buffer");
     }
     cursor += sliceSize;
@@ -253,12 +246,13 @@ void Request::addVPack(VBuffer const& buffer){
   }
 }
 
-void Request::addVPack(VBuffer&& buffer){
+void Request::addVPack(VBuffer&& buffer) {
 #ifdef FUERTE_CHECKED_MODE
-  //FUERTE_LOG_ERROR << "Checking data that is added to the message: " << std::endl;
-  vst::parser::validateAndCount(buffer.data(),buffer.byteSize());
+  // FUERTE_LOG_ERROR << "Checking data that is added to the message: " <<
+  // std::endl;
+  vst::parser::validateAndCount(buffer.data(), buffer.byteSize());
 #endif
-  if(_sealed || _isVpack){
+  if (_sealed || _isVpack) {
     throw std::logic_error("Message is sealed or of wrong type (vst/binary)");
   };
   contentType(ContentType::VPack);
@@ -271,17 +265,21 @@ void Request::addVPack(VBuffer&& buffer){
 }
 
 // add binary data
-void Request::addBinary(uint8_t const* data, std::size_t length){
-  if(_sealed || (_isVpack && _isVpack.get())){ return; };
+void Request::addBinary(uint8_t const* data, std::size_t length) {
+  if (_sealed || (_isVpack && _isVpack.get())) {
+    return;
+  };
   _isVpack = false;
   _modified = true;
   _payloadLength += length;
-  _payload.append(data, length); //TODO reset to!!! FIXME
+  _payload.append(data, length);  // TODO reset to!!! FIXME
   _payload.resetTo(_payloadLength);
 }
 
-void Request::addBinarySingle(VBuffer&& buffer){
-  if(_sealed || (_isVpack && _isVpack.get())){ return; };
+void Request::addBinarySingle(VBuffer&& buffer) {
+  if (_sealed || (_isVpack && _isVpack.get())) {
+    return;
+  };
   _isVpack = false;
   _sealed = true;
   _modified = true;
@@ -291,15 +289,15 @@ void Request::addBinarySingle(VBuffer&& buffer){
 }
 
 // get payload as slices
-std::vector<VSlice>const & Request::slices() {
-  if(_isVpack && _modified) {
+std::vector<VSlice> const& Request::slices() {
+  if (_isVpack && _modified) {
     _slices.clear();
     auto length = _payload.byteSize();
     auto cursor = _payload.data();
-    while(length){
+    while (length) {
       _slices.emplace_back(cursor);
       auto sliceSize = _slices.back().byteSize();
-      if(length < sliceSize){
+      if (length < sliceSize) {
         throw std::logic_error("invalid buffer");
       }
       cursor += sliceSize;
@@ -314,10 +312,8 @@ std::vector<VSlice>const & Request::slices() {
 boost::asio::const_buffer Request::payload() const {
   return boost::asio::const_buffer(_payload.data(), _payloadLength);
 }
-  
-size_t Request::payloadSize() const {
-  return _payloadLength;
-}
+
+size_t Request::payloadSize() const { return _payloadLength; }
 
 ///////////////////////////////////////////////
 // class Response
@@ -328,25 +324,25 @@ bool Response::isContentTypeJSON() const {
 }
 
 bool Response::isContentTypeVPack() const {
-  return (header.contentType() == ContentType::VPack);  
+  return (header.contentType() == ContentType::VPack);
 }
 
 bool Response::isContentTypeHtml() const {
-  return (header.contentType() == ContentType::Html);  
+  return (header.contentType() == ContentType::Html);
 }
 
 bool Response::isContentTypeText() const {
-  return (header.contentType() == ContentType::Text);  
+  return (header.contentType() == ContentType::Text);
 }
 
-std::vector<VSlice>const & Response::slices() {
+std::vector<VSlice> const& Response::slices() {
   if (_slices.empty()) {
     auto length = _payload.byteSize() - _payloadOffset;
     auto cursor = _payload.data() + _payloadOffset;
-    while (length){
+    while (length) {
       _slices.emplace_back(cursor);
       auto sliceSize = _slices.back().byteSize();
-      if (length < sliceSize){
+      if (length < sliceSize) {
         throw std::logic_error("invalid buffer");
       }
       cursor += sliceSize;
@@ -357,9 +353,10 @@ std::vector<VSlice>const & Response::slices() {
 }
 
 boost::asio::const_buffer Response::payload() const {
-  return boost::asio::const_buffer(_payload.data() + _payloadOffset, _payload.byteSize());
+  return boost::asio::const_buffer(_payload.data() + _payloadOffset,
+                                   _payload.byteSize());
 }
-  
+
 size_t Response::payloadSize() const {
   return _payload.byteSize() - _payloadOffset;
 }
@@ -369,5 +366,4 @@ void Response::setPayload(VBuffer&& buffer, size_t payloadOffset) {
   _payloadOffset = payloadOffset;
   _payload = std::move(buffer);
 }
-
-}}}
+}}}  // namespace arangodb::fuerte::v1

@@ -42,10 +42,11 @@ class VpackInit {
     _translator->add("_from", uint8_t(4));
     _translator->add("_to", uint8_t(5));
     _translator->seal();
-    arangodb::velocypack::Options::Defaults.attributeTranslator = _translator.get();
+    arangodb::velocypack::Options::Defaults.attributeTranslator =
+        _translator.get();
   }
 };
 
-}}}}
+}}}}  // namespace arangodb::fuerte::v1::impl
 
 #endif

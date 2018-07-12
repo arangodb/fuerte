@@ -27,20 +27,21 @@
 
 namespace arangodb {
 namespace velocypack {
-  class Slice;
+class Slice;
 }
-  
+
 namespace fuerte { inline namespace v1 { namespace jwt {
-  
+
 /// Generate JWT token as used by internal arangodb communication
-std::string generateInternalToken(std::string const& secret, std::string const& id);
-  
+std::string generateInternalToken(std::string const& secret,
+                                  std::string const& id);
+
 /// Generate JWT token as used by users arangodb
 std::string generateUserToken(std::string const& secret,
                               std::string const& username);
-  
+
 std::string generateRawJwt(arangodb::velocypack::Slice const& body);
-  
+
 enum Algorithm {
   ALGORITHM_SHA256 = 0,
   ALGORITHM_SHA1 = 1,
@@ -49,7 +50,7 @@ enum Algorithm {
   ALGORITHM_SHA384 = 4,
   ALGORITHM_SHA512 = 5
 };
-  
+
 //////////////////////////////////////////////////////////////////////////
 /// @brief HMAC
 //////////////////////////////////////////////////////////////////////////
@@ -64,6 +65,6 @@ std::string sslHMAC(char const* key, size_t keyLength, char const* message,
 bool verifyHMAC(char const* challenge, size_t challengeLength,
                 char const* secret, size_t secretLen, char const* response,
                 size_t responseLen, Algorithm algorithm);
-
-}}}}
+}}}  // namespace fuerte::v1::jwt
+}  // namespace arangodb
 #endif

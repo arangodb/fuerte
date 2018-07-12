@@ -24,14 +24,14 @@
 #ifndef ARANGO_CXX_DRIVER_HTTP
 #define ARANGO_CXX_DRIVER_HTTP
 
-#include <string>
-#include <fuerte/types.h>
 #include <fuerte/message.h>
+#include <fuerte/types.h>
+#include <string>
 
 #include "CallOnceRequestCallback.h"
 
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace http {
-  
+
 // in-flight request data
 struct RequestItem {
   /// Reference to the request we're processing
@@ -40,20 +40,21 @@ struct RequestItem {
   impl::CallOnceRequestCallback _callback;
   /// response data, may be null before response header is received
   std::unique_ptr<arangodb::fuerte::v1::Response> _response;
-  
+
   // buffer for the request header, reset after request was send
   std::string _requestHeader;
   /// response buffer, moved after writing
   VBuffer _responseBuffer;
-  
+
   // parser state
   bool message_complete = false;
   bool last_header_was_a_value = false;
   std::string lastHeaderField;
   std::string lastHeaderValue;
-  
+
   inline MessageID messageID() { return _request->messageID; }
-  inline void invokeOnError(Error e, std::unique_ptr<Request> req, std::unique_ptr<Response> res) {
+  inline void invokeOnError(Error e, std::unique_ptr<Request> req,
+                            std::unique_ptr<Response> res) {
     _callback.invoke(e, std::move(req), std::move(res));
   }
 };
@@ -65,6 +66,5 @@ std::string urlEncode(char const* src);
 inline std::string urlEncode(std::string const& str) {
   return urlEncode(str.c_str(), str.size());
 }
-  
-}}}}
+}}}}  // namespace arangodb::fuerte::v1::http
 #endif

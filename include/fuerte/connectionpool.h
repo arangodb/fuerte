@@ -23,32 +23,28 @@
 #ifndef ARANGO_CXX_DRIVER_CONNECTION_POOL
 #define ARANGO_CXX_DRIVER_CONNECTION_POOL
 
-#include "connection.h"
 #include <mutex>
 #include <unordered_map>
+#include "connection.h"
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
-
 /// @brief connection pooling
 class ConnectionPool {
-
-
   // Send a request to the server and return immediately.
-  // When a response is received or an error occurs, the corresponding callback is called.
+  // When a response is received or an error occurs, the corresponding callback
+  // is called.
   MessageID sendRequest(std::unique_ptr<Request> r, RequestCallback cb);
 
   /// @brief wait for request to finish
   void waitForResponse(MessageID) const;
 
-  private:
-    size_t const _maxOpenConnections;
-    size_t const _maxConnectionsPerHost;
-    std::mutex _mutex;
-    std::unordered_map<std::string, 
-      std::vector<std::shared_ptr<Connection>>> _conntections;
+ private:
+  size_t const _maxOpenConnections;
+  size_t const _maxConnectionsPerHost;
+  std::mutex _mutex;
+  std::unordered_map<std::string, std::vector<std::shared_ptr<Connection>>>
+      _conntections;
 };
-
-
-}}};
+}}};  // namespace arangodb::fuerte::v1
 
 #endif

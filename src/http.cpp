@@ -35,7 +35,6 @@ static inline int hex2int(char ch, int errorValue = 0) {
   return errorValue;
 }
 
-
 std::string urlEncode(char const* src, size_t const len) {
   static char hexChars[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
                               '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
@@ -144,6 +143,4 @@ std::string urlDecode(std::string const& str) {
 
   return result;
 }
-}
-
-}}}
+}}}}  // namespace arangodb::fuerte::v1::http

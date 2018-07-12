@@ -23,30 +23,29 @@
 #ifndef ARANGO_CXX_DRIVER_HTTP_CONNECTION_H
 #define ARANGO_CXX_DRIVER_HTTP_CONNECTION_H 1
 
+#include <atomic>
 #include <chrono>
 #include <mutex>
-#include <atomic>
 #include <stdexcept>
 
+#include <fuerte/FuerteLogger.h>
 #include <fuerte/connection.h>
-#include <fuerte/loop.h>
 #include <fuerte/helper.h>
+#include <fuerte/loop.h>
 #include <fuerte/message.h>
 #include <fuerte/types.h>
-#include <fuerte/FuerteLogger.h>
 
 #include "AsioConnection.h"
 #include "CallOnceRequestCallback.h"
 #include "http.h"
 #include "http_parser/http_parser.h"
 
-namespace arangodb {
-namespace fuerte {
-inline namespace v1 {
-namespace http {
+namespace arangodb { namespace fuerte { inline namespace v1 { namespace http {
 
-// HttpConnection implements a client->server connection using the HTTP protocol.
-class HttpConnection : public AsioConnection<arangodb::fuerte::v1::http::RequestItem> {
+// HttpConnection implements a client->server connection using the HTTP
+// protocol.
+class HttpConnection
+    : public AsioConnection<arangodb::fuerte::v1::http::RequestItem> {
  public:
   explicit HttpConnection(std::shared_ptr<asio_io_context>& ctx,
                           detail::ConnectionConfiguration const&);
@@ -59,38 +58,40 @@ class HttpConnection : public AsioConnection<arangodb::fuerte::v1::http::Request
   /*std::size_t requestsLeft() const override {
     return _curlm->requestsLeft();
   }*/
-  
-protected:
-  
+
+ protected:
   // socket connection is up (with optional SSL), now initiate the VST protocol.
   void finishInitialization() override;
-  
+
   // called on shutdown, always call superclass
   void shutdownConnection(const ErrorCondition) override;
-  
+
   // fetch the buffers for the write-loop (called from IO thread)
-  std::vector<boost::asio::const_buffer> fetchBuffers(std::shared_ptr<RequestItem> const&) override;
-  
+  std::vector<boost::asio::const_buffer> fetchBuffers(
+      std::shared_ptr<RequestItem> const&) override;
+
   // called by the async_read handler (called from IO thread)
-  void asyncReadCallback(::boost::system::error_code const&, size_t transferred) override;
-  
+  void asyncReadCallback(::boost::system::error_code const&,
+                         size_t transferred) override;
+
   // Thread-Safe: activate the writer if needed
   void startWriting();
-  
+
   // called by the async_write handler (called from IO thread)
   void asyncWriteCallback(::boost::system::error_code const& error,
-                          size_t transferred, std::shared_ptr<RequestItem>) override;
-  
+                          size_t transferred,
+                          std::shared_ptr<RequestItem>) override;
+
  private:
   class Options {
-  public:
+   public:
     double connectionTimeout = 2.0;
   };
 
-private:
-  
+ private:
   // createRequestItem prepares a RequestItem for the given parameters.
-  std::unique_ptr<RequestItem> createRequestItem(std::unique_ptr<Request> request, RequestCallback cb);
+  std::unique_ptr<RequestItem> createRequestItem(
+      std::unique_ptr<Request> request, RequestCallback cb);
 
  private:
   /// currently in fligth request
@@ -98,13 +99,9 @@ private:
   /// the node http-parser
   http_parser _parser;
   http_parser_settings _parserSettings;
-  
-  //int _stillRunning;
-};
 
-}
-}
-}
-}
+  // int _stillRunning;
+};
+}}}}  // namespace arangodb::fuerte::v1::http
 
 #endif

@@ -22,58 +22,60 @@
 
 #include "jwt.h"
 
-#include <chrono>
 #include <fuerte/helper.h>
-#include <openssl/md5.h>
-#include <openssl/sha.h>
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
+#include <openssl/md5.h>
 #include <openssl/rand.h>
+#include <openssl/sha.h>
+#include <chrono>
 
 #include <velocypack/Builder.h>
 #include <velocypack/velocypack-aliases.h>
 
-
-#ifdef OPENSSL_NO_SSL2 // OpenSSL > 1.1.0 deprecates RAND_pseudo_bytes
+#ifdef OPENSSL_NO_SSL2  // OpenSSL > 1.1.0 deprecates RAND_pseudo_bytes
 #define RAND_BYTES RAND_bytes
 #else
 #define RAND_BYTES RAND_pseudo_bytes
 #endif
 
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace jwt {
-  
-  /// generate a JWT token for internal cluster communication
-std::string generateInternalToken(std::string const& secret, std::string const& id) {
-  std::chrono::seconds iss =
-  std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch());
+
+/// generate a JWT token for internal cluster communication
+std::string generateInternalToken(std::string const& secret,
+                                  std::string const& id) {
+  std::chrono::seconds iss = std::chrono::duration_cast<std::chrono::seconds>(
+      std::chrono::system_clock::now().time_since_epoch());
   /*std::chrono::seconds exp =
-   std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()) + _validFor;*/
-  
+   std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch())
+   + _validFor;*/
+
   VPackBuilder bodyBuilder;
   bodyBuilder.openObject();
   bodyBuilder.add("server_id", VPackValue(id));
   bodyBuilder.add("iss", VPackValue("arangodb"));
   bodyBuilder.add("iat", VPackValue(iss.count()));
-  //bodyBuilder.add("exp", VPackValue(exp.count()));
+  // bodyBuilder.add("exp", VPackValue(exp.count()));
   bodyBuilder.close();
   return generateRawJwt(bodyBuilder.slice());
 }
-  
+
 std::string generateJwtToken(std::string const& secret,
                              std::string const& username) {
   assert(!secret.empty());
-  
-  std::chrono::seconds iss =
-  std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch());
+
+  std::chrono::seconds iss = std::chrono::duration_cast<std::chrono::seconds>(
+      std::chrono::system_clock::now().time_since_epoch());
   /*std::chrono::seconds exp =
-  std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()) + _validFor;*/
-  
+  std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch())
+  + _validFor;*/
+
   VPackBuilder bodyBuilder;
   bodyBuilder.openObject();
   bodyBuilder.add("preferred_username", VPackValue(username));
   bodyBuilder.add("iss", VPackValue("arangodb"));
   bodyBuilder.add("iat", VPackValue(iss.count()));
-  //bodyBuilder.add("exp", VPackValue(exp.count()));
+  // bodyBuilder.add("exp", VPackValue(exp.count()));
   bodyBuilder.close();
   return generateRawJwt(bodyBuilder.slice());
 }
@@ -85,23 +87,23 @@ std::string generateRawJwt(std::string const& secret, VPackSlice const& body) {
     headerBuilder.add("alg", VPackValue("HS256"));
     headerBuilder.add("typ", VPackValue("JWT"));
   }
-  
-  std::string fullMessage(encodeBase64(headerBuilder.toJson()) +
-                          "." + encodeBase64(body.toJson()));
+
+  std::string fullMessage(encodeBase64(headerBuilder.toJson()) + "." +
+                          encodeBase64(body.toJson()));
 
   std::string signature =
-  sslHMAC(secret.c_str(), secret.length(), fullMessage.c_str(),
-          fullMessage.length(), Algorithm::ALGORITHM_SHA256);
-  
+      sslHMAC(secret.c_str(), secret.length(), fullMessage.c_str(),
+              fullMessage.length(), Algorithm::ALGORITHM_SHA256);
+
   return fullMessage + "." + encodeBase64U(signature);
 }
 
 // code from ArangoDBs SslInterface.cpp
-  
+
 std::string sslHMAC(char const* key, size_t keyLength, char const* message,
                     size_t messageLen, Algorithm algorithm) {
   EVP_MD* evp_md = nullptr;
-  
+
   if (algorithm == Algorithm::ALGORITHM_SHA1) {
     evp_md = const_cast<EVP_MD*>(EVP_sha1());
   } else if (algorithm == Algorithm::ALGORITHM_SHA224) {
@@ -116,8 +118,7 @@ std::string sslHMAC(char const* key, size_t keyLength, char const* message,
     // default
     evp_md = const_cast<EVP_MD*>(EVP_sha256());
   }
-  
-  
+
   unsigned char* md = nullptr;
   try {
     md = static_cast<unsigned char*>(malloc(EVP_MAX_MD_SIZE + 1));
@@ -142,16 +143,15 @@ bool verifyHMAC(char const* challenge, size_t challengeLength,
   // challenge = key
   // secret, secretLen = message
   // result must == BASE64(response, responseLen)
-  
+
   std::string s =
-  sslHMAC(challenge, challengeLength, secret, secretLen, algorithm);
-  
+      sslHMAC(challenge, challengeLength, secret, secretLen, algorithm);
+
   if (s.length() == responseLen &&
       s.compare(std::string(response, responseLen)) == 0) {
     return true;
   }
-  
+
   return false;
 }
-
-}}}}
+}}}}  // namespace arangodb::fuerte::v1::jwt

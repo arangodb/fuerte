@@ -21,24 +21,28 @@
 /// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <fuerte/connection.h>
 #include <fuerte/FuerteLogger.h>
+#include <fuerte/connection.h>
 #include <fuerte/waitgroup.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
-
 // Deconstructor
-Connection::~Connection() { FUERTE_LOG_DEBUG << "Destroying Connection" << std::endl; }
+Connection::~Connection() {
+  FUERTE_LOG_DEBUG << "Destroying Connection" << std::endl;
+}
 
 // sendRequest and wait for it to finished.
-std::unique_ptr<Response> Connection::sendRequest(std::unique_ptr<Request> request){
+std::unique_ptr<Response> Connection::sendRequest(
+    std::unique_ptr<Request> request) {
   FUERTE_LOG_TRACE << "start sync request" << std::endl;
 
   WaitGroup wg;
   auto rv = std::unique_ptr<Response>(nullptr);
   ::arangodb::fuerte::v1::Error error = 0;
 
-  auto cb = [&](::arangodb::fuerte::v1::Error e, std::unique_ptr<Request> request, std::unique_ptr<Response> response){
+  auto cb = [&](::arangodb::fuerte::v1::Error e,
+                std::unique_ptr<Request> request,
+                std::unique_ptr<Response> response) {
     WaitGroupDone done(wg);
     FUERTE_LOG_TRACE << "sendRequest (sync): onError" << std::endl;
     rv = std::move(response);
@@ -63,5 +67,4 @@ std::unique_ptr<Response> Connection::sendRequest(std::unique_ptr<Request> reque
 
   return rv;
 }
-
-}}}
+}}}  // namespace arangodb::fuerte::v1

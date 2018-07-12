@@ -23,58 +23,38 @@
 #include <fuerte/requests.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
-
 // Helper and Implementation
-std::unique_ptr<Request>
-createRequest(MessageHeader&& messageHeader
-             ,StringMap&& headerStrings
-             ,RestVerb const& verb
-             ,ContentType const& contentType
-             ){
-
-  if (!headerStrings.empty()){
+std::unique_ptr<Request> createRequest(MessageHeader&& messageHeader,
+                                       StringMap&& headerStrings,
+                                       RestVerb const& verb,
+                                       ContentType const& contentType) {
+  if (!headerStrings.empty()) {
     messageHeader.meta = std::move(headerStrings);
   }
-  auto request = std::unique_ptr<Request>(new Request(std::move(messageHeader)));
+  auto request =
+      std::unique_ptr<Request>(new Request(std::move(messageHeader)));
 
   request->header.restVerb = verb;
-  if (request->header.type == MessageType::Undefined){
+  if (request->header.type == MessageType::Undefined) {
     request->header.type = MessageType::Request;
   }
 
   request->header.contentType(contentType);
-  // fuerte requests defualt to vpack content type for accept
+  // fuerte requests default to vpack content type for accept
   request->header.acceptType(ContentType::VPack);
 
   return request;
 }
-/*
-std::unique_ptr<Request>
-createRequest(MessageHeader const& messageHeader
-             ,StringMap const& headerStrings
-             ,std::string const& database
-             ,RestVerb const& verb
-             ,ContentType const& contentType
-             ){
-  MessageHeader header = messageHeader;
-  StringMap strings = headerStrings;
-  return createRequest(std::move(header), std::move(strings), database, verb, contentType);
-}*/
 
-std::unique_ptr<Request>
-createRequest(RestVerb const& verb
-             ,ContentType const& contentType
-             ){
+std::unique_ptr<Request> createRequest(RestVerb const& verb,
+                                       ContentType const& contentType) {
   return createRequest(MessageHeader(), StringMap(), verb, contentType);
 }
 
 // For User
-std::unique_ptr<Request>
-createRequest(RestVerb verb
-             ,std::string const& path
-             ,StringMap const& parameters
-             ,VBuffer&& payload)
-{
+std::unique_ptr<Request> createRequest(RestVerb verb, std::string const& path,
+                                       StringMap const& parameters,
+                                       VBuffer&& payload) {
   auto request = createRequest(verb, ContentType::VPack);
   request->header.path = path;
   request->header.parameters = parameters;
@@ -82,12 +62,9 @@ createRequest(RestVerb verb
   return request;
 }
 
-std::unique_ptr<Request>
-createRequest(RestVerb verb
-             ,std::string const& path
-             ,StringMap const& parameters
-             ,VSlice const& payload)
-{
+std::unique_ptr<Request> createRequest(RestVerb verb, std::string const& path,
+                                       StringMap const& parameters,
+                                       VSlice const& payload) {
   auto request = createRequest(verb, ContentType::VPack);
   request->header.path = path;
   request->header.parameters = parameters;
@@ -95,16 +72,11 @@ createRequest(RestVerb verb
   return request;
 }
 
-std::unique_ptr<Request>
-createRequest(RestVerb verb
-             ,std::string const& path
-             ,StringMap const& parameters
-             )
-{
+std::unique_ptr<Request> createRequest(RestVerb verb, std::string const& path,
+                                       StringMap const& parameters) {
   auto request = createRequest(verb, ContentType::VPack);
   request->header.path = path;
   request->header.parameters = parameters;
   return request;
 }
-
-}}}
+}}}  // namespace arangodb::fuerte::v1

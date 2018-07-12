@@ -25,38 +25,38 @@
 #ifndef ARANGO_CXX_DRIVER_SERVER
 #define ARANGO_CXX_DRIVER_SERVER
 
-#include <utility>
-#include <memory>
 #include <iostream>
+#include <memory>
 #include <thread>
+#include <utility>
 
-#include <boost/asio/io_context.hpp>
 #include <boost/asio/executor_work_guard.hpp>
+#include <boost/asio/io_context.hpp>
 
 // run / runWithWork / poll for Loop mapping to ioservice
 // free function run with threads / with thread group barrier and work
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
-
 namespace vst {
-  class VstConnection;
+class VstConnection;
 }
 
 namespace http {
-  class HttpConnection;
+class HttpConnection;
 }
 
 namespace impl {
-  class VpackInit;
+class VpackInit;
 }
 
 // need partial rewrite so it can be better integrated in client applications
 
 typedef boost::asio::io_context asio_io_context;
-typedef boost::asio::executor_work_guard<boost::asio::io_context::executor_type> asio_work_guard;
+typedef boost::asio::executor_work_guard<boost::asio::io_context::executor_type>
+    asio_work_guard;
 
-// GlobalService is intended to be instantiated once for the entire 
-// lifetime of a program using fuerte. 
+// GlobalService is intended to be instantiated once for the entire
+// lifetime of a program using fuerte.
 // It initializes all global state, needed by fuerte.
 class GlobalService {
  public:
@@ -75,24 +75,28 @@ class GlobalService {
   GlobalService& operator=(GlobalService const& other) = delete;
 
  private:
-  std::unique_ptr<impl::VpackInit> _vpack_init; 
+  std::unique_ptr<impl::VpackInit> _vpack_init;
 };
 
 // EventLoopService implements multi-threaded event loops for
 // boost io_service as well as curl HTTP.
 class EventLoopService {
-  //friend class vst::VstConnection;
+  // friend class vst::VstConnection;
   friend class http::HttpConnection;
   friend class ConnectionBuilder;
 
  public:
-  // Initialize an EventLoopService with a given number of threads and a new io_service.
+  // Initialize an EventLoopService with a given number of threads and a new
+  // io_service.
   EventLoopService(unsigned int threadCount = 1);
-  // Initialize an EventLoopService with a given number of threads and a given io_service.
-  // Initialize an EventLoopService with a given number of threads and a given io_service.
-  /*EventLoopService(const std::shared_ptr<::boost::asio::io_context>& io_service)
+  // Initialize an EventLoopService with a given number of threads and a given
+  // io_service.
+  // Initialize an EventLoopService with a given number of threads and a given
+  // io_service.
+  /*EventLoopService(const std::shared_ptr<::boost::asio::io_context>&
+  io_service)
       : global_service_(GlobalService::get()),
-        io_service_(io_service), 
+        io_service_(io_service),
         working_(new asio_work(*io_service)) {
     while (threadCount > 0) {
       auto worker = std::bind(&EventLoopService::run, this);
@@ -107,7 +111,6 @@ class EventLoopService {
   EventLoopService& operator=(EventLoopService const& other) = delete;
 
  protected:
-
   // handleRunException is called when an exception is thrown in run.
   virtual void handleRunException(std::exception const& ex) {
     std::cerr << "exception: " << ex.what() << std::endl;
@@ -115,12 +118,10 @@ class EventLoopService {
   }
 
   // io_service returns a reference to the boost io_service.
-  std::shared_ptr<asio_io_context>& io_context() { 
-    return _ioContexts[0]; 
-  }
+  std::shared_ptr<asio_io_context>& io_context() { return _ioContexts[0]; }
 
-    // io_service returns a reference to the boost io_service.
-  std::shared_ptr<asio_io_context>& nextIOContext() { 
+  // io_service returns a reference to the boost io_service.
+  std::shared_ptr<asio_io_context>& nextIOContext() {
     return _ioContexts[_lastUsed.fetch_add(1) % _ioContexts.size()];
   }
 
@@ -135,7 +136,5 @@ class EventLoopService {
   /// Threads powering each io_context
   std::vector<std::thread> _threads;
 };
-
-}}}
+}}}  // namespace arangodb::fuerte::v1
 #endif
-

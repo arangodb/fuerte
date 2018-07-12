@@ -25,23 +25,22 @@
 #ifndef ARANGO_CXX_DRIVER_TYPES
 #define ARANGO_CXX_DRIVER_TYPES
 
-#include <velocypack/Slice.h>
 #include <velocypack/Buffer.h>
 #include <velocypack/Builder.h>
+#include <velocypack/Slice.h>
 
-#include <map>
-#include <vector>
-#include <string>
-#include <cassert>
 #include <algorithm>
+#include <cassert>
+#include <map>
+#include <string>
+#include <vector>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
-
 class Request;
 class Response;
 
 using Error = std::uint32_t;
-using MessageID = uint64_t; // id that identifies a Request.
+using MessageID = uint64_t;  // id that identifies a Request.
 using StatusCode = uint32_t;
 
 StatusCode constexpr StatusUndefined = 0;
@@ -56,15 +55,18 @@ StatusCode constexpr StatusMethodNotAllowed = 405;
 StatusCode constexpr StatusConflict = 409;
 
 // RequestCallback is called for finished connection requests.
-// If the given Error is zero, the request succeeded, otherwise an error occurred.
-using RequestCallback = std::function<void(Error, std::unique_ptr<Request>, std::unique_ptr<Response>)>;
-// ConnectionFailureCallback is called when a connection encounters a failure 
+// If the given Error is zero, the request succeeded, otherwise an error
+// occurred.
+using RequestCallback = std::function<void(Error, std::unique_ptr<Request>,
+                                           std::unique_ptr<Response>)>;
+// ConnectionFailureCallback is called when a connection encounters a failure
 // that is not related to a specific request.
 // Examples are:
 // - Host cannot be resolved
 // - Cannot connect
 // - Connection lost
-using ConnectionFailureCallback = std::function<void(Error errorCode, const std::string& errorMessage)>;
+using ConnectionFailureCallback =
+    std::function<void(Error errorCode, const std::string& errorMessage)>;
 
 using VBuffer = arangodb::velocypack::Buffer<uint8_t>;
 using VSlice = arangodb::velocypack::Slice;
@@ -94,7 +96,7 @@ enum class ErrorCondition : Error {
   ProtocolError = 3000,
 };
 
-inline Error errorToInt(ErrorCondition cond){
+inline Error errorToInt(ErrorCondition cond) {
   return static_cast<Error>(cond);
 }
 ErrorCondition intToError(Error integral);
@@ -104,15 +106,15 @@ std::string to_string(ErrorCondition error);
 // --SECTION--                                               enum class RestVerb
 // -----------------------------------------------------------------------------
 
-enum class RestVerb
-{ Illegal = -1
-, Delete = 0
-, Get = 1
-, Post = 2
-, Put = 3
-, Head = 4
-, Patch = 5
-, Options = 6
+enum class RestVerb {
+  Illegal = -1,
+  Delete = 0,
+  Get = 1,
+  Post = 2,
+  Put = 3,
+  Head = 4,
+  Patch = 5,
+  Options = 6
 };
 
 RestVerb to_RestVerb(std::string const& val);
@@ -122,12 +124,12 @@ std::string to_string(RestVerb type);
 // --SECTION--                                                       MessageType
 // -----------------------------------------------------------------------------
 
-enum class MessageType : int
-{ Undefined = 0
-, Request = 1
-, Response = 2
-, ResponseUnfinished = 3
-, Authentication = 1000
+enum class MessageType : int {
+  Undefined = 0,
+  Request = 1,
+  Response = 2,
+  ResponseUnfinished = 3,
+  Authentication = 1000
 };
 
 std::string to_string(MessageType type);
@@ -160,11 +162,7 @@ std::string to_string(AuthenticationType type);
 
 namespace vst {
 
-  enum VSTVersion : char {
-    VST1_0 = 0,
-    VST1_1 = 1
-  };
-
+enum VSTVersion : char { VST1_0 = 0, VST1_1 = 1 };
 }
 
 // -----------------------------------------------------------------------------
@@ -172,31 +170,29 @@ namespace vst {
 // -----------------------------------------------------------------------------
 
 namespace detail {
-  struct ConnectionConfiguration {
-    ConnectionConfiguration()
-      : _connType(TransportType::Vst)
-      , _ssl(true)
-      , _host("localhost")
-      , _authenticationType(AuthenticationType::None)
-      , _user("")
-      , _password("")
-      , _maxChunkSize(5000ul) // in bytes
-      , _vstVersion(vst::VST1_1)
-      {}
+struct ConnectionConfiguration {
+  ConnectionConfiguration()
+      : _connType(TransportType::Vst),
+        _ssl(true),
+        _host("localhost"),
+        _authenticationType(AuthenticationType::None),
+        _user(""),
+        _password(""),
+        _maxChunkSize(5000ul)  // in bytes
+        ,
+        _vstVersion(vst::VST1_1) {}
 
-    TransportType _connType; // vst or http
-    bool _ssl;
-    std::string _host;
-    std::string _port;
-    AuthenticationType _authenticationType;
-    std::string _user;
-    std::string _password;
-    std::size_t _maxChunkSize;
-    vst::VSTVersion _vstVersion;
-    ConnectionFailureCallback _onFailure;
-  };
-
-}
-
-}}}
+  TransportType _connType;  // vst or http
+  bool _ssl;
+  std::string _host;
+  std::string _port;
+  AuthenticationType _authenticationType;
+  std::string _user;
+  std::string _password;
+  std::size_t _maxChunkSize;
+  vst::VSTVersion _vstVersion;
+  ConnectionFailureCallback _onFailure;
+};
+}  // namespace detail
+}}}  // namespace arangodb::fuerte::v1
 #endif

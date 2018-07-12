@@ -40,7 +40,7 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
 // wg.wait();
 class WaitGroup {
  public:
-  WaitGroup(): _counter(0) {}
+  WaitGroup() : _counter(0) {}
   ~WaitGroup() {}
 
   // Prevent copying
@@ -55,7 +55,7 @@ class WaitGroup {
     _counter += increment;
   }
 
-  // call when the event is done. 
+  // call when the event is done.
   // when the counter reached 0, wait() is unblocked.
   void done() {
     std::unique_lock<std::mutex> lock(_mutex);
@@ -72,19 +72,20 @@ class WaitGroup {
     if (_counter == 0) {
       return;
     }
-    _conditionVar.wait(lock, [&]{ return (_counter == 0); });
+    _conditionVar.wait(lock, [&] { return (_counter == 0); });
   }
 
   // wait for all events to have finished or a timeout occurs.
   // If no events have been added, this will return immediately.
   // Returns true when all events have finished, false on timeout.
   template <class Rep, class Period>
-  bool wait_for(const std::chrono::duration<Rep,Period>& rel_time) {
+  bool wait_for(const std::chrono::duration<Rep, Period>& rel_time) {
     std::unique_lock<std::mutex> lock(_mutex);
     if (_counter == 0) {
       return true;
     }
-    return _conditionVar.wait_for(lock, rel_time, [&]{ return (_counter == 0); });
+    return _conditionVar.wait_for(lock, rel_time,
+                                  [&] { return (_counter == 0); });
   }
 
  private:
@@ -99,14 +100,14 @@ class WaitGroup {
 // WaitGroup wg;
 // wg.add();
 // start_your_asynchronous_event(
-//    []() { 
+//    []() {
 //      WaitGroupDone done(wg);
 //      /* do your callback work which is allowed to fail */
 //    });
 // wg.wait();
 class WaitGroupDone {
- public: 
-  WaitGroupDone(WaitGroup &wg): _wg(wg) {}
+ public:
+  WaitGroupDone(WaitGroup& wg) : _wg(wg) {}
   ~WaitGroupDone() { _wg.done(); }
 
   // Prevent copying
@@ -114,8 +115,7 @@ class WaitGroupDone {
   WaitGroupDone& operator=(WaitGroupDone const& other) = delete;
 
  private:
-  WaitGroup &_wg;
+  WaitGroup& _wg;
 };
-
-}}}
+}}}  // namespace arangodb::fuerte::v1
 #endif

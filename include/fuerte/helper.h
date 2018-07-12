@@ -22,91 +22,90 @@
 #pragma once
 #ifndef ARANGO_CXX_DRIVER_HELPER
 #define ARANGO_CXX_DRIVER_HELPER
-#include <string>
-#include <sstream>
-#include <vector>
-#include <fuerte/types.h>
 #include <fuerte/message.h>
+#include <fuerte/types.h>
+#include <sstream>
+#include <string>
+#include <vector>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
-
 namespace _detail {
-  template<typename IteratorType>
-  std::string arrayToString(IteratorType begin, IteratorType end){
-    std::stringstream ss;
-    if(begin == end){
-      ss << "[]";
-    } else {
-      ss << "[ ";
-      for(IteratorType it = begin; it != end; ++it){
-        ss << "\"" << *it << "\"" << ((std::next(it) == end) ? " " : ", " ) ;
-      }
-      ss << "]";
+template <typename IteratorType>
+std::string arrayToString(IteratorType begin, IteratorType end) {
+  std::stringstream ss;
+  if (begin == end) {
+    ss << "[]";
+  } else {
+    ss << "[ ";
+    for (IteratorType it = begin; it != end; ++it) {
+      ss << "\"" << *it << "\"" << ((std::next(it) == end) ? " " : ", ");
     }
-    ss << "\n";
-    return ss.str();
+    ss << "]";
   }
-
-  template<typename IteratorType>
-  std::string mapToKeys(IteratorType begin, IteratorType end){
-    std::stringstream ss;
-    if(begin == end){
-      ss << "Keys[]";
-    } else {
-      ss << "Keys[ ";
-      for(IteratorType it = begin; it != end; ++it){
-        ss << "\"" << it->first << "\"" << ((std::next(it) == end) ? " " : ", " ) ;
-      }
-      ss << "]";
-    }
-    ss << "\n";
-    return ss.str();
-  }
-
-  template<typename IteratorType>
-  std::string mapToString(IteratorType begin, IteratorType end){
-    std::stringstream ss;
-    if(begin == end){
-      ss << "{}";
-    } else {
-      ss << "{ ";
-      for(IteratorType it = begin; it != end; ++it){
-        ss << "\"" << it->first << "\" : \"" << it->second << ((std::next(it) == end) ? " " : ", " ) ;
-      }
-      ss << "}";
-    }
-    ss << "\n";
-    return ss.str();
-  }
+  ss << "\n";
+  return ss.str();
 }
+
+template <typename IteratorType>
+std::string mapToKeys(IteratorType begin, IteratorType end) {
+  std::stringstream ss;
+  if (begin == end) {
+    ss << "Keys[]";
+  } else {
+    ss << "Keys[ ";
+    for (IteratorType it = begin; it != end; ++it) {
+      ss << "\"" << it->first << "\"" << ((std::next(it) == end) ? " " : ", ");
+    }
+    ss << "]";
+  }
+  ss << "\n";
+  return ss.str();
+}
+
+template <typename IteratorType>
+std::string mapToString(IteratorType begin, IteratorType end) {
+  std::stringstream ss;
+  if (begin == end) {
+    ss << "{}";
+  } else {
+    ss << "{ ";
+    for (IteratorType it = begin; it != end; ++it) {
+      ss << "\"" << it->first << "\" : \"" << it->second
+         << ((std::next(it) == end) ? " " : ", ");
+    }
+    ss << "}";
+  }
+  ss << "\n";
+  return ss.str();
+}
+}  // namespace _detail
 
 std::string to_string(VSlice const& slice);
 std::string to_string(std::vector<VSlice> const& payload);
 std::string to_string(Message& message);
 StringMap sliceToStringMap(VSlice const&);
 
-template<typename K, typename V, typename A>
-std::string mapToString(std::map<K,V,A> map){
-  return _detail::mapToString(map.begin(),map.end());
+template <typename K, typename V, typename A>
+std::string mapToString(std::map<K, V, A> map) {
+  return _detail::mapToString(map.begin(), map.end());
 }
 
-template<typename K, typename V, typename A>
-std::string mapToKeys(std::map<K,V,A> map){
-  return _detail::mapToKeys(map.begin(),map.end());
+template <typename K, typename V, typename A>
+std::string mapToKeys(std::map<K, V, A> map) {
+  return _detail::mapToKeys(map.begin(), map.end());
 }
 
-template<typename K, typename V, typename A>
-std::string mapToString(std::unordered_map<K,V,A> map){
-  return _detail::mapToString(map.begin(),map.end());
+template <typename K, typename V, typename A>
+std::string mapToString(std::unordered_map<K, V, A> map) {
+  return _detail::mapToString(map.begin(), map.end());
 }
 
-template<typename K, typename V, typename A>
-std::string mapToKeys(std::unordered_map<K,V,A> map){
-  return _detail::mapToKeys(map.begin(),map.end());
+template <typename K, typename V, typename A>
+std::string mapToKeys(std::unordered_map<K, V, A> map) {
+  return _detail::mapToKeys(map.begin(), map.end());
 }
-  
+
 std::string encodeBase64(std::string const&);
 std::string encodeBase64U(std::string const&);
-
-}}}
+}}}  // namespace arangodb::fuerte::v1
 #endif

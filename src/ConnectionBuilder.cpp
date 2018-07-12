@@ -30,18 +30,19 @@
 #include "VstConnection.h"
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
-
 // Create an connection and start opening it.
 std::shared_ptr<Connection> ConnectionBuilder::connect(EventLoopService& loop) {
   std::shared_ptr<Connection> result;
 
-  if (_conf._connType == TransportType::Vst){
-    FUERTE_LOG_DEBUG << "fuerte - creating velocystream connection" << std::endl;
+  if (_conf._connType == TransportType::Vst) {
+    FUERTE_LOG_DEBUG << "fuerte - creating velocystream connection"
+                     << std::endl;
     result = std::make_shared<vst::VstConnection>(loop.nextIOContext(), _conf);
   } else {
-    //throw std::logic_error("http in vst test");
+    // throw std::logic_error("http in vst test");
     FUERTE_LOG_DEBUG << "fuerte - creating http connection" << std::endl;
-    result = std::make_shared<http::HttpConnection>(loop.nextIOContext(), _conf);
+    result =
+        std::make_shared<http::HttpConnection>(loop.nextIOContext(), _conf);
   }
   // Start the connection implementation
   result->start();
@@ -49,38 +50,33 @@ std::shared_ptr<Connection> ConnectionBuilder::connect(EventLoopService& loop) {
   return result;
 }
 
-ConnectionBuilder& ConnectionBuilder::host(std::string const& str){
+ConnectionBuilder& ConnectionBuilder::host(std::string const& str) {
   std::vector<std::string> strings;
   boost::split(strings, str, boost::is_any_of(":"));
 
-  //get protocol
+  // get protocol
   std::string const& proto = strings[0];
-  if (proto == "vst"){
+  if (proto == "vst") {
     _conf._connType = TransportType::Vst;
     _conf._ssl = false;
-  }
-  else if (proto == "vsts"){
+  } else if (proto == "vsts") {
     _conf._connType = TransportType::Vst;
     _conf._ssl = true;
-  }
-  else if (proto == "http"){
+  } else if (proto == "http") {
     _conf._connType = TransportType::Http;
     _conf._ssl = false;
-  }
-  else if (proto == "https"){
+  } else if (proto == "https") {
     _conf._connType = TransportType::Http;
     _conf._ssl = true;
-  }
-  else {
+  } else {
     throw std::runtime_error(std::string("invalid protocol: ") + proto);
   }
 
-  //TODO
-  //do more checking?
-  _conf._host = strings[1].erase(0,2); //remove '//'
+  // TODO
+  // do more checking?
+  _conf._host = strings[1].erase(0, 2);  // remove '//'
   _conf._port = strings[2];
 
   return *this;
 }
-
-}}}
+}}}  // namespace arangodb::fuerte::v1

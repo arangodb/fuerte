@@ -26,10 +26,10 @@
 #include <atomic>
 #include <mutex>
 
+#include <boost/asio/basic_waitable_timer.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/streambuf.hpp>
-#include <boost/asio/basic_waitable_timer.hpp>
 #include <boost/lockfree/queue.hpp>
 
 #include <fuerte/connection.h>
@@ -38,8 +38,6 @@
 #include "MessageStore.h"
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
-
-  
 // Connection object that handles sending and receiving of Velocystream
 // Messages.
 //
@@ -51,17 +49,15 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
 // synchronize in a thread-safe manner.
 // Error conditions will usually trigger a connection restart. Subclasses can
 // perform cleanup operations in their shutdownConnection method
-template<typename T>
+template <typename T>
 class AsioConnection : public Connection {
-
-  public:
-
-  AsioConnection(std::shared_ptr<boost::asio::io_context> const&, 
+ public:
+  AsioConnection(std::shared_ptr<boost::asio::io_context> const&,
                  detail::ConnectionConfiguration const&);
 
   virtual ~AsioConnection();
 
-public: 
+ public:
   // Activate the connection.
   void start() override;
 
@@ -74,69 +70,71 @@ public:
     return (_loopState.load() & WRITE_LOOP_QUEUE_MASK) < 1024;
   }
 
-private:
-
+ private:
   // SOCKET HANDLING /////////////////////////////////////////////////////////
   void initSocket();
   void shutdownSocket();
 
-  // resolve the host into a series of endpoints 
+  // resolve the host into a series of endpoints
   void startResolveHost();
 
   // establishes connection and initiates handshake
   void startConnect(boost::asio::ip::tcp::resolver::iterator);
-  void asyncConnectCallback(boost::system::error_code const& ec, boost::asio::ip::tcp::resolver::iterator);
+  void asyncConnectCallback(boost::system::error_code const& ec,
+                            boost::asio::ip::tcp::resolver::iterator);
 
   // start intiating an SSL connection (on top of an established TCP socket)
   void startSSLHandshake();
 
-protected:
-
-  void restartConnection(const ErrorCondition = ErrorCondition::CanceledDuringReset);
+ protected:
+  void restartConnection(
+      const ErrorCondition = ErrorCondition::CanceledDuringReset);
 
   // Thread-Safe: reset io loop flags
   void stopIOLoops();
-  
+
   // Thread-Safe: activate the writer loop (if off and items are queud)
-  //void startWriting();
+  // void startWriting();
   // Thread-Safe: stop the write loop
-  //void stopWriting();
-  
+  // void stopWriting();
+
   // Thread-Safe: queue a new request. Returns loop state
   uint32_t queueRequest(std::unique_ptr<T>);
-  
+
   ///  Call on IO-Thread: writes out one queue request
   void asyncWrite();
 
   // Thread-Safe: activate the receiver loop (if needed)
-  //void startReading();
+  // void startReading();
   // Thread-Safe: stop the read loop
-  //uint32_t stopReading();
-  
+  // uint32_t stopReading();
+
   // Call on IO-Thread: read from socket
   void asyncReadSome();
-  
- protected:
 
+ protected:
   // socket connection is up (with optional SSL)
   virtual void finishInitialization() = 0;
 
   // called on shutdown, always call superclass
-  virtual void shutdownConnection(const ErrorCondition = ErrorCondition::CanceledDuringReset);
+  virtual void shutdownConnection(
+      const ErrorCondition = ErrorCondition::CanceledDuringReset);
 
   // fetch the buffers for the write-loop (called from IO thread)
-  virtual std::vector<boost::asio::const_buffer> fetchBuffers(std::shared_ptr<T> const&) = 0;
+  virtual std::vector<boost::asio::const_buffer> fetchBuffers(
+      std::shared_ptr<T> const&) = 0;
 
   // called by the async_write handler (called from IO thread)
   virtual void asyncWriteCallback(::boost::system::error_code const& error,
                                   size_t transferred, std::shared_ptr<T>) = 0;
   // called by the async_read handler (called from IO thread)
-  virtual void asyncReadCallback(::boost::system::error_code const&, size_t transferred) = 0;
+  virtual void asyncReadCallback(::boost::system::error_code const&,
+                                 size_t transferred) = 0;
 
-protected:
+ protected:
   /// io context to use
   std::shared_ptr<boost::asio::io_context> _io_context;
-  // host resolver 
+  // host resolver
   boost::asio::ip::tcp::resolver _resolver;
   /// endpoints to use
   boost::asio::ip::tcp::resolver::iterator _endpoints;
@@ -151,13 +149,15 @@ protected:
   /// SSL context, may be null
   std::shared_ptr<boost::asio::ssl::context> _sslContext;
   /// SSL steam socket, may be null
-  std::shared_ptr<boost::asio::ssl::stream<::boost::asio::ip::tcp::socket&>> _sslSocket;
+  std::shared_ptr<boost::asio::ssl::stream<::boost::asio::ip::tcp::socket&>>
+      _sslSocket;
 
   /// @brief is the connection established (set by subclass)
   std::atomic<bool> _connected;
-  /// @brief we received an error which breaks the connection (i.e. bad authentication)
+  /// @brief we received an error which breaks the connection (i.e. bad
+  /// authentication)
   std::atomic<bool> _permanent_failure;
-  
+
   /// stores in-flight messages (thread-safe)
   MessageStore<T> _messageStore;
 
@@ -179,6 +179,5 @@ protected:
   /// elements to send out
   boost::lockfree::queue<T*> _writeQueue;
 };
-
-}}}
+}}}  // namespace arangodb::fuerte::v1
 #endif

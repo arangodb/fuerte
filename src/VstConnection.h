@@ -25,25 +25,24 @@
 #ifndef ARANGO_CXX_DRIVER_VST_CONNECTION_H
 #define ARANGO_CXX_DRIVER_VST_CONNECTION_H 1
 
-#include "vst.h"
-#include "MessageStore.h"
 #include "AsioConnection.h"
+#include "MessageStore.h"
+#include "vst.h"
 
 // naming in this file will be closer to asio for internal functions and types
-// functions that are exposed to other classes follow ArangoDB conding conventions
+// functions that are exposed to other classes follow ArangoDB conding
+// conventions
 
-namespace arangodb { namespace fuerte { inline namespace v1 {
+namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
-namespace vst {
-
-class VstConnection final : public AsioConnection<arangodb::fuerte::v1::vst::RequestItem> {
-
-public:
-  explicit VstConnection(std::shared_ptr<boost::asio::io_context> const&, 
+class VstConnection final
+    : public AsioConnection<arangodb::fuerte::v1::vst::RequestItem> {
+ public:
+  explicit VstConnection(std::shared_ptr<boost::asio::io_context> const&,
                          detail::ConnectionConfiguration const&);
   virtual ~VstConnection();
 
-public:
+ public:
   // this function prepares the request for sending
   // by creating a RequestItem and setting:
   //  - a messageid
@@ -53,55 +52,61 @@ public:
   // no other write in progress
   MessageID sendRequest(std::unique_ptr<Request>, RequestCallback) override;
 
- public: 
-
+ public:
   // Return the number of unfinished requests.
   size_t requestsLeft() const override;
 
  private:
-
   // socket connection is up (with optional SSL), now initiate the VST protocol.
   void finishInitialization() override;
 
   // fetch the buffers for the write-loop (called from IO thread)
-  std::vector<boost::asio::const_buffer> fetchBuffers(std::shared_ptr<RequestItem> const&) override;
+  std::vector<boost::asio::const_buffer> fetchBuffers(
+      std::shared_ptr<RequestItem> const&) override;
 
   // Thread-Safe: activate the writer loop (if off and items are queud)
   void startWriting();
-  
+
   // called by the async_write handler (called from IO thread)
   void asyncWriteCallback(::boost::system::error_code const& error,
-                          size_t transferred, std::shared_ptr<RequestItem>) override;
-  
+                          size_t transferred,
+                          std::shared_ptr<RequestItem>) override;
+
   // Thread-Safe: activate the read loop (if needed)
   void startReading();
-  
+
   // Thread-Safe: stops read loop
   void stopReading();
-  
-  // called by the async_read handler (called from IO thread)
-  void asyncReadCallback(::boost::system::error_code const&, size_t transferred) override;
 
-private:
-  
-  // Insert all requests needed for authenticating a new connection at the front of the send queue.
+  // called by the async_read handler (called from IO thread)
+  void asyncReadCallback(::boost::system::error_code const&,
+                         size_t transferred) override;
+
+ private:
+  // Insert all requests needed for authenticating a new connection at the front
+  // of the send queue.
   void insertAuthenticationRequests();
 
   // createRequestItem prepares a RequestItem for the given parameters.
-  std::unique_ptr<RequestItem> createRequestItem(std::unique_ptr<Request> request, RequestCallback cb);
+  std::unique_ptr<RequestItem> createRequestItem(
+      std::unique_ptr<Request> request, RequestCallback cb);
 
-  // Restart the connection if the given ReadLoop is still the current read loop.
-  //void restartConnection(const ReadLoop*, const ErrorCondition);
+  // Restart the connection if the given ReadLoop is still the current read
+  // loop.
+  // void restartConnection(const ReadLoop*, const ErrorCondition);
 
   // Process the given incoming chunk.
-  void processChunk(ChunkHeader &chunk);
+  void processChunk(ChunkHeader& chunk);
   // Create a response object for given RequestItem & received response buffer.
-  std::unique_ptr<Response> createResponse(RequestItem& item, std::unique_ptr<VBuffer>& responseBuffer);
+  std::unique_ptr<Response> createResponse(
+      RequestItem& item, std::unique_ptr<VBuffer>& responseBuffer);
 
-private:
+  // called when the timeout expired
+  void timeoutExpired(boost::system::error_code const& e);
+
+ private:
   const VSTVersion _vstVersion;
 };
 
-}
-}}}
+}}}}  // namespace arangodb::fuerte::v1::vst
 #endif

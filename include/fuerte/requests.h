@@ -44,50 +44,28 @@
 //
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
-
 // Helper and Implementation
 
 // base case - everything uses this
-std::unique_ptr<Request>
-createRequest(MessageHeader&& messageHeader
-             ,StringMap&& headerStrings
-             ,RestVerb const& verb
-             ,ContentType const& contentType
-             );
+std::unique_ptr<Request> createRequest(MessageHeader&& messageHeader,
+                                       StringMap&& headerStrings,
+                                       RestVerb const& verb,
+                                       ContentType const& contentType);
 
-// wrapper for const paramters
-/*std::unique_ptr<Request>
-createRequest(MessageHeader const& messageHeader
-             ,StringMap const& headerStrings
-             ,std::string const& database
-             ,RestVerb const& verb
-             ,ContentType const& contentType
-             );*/
-
-std::unique_ptr<Request>
-createRequest(RestVerb const& verb
-             ,ContentType const& contentType
-             );
+std::unique_ptr<Request> createRequest(RestVerb const& verb,
+                                       ContentType const& contentType);
 
 // For User
-std::unique_ptr<Request>
-createRequest(RestVerb verb
-             ,std::string const& path
-             ,StringMap const& parameter
-             ,VBuffer&& payload
-             );
+std::unique_ptr<Request> createRequest(RestVerb verb, std::string const& path,
+                                       StringMap const& parameter,
+                                       VBuffer&& payload);
 
-std::unique_ptr<Request>
-createRequest(RestVerb verb
-             ,std::string const& path
-             ,StringMap const& parameter
-             ,VSlice const& payload
-             );
+std::unique_ptr<Request> createRequest(RestVerb verb, std::string const& path,
+                                       StringMap const& parameter,
+                                       VSlice const& payload);
 
-std::unique_ptr<Request>
-createRequest(RestVerb verb
-             ,std::string const& path
-             ,StringMap const& parameter = StringMap()
-             );
-}}}
+std::unique_ptr<Request> createRequest(
+    RestVerb verb, std::string const& path,
+    StringMap const& parameter = StringMap());
+}}}  // namespace arangodb::fuerte::v1
 #endif

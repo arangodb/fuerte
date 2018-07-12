@@ -26,19 +26,18 @@
 
 #include <atomic>
 #include <chrono>
-#include <mutex>
-#include <map>
-#include <deque>
 #include <condition_variable>
+#include <deque>
+#include <map>
+#include <mutex>
 
 #include <fuerte/helper.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
-
 // MessageStore keeps a thread safe list of all requests that are "in-flight".
 template <class RequestItemT>
 class MessageStore {
-  public:
+ public:
   // add a given item to the store (indexed by its ID).
   void add(std::shared_ptr<RequestItemT> item) {
     std::lock_guard<std::mutex> lockMap(_mutex);
@@ -65,10 +64,12 @@ class MessageStore {
 
   // Notify all items that their being cancelled (by calling their onError)
   // and remove all items from the store.
-  void cancelAll(const ErrorCondition error = ErrorCondition::CanceledDuringReset) {
+  void cancelAll(
+      const ErrorCondition error = ErrorCondition::CanceledDuringReset) {
     std::lock_guard<std::mutex> lockMap(_mutex);
     for (auto& item : _map) {
-      item.second->invokeOnError(errorToInt(error), std::move(item.second->_request), nullptr);
+      item.second->invokeOnError(errorToInt(error),
+                                 std::move(item.second->_request), nullptr);
     }
     _map.clear();
   }
@@ -90,12 +91,16 @@ class MessageStore {
     }
   }
 
-  // minimumTimeout returns the lowest timeout value of all messages in this store.
+  // minimumTimeout returns the lowest timeout value of all messages in this
+  // store.
   std::chrono::milliseconds minimumTimeout(bool unlocked = false) {
     if (unlocked) {
-      std::chrono::milliseconds min(2*60*1000); // If there is no message, use a timeout of 2 minutes.
+      std::chrono::milliseconds min(
+          2 * 60 *
+          1000);  // If there is no message, use a timeout of 2 minutes.
       for (auto& item : _map) {
-        auto reqTimeout = std::chrono::duration_cast<std::chrono::milliseconds>(item.second->_request->timeout());
+        auto reqTimeout = std::chrono::duration_cast<std::chrono::milliseconds>(
+            item.second->_request->timeout());
         if (reqTimeout.count() < min.count()) {
           min = reqTimeout;
         }
@@ -121,5 +126,5 @@ class MessageStore {
   std::map<MessageID, std::shared_ptr<RequestItemT>> _map;
 };
 
-}}}
+}}}  // namespace arangodb::fuerte::v1
 #endif
