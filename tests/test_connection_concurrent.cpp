@@ -36,8 +36,16 @@
 
 // need a new class to use test fixture
 class ConcurrentConnectionF : public ConnectionTestF {
+  
+  fu::StatusCode dropCollection() {
+    auto request = fu::createRequest(fu::RestVerb::Delete, "/_api/collection/parallel");
+    auto response = _connection->sendRequest(std::move(request));
+    return response->statusCode();
+  }
+  
   virtual void SetUp() override {
     ConnectionTestF::SetUp();
+    dropCollection(); // ignore response
     
     // create the collection
     fu::VBuilder builder;
@@ -51,11 +59,9 @@ class ConcurrentConnectionF : public ConnectionTestF {
   }
   
   virtual void TearDown() override {
-    ConnectionTestF::TearDown();
     // drop the collection
-    auto request = fu::createRequest(fu::RestVerb::Delete, "/_api/collection/parallel");
-    auto response = _connection->sendRequest(std::move(request));
-    ASSERT_EQ(response->statusCode(), fu::StatusOK);
+    ASSERT_EQ(dropCollection(), fu::StatusOK);
+    ConnectionTestF::TearDown();
   }
     
 };

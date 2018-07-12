@@ -180,8 +180,8 @@ TEST_P(ConnectionTestF, ShortAndLongASync){
 static const ConnectionTestParams connectionTestBasicParams[] = {
   {._url= "http://127.0.0.1:8529", ._threads=1, ._repeat=100},
   {._url= "vst://127.0.0.1:8529", ._threads=1, ._repeat=100},
-  {._url= "http://localhost:8529", ._threads=1, ._repeat=10000},
-  {._url= "vst://localhost:8529", ._threads=1, ._repeat=10000}
+  {._url= "http://localhost:8529", ._threads=1, ._repeat=5000},
+  {._url= "vst://localhost:8529", ._threads=1, ._repeat=5000}
 };
 
 INSTANTIATE_TEST_CASE_P(BasicConnectionTests, ConnectionTestF,
