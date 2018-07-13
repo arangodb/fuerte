@@ -74,8 +74,11 @@ class HttpConnection
   void asyncReadCallback(::boost::system::error_code const&,
                          size_t transferred) override;
 
-  // Thread-Safe: activate the writer if needed
+  /// Thread-Safe: activate the writer if needed
   void startWriting();
+      
+  /// Thread-Safe: disable write loop if nothing is queued
+  uint32_t tryStopWriting();
 
   // called by the async_write handler (called from IO thread)
   void asyncWriteCallback(::boost::system::error_code const& error,
@@ -92,6 +95,12 @@ class HttpConnection
   // createRequestItem prepares a RequestItem for the given parameters.
   std::unique_ptr<RequestItem> createRequestItem(
       std::unique_ptr<Request> request, RequestCallback cb);
+  
+  /// set the timer accordingly
+  void setTimeout(std::chrono::milliseconds);
+      
+  // called when the timeout expired
+  void timeoutExpired(boost::system::error_code const& e);
 
  private:
   /// cached authentication header

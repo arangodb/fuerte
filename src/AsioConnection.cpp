@@ -73,6 +73,10 @@ void AsioConnection<T>::start() {
 // resolve the host into a series of endpoints
 template <typename T>
 void AsioConnection<T>::startResolveHost() {
+  // socket must be empty before. Check that
+  assert(!_socket);
+  assert(!_sslSocket);
+  
   // Resolve the host asynchronous.
   auto self = shared_from_this();
   _resolver.async_resolve(
@@ -101,8 +105,7 @@ void AsioConnection<T>::startResolveHost() {
 
 template <typename T>
 void AsioConnection<T>::initSocket() {
-  // std::lock_guard<std::mutex> lock(_socket_mutex);
-
+  std::lock_guard<std::mutex> lock(_socket_mutex);
   // socket must be empty before. Check that
   assert(!_socket);
   assert(!_sslSocket);
@@ -129,30 +132,31 @@ void AsioConnection<T>::shutdownSocket() {
   FUERTE_LOG_CALLBACKS << "begin shutdown socket\n";
 
   ::boost::system::error_code error;
-  if (_sslSocket) {
+  if (_sslSocket.get() != nullptr) {
     _sslSocket->shutdown(error);
   }
-  if (_socket) {
+  if (_socket.get() != nullptr) {
     _socket->cancel();
     _socket->shutdown(bt::socket::shutdown_both, error);
     _socket->close(error);
+    _socket.reset();
   }
-  _sslSocket = nullptr;
-  _socket = nullptr;
+  _sslSocket.reset();
 }
 
 // shutdown the connection and cancel all pending messages.
 template <typename T>
 void AsioConnection<T>::shutdownConnection(const ErrorCondition ec) {
   FUERTE_LOG_CALLBACKS << "shutdownConnection\n";
-  _connected = false;
-
+  
+  _connected.store(false, std::memory_order_release);
+  
   // Stop the read & write loop
   stopIOLoops();
-
+  
   // Close socket
   shutdownSocket();
-
+  
   // Cancel all items and remove them from the message store.
   _messageStore.cancelAll(ec);
 }
@@ -162,12 +166,17 @@ void AsioConnection<T>::restartConnection(const ErrorCondition error) {
   // Read & write loop must have been reset by now
 
   FUERTE_LOG_CALLBACKS << "restartConnection" << std::endl;
-  // Terminate connection
-  shutdownConnection(error);
-
-  // Initiate new connection
-  if (!_permanent_failure) {
-    startResolveHost();
+  
+  // only restart connection if it was connected previously
+  if (_connected.exchange(false, std::memory_order_acquire)) {
+    
+    // Terminate connection
+    shutdownConnection(error);
+    
+    // Initiate new connection
+    if (!_permanent_failure) {
+      startResolveHost();
+    }
   }
 }
 

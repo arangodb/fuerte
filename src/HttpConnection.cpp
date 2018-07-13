@@ -228,9 +228,8 @@ void HttpConnection::finishInitialization() {
 
 // called on shutdown, always call superclass
 void HttpConnection::shutdownConnection(const ErrorCondition ec) {
-  AsioConnection::shutdownConnection(ec);
-  // simon: thread-safe, only called from IO-Thread (which holds shared_ptr) and
-  // destructor
+  // simon: thread-safe, only called from IO-Thread
+  // (which holds shared_ptr) and destructors
   if (_inFlight) {
     // Item has failed, remove from message store
     _messageStore.removeByID(_inFlight->_messageID);
@@ -238,12 +237,14 @@ void HttpConnection::shutdownConnection(const ErrorCondition ec) {
                              {nullptr});
     _inFlight.reset();
   }
+  AsioConnection::shutdownConnection(ec);
 }
 
 // fetch the buffers for the write-loop (called from IO thread)
 std::vector<boost::asio::const_buffer> HttpConnection::fetchBuffers(
     std::shared_ptr<RequestItem> const& item) {
   _messageStore.add(item);
+  
   return {boost::asio::buffer(item->_requestHeader.data(),
                               item->_requestHeader.size()),
           item->_request->payload()};
@@ -273,8 +274,7 @@ void HttpConnection::startWriting() {
 void HttpConnection::asyncWriteCallback(
     ::boost::system::error_code const& error, size_t transferred,
     std::shared_ptr<RequestItem> item) {
-  // Cancel deadline
-  //_deadline.cancel();
+  _timeout.cancel();
 
   if (error) {
     // Send failed
@@ -310,6 +310,8 @@ void HttpConnection::asyncWriteCallback(
 
     http_parser_init(&_parser, HTTP_RESPONSE);
     _parser.data = static_cast<void*>(_inFlight.get());
+    // set the timer
+    setTimeout(_inFlight->_request->timeout());
 
     // check queue length later
     asyncReadSome();  // listen for the response
@@ -322,6 +324,8 @@ void HttpConnection::asyncWriteCallback(
 // called by the async_read handler (called from IO thread)
 void HttpConnection::asyncReadCallback(::boost::system::error_code const& ec,
                                        size_t transferred) {
+  _timeout.cancel();
+  
   if (ec) {
     FUERTE_LOG_CALLBACKS
         << "asyncReadCallback: Error while reading from socket";
@@ -336,74 +340,90 @@ void HttpConnection::asyncReadCallback(::boost::system::error_code const& ec,
         << "asyncReadCallback: received " << transferred
         << " bytes\n";  // async-calls=" << pendingAsyncCalls << std::endl;
 
-    // Inspect the data we've received so far.
-    /*auto buffers = _receiveBuffer.data(); // no copy
-     for (auto const& buffer : buffers) {
-     buffer.data()
-     }*/
 
-    // Inspect the data we've received so far.
-    auto recvBuffs = _receiveBuffer.data();  // no copy
-    auto cursor = boost::asio::buffer_cast<const char*>(
-        recvBuffs);  // TODO this is deprecated
-    auto available = boost::asio::buffer_size(recvBuffs);
-
-    assert(_inFlight);  // must be set earlier
-    /* Start up / continue the parser.
-     * Note we pass recved==0 to signal that EOF has been received.
-     */
-    size_t nparsed =
-        http_parser_execute(&_parser, &_parserSettings, cursor, available);
-
-    // Remove consumed data from receive buffer.
-    _receiveBuffer.consume(nparsed);
-
-    if (_parser.upgrade) {
-      /* handle new protocol */
-      FUERTE_LOG_ERROR << "Upgrading is not supported" << std::endl;
-      shutdownConnection(
-          ErrorCondition::ProtocolError);  // will cleanup _inFlight
-      return;
-    } else if (nparsed != transferred) {
-      /* Handle error. Usually just close the connection. */
-      FUERTE_LOG_ERROR << "Invalid HTTP response in parser" << std::endl;
-      shutdownConnection(
-          ErrorCondition::ProtocolError);  // will cleanup _inFlight
-      return;
-    } else if (_inFlight->message_complete) {
-      // remove processed item from the message store
-      _messageStore.removeByID(_inFlight->_messageID);
-      // thread-safe access on IO-Thread
-      _inFlight->_response->setPayload(std::move(_inFlight->_responseBuffer),
-                                       0);
-      _inFlight->_callback.invoke(0, std::move(_inFlight->_request),
-                                  std::move(_inFlight->_response));
-      _inFlight.reset();
-
-      FUERTE_LOG_HTTPTRACE
-          << "asyncReadCallback (http): completed parsing response\n";
-
-      // check the queue length, stop IO loop if empty
-      uint32_t state = _loopState.load(std::memory_order_seq_cst);
-      // nothing is queued, lets try to halt the write queue while
-      // the write loop is active and nothing is queued
-      while ((state & LOOP_FLAGS) && (state & WRITE_LOOP_QUEUE_MASK) == 0) {
-        if (_loopState.compare_exchange_weak(state, state & ~LOOP_FLAGS)) {
-          FUERTE_LOG_TRACE << "asyncWrite: no more queued items" << std::endl;
-          return;  // we turned loop off while nothing was queued
-        }
-        cpu_relax();
-      }
-
-      assert(state & LOOP_FLAGS);
-      assert((state & WRITE_LOOP_QUEUE_MASK) > 0);
-      asyncWrite();  // send next request, do not keep reading
-
-    } else {
-      FUERTE_LOG_HTTPTRACE
-          << "asyncReadCallback (http): response not complete yet\n";
-      asyncReadSome();  // keep reading from socket
+    if (!_inFlight) {
+      _receiveBuffer.consume(_receiveBuffer.size());
+      return; // just stop
     }
+    
+    // Inspect the data we've received so far.
+    auto buffers = _receiveBuffer.data(); // no copy
+    for (auto const& buffer : buffers) {
+      
+      /* Start up / continue the parser.
+       * Note we pass recved==0 to signal that EOF has been received.
+       */
+      size_t nparsed = http_parser_execute(&_parser, &_parserSettings,
+                                           static_cast<const char *>(buffer.data()),
+                                           buffer.size());
+      // Remove consumed data from receive buffer.
+      _receiveBuffer.consume(nparsed);
+      
+      if (_parser.upgrade) {
+        /* handle new protocol */
+        FUERTE_LOG_ERROR << "Upgrading is not supported" << std::endl;
+        shutdownConnection(
+                           ErrorCondition::ProtocolError);  // will cleanup _inFlight
+        return;
+      } else if (nparsed != transferred) {
+        /* Handle error. Usually just close the connection. */
+        FUERTE_LOG_ERROR << "Invalid HTTP response in parser" << std::endl;
+        shutdownConnection(ErrorCondition::ProtocolError);  // will cleanup _inFlight
+        return;
+      } else if (_inFlight->message_complete) {
+        // remove processed item from the message store
+        _messageStore.removeByID(_inFlight->_messageID);
+        // thread-safe access on IO-Thread
+        _inFlight->_response->setPayload(std::move(_inFlight->_responseBuffer), 0);
+        _inFlight->_callback.invoke(0, std::move(_inFlight->_request),
+                                    std::move(_inFlight->_response));
+        _inFlight.reset();
+        
+        FUERTE_LOG_HTTPTRACE
+        << "asyncReadCallback (http): completed parsing response\n";
+        
+        // check the queue length, stop IO loop if empty
+        uint32_t state = _loopState.load(std::memory_order_seq_cst);
+        // nothing is queued, lets try to halt the write queue while
+        // the write loop is active and nothing is queued
+        while ((state & LOOP_FLAGS) && (state & WRITE_LOOP_QUEUE_MASK) == 0) {
+          if (_loopState.compare_exchange_weak(state, state & ~LOOP_FLAGS)) {
+            FUERTE_LOG_TRACE << "asyncWrite: no more queued items" << std::endl;
+            return;  // we turned loop off while nothing was queued
+          }
+          cpu_relax();
+        }
+        
+        assert(state & LOOP_FLAGS);
+        assert((state & WRITE_LOOP_QUEUE_MASK) > 0);
+        asyncWrite();  // send next request
+        return;
+      }
+    }
+    FUERTE_LOG_HTTPTRACE
+        << "asyncReadCallback (http): response not complete yet\n";
+    asyncReadSome();  // keep reading from socket
   }
 }
+  
+void HttpConnection::setTimeout(std::chrono::milliseconds millis) {
+  // Set HTTP timeout
+  if (millis.count() == 0) {
+    _timeout.cancel();
+    return; // do
+  }
+  assert(millis.count() > 0);
+  auto self = shared_from_this();
+  _timeout.expires_from_now(millis);
+  _timeout.async_wait(std::bind(&HttpConnection::timeoutExpired,
+                                std::static_pointer_cast<HttpConnection>(self), std::placeholders::_1));
+}
+  
+// called when the timeout expired
+void HttpConnection::timeoutExpired(boost::system::error_code const& e) {
+  if (!e) {  // expired
+    restartConnection(ErrorCondition::Timeout);
+  }
+}
+  
 }}}}  // namespace arangodb::fuerte::v1::http

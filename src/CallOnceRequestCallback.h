@@ -45,7 +45,7 @@ class CallOnceRequestCallback {
   // If the callback was already invoked, the callback is not invoked.
   inline void invoke(Error error, std::unique_ptr<Request> req,
                      std::unique_ptr<Response> resp) {
-    if (!_invoked.test_and_set()) {  //
+    if (!_invoked.test_and_set()) {
       assert(_cb);
       _cb(error, std::move(req), std::move(resp));
       _cb = nullptr;

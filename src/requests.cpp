@@ -35,7 +35,6 @@ std::unique_ptr<Request> createRequest(RequestHeader&& messageHeader,
   std::unique_ptr<Request> request(new Request(std::move(messageHeader)));
 
   request->header.restVerb = verb;
-
   request->header.contentType(contentType);
   request->header.acceptType(contentType);
   // fuerte requests default to vpack content type for accept
