@@ -244,6 +244,8 @@ void HttpConnection::shutdownConnection(const ErrorCondition ec) {
 std::vector<boost::asio::const_buffer> HttpConnection::fetchBuffers(
     std::shared_ptr<RequestItem> const& item) {
   _messageStore.add(item);
+  // set the timer when we start sending
+  setTimeout(item->_request->timeout());
   
   return {boost::asio::buffer(item->_requestHeader.data(),
                               item->_requestHeader.size()),
@@ -274,7 +276,6 @@ void HttpConnection::startWriting() {
 void HttpConnection::asyncWriteCallback(
     ::boost::system::error_code const& error, size_t transferred,
     std::shared_ptr<RequestItem> item) {
-  _timeout.cancel();
 
   if (error) {
     // Send failed
@@ -310,8 +311,6 @@ void HttpConnection::asyncWriteCallback(
 
     http_parser_init(&_parser, HTTP_RESPONSE);
     _parser.data = static_cast<void*>(_inFlight.get());
-    // set the timer
-    setTimeout(_inFlight->_request->timeout());
 
     // check queue length later
     asyncReadSome();  // listen for the response
@@ -324,7 +323,6 @@ void HttpConnection::asyncWriteCallback(
 // called by the async_read handler (called from IO thread)
 void HttpConnection::asyncReadCallback(::boost::system::error_code const& ec,
                                        size_t transferred) {
-  _timeout.cancel();
   
   if (ec) {
     FUERTE_LOG_CALLBACKS
@@ -371,6 +369,8 @@ void HttpConnection::asyncReadCallback(::boost::system::error_code const& ec,
         shutdownConnection(ErrorCondition::ProtocolError);  // will cleanup _inFlight
         return;
       } else if (_inFlight->message_complete) {
+        
+        _timeout.cancel();
         // remove processed item from the message store
         _messageStore.removeByID(_inFlight->_messageID);
         // thread-safe access on IO-Thread

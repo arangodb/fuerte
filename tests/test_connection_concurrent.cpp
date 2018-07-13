@@ -51,7 +51,7 @@ class ConcurrentConnectionF : public ConnectionTestF {
   }
 };
 
-TEST_P(ConnectionTestF, ApiVersionParallel) {
+TEST_P(ConcurrentConnectionF, ApiVersionParallel) {
   fu::WaitGroup wg;
   std::atomic<size_t> counter(0);
   auto cb = [&](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res) {
@@ -132,11 +132,6 @@ TEST_P(ConcurrentConnectionF, CreateDocumentsParallel){
   }
   
   ASSERT_EQ(repeat() * threads(), counter);
-}
-
-
-TEST_P(ConcurrentConnectionF, UpdateDocumentsParallel){
-  // TODO
 }
 
 static const ConnectionTestParams params[] = {
