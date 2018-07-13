@@ -47,7 +47,7 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
 // Helper and Implementation
 
 // base case - everything uses this
-std::unique_ptr<Request> createRequest(MessageHeader&& messageHeader,
+std::unique_ptr<Request> createRequest(RequestHeader&& messageHeader,
                                        StringMap&& headerStrings,
                                        RestVerb const& verb,
                                        ContentType const& contentType);
@@ -58,11 +58,11 @@ std::unique_ptr<Request> createRequest(RestVerb const& verb,
 // For User
 std::unique_ptr<Request> createRequest(RestVerb verb, std::string const& path,
                                        StringMap const& parameter,
-                                       VBuffer&& payload);
+                                       velocypack::Buffer<uint8_t>&& payload);
 
 std::unique_ptr<Request> createRequest(RestVerb verb, std::string const& path,
                                        StringMap const& parameter,
-                                       VSlice const& payload);
+                                       velocypack::Slice const& payload);
 
 std::unique_ptr<Request> createRequest(
     RestVerb verb, std::string const& path,

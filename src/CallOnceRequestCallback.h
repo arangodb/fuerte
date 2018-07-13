@@ -49,6 +49,8 @@ class CallOnceRequestCallback {
       assert(_cb);
       _cb(error, std::move(req), std::move(resp));
       _cb = nullptr;
+    } else {
+      assert(false);
     }
   }
 

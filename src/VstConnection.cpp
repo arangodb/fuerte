@@ -35,6 +35,7 @@
 #include <fuerte/loop.h>
 #include <fuerte/message.h>
 #include <fuerte/types.h>
+#include <velocypack/velocypack-aliases.h>
 
 namespace fu = arangodb::fuerte::v1;
 using namespace arangodb::fuerte::v1::vst;
@@ -53,19 +54,27 @@ VstConnection::VstConnection(
 // Deconstruct.
 VstConnection::~VstConnection() {}
 
+static std::atomic<uint64_t> vstMessageId(1);
 // sendRequest prepares a RequestItem for the given parameters
 // and adds it to the send queue.
 MessageID VstConnection::sendRequest(std::unique_ptr<Request> request,
                                      RequestCallback cb) {
+  // it does not matter if IDs are reused on different connections
+  uint64_t mid = vstMessageId.fetch_add(1, std::memory_order_relaxed);
+  
   // Create RequestItem from parameters
-  auto item = createRequestItem(std::move(request), cb);
-  uint64_t mid = item->_messageID;
+  std::unique_ptr<RequestItem> item(new RequestItem());
+  item->_messageID = mid;
+  item->_callback = cb;
+  item->_request = std::move(request);
+  item->prepareForNetwork(_vstVersion);
+  
   // Add item to send queue
   uint32_t state = queueRequest(std::move(item));
 
   // this allows sendRequest to return immediately and
   // not to block until all writing is done
-  if (_connected) {
+  if (_connected.load(std::memory_order_acquire)) {
     FUERTE_LOG_VSTTRACE << "sendRequest (vst): start sending & reading"
                         << std::endl;
     if (!(state & WRITE_LOOP_ACTIVE)) {
@@ -75,23 +84,6 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request,
     FUERTE_LOG_VSTTRACE << "sendRequest (vst): not connected" << std::endl;
   }
   return mid;
-}
-
-// createRequestItem prepares a RequestItem for the given parameters.
-std::unique_ptr<RequestItem> VstConnection::createRequestItem(
-    std::unique_ptr<Request> request, RequestCallback cb) {
-  static std::atomic<uint64_t> messageId(1);
-
-  // check if id is already used and fail (?)
-  request->messageID = messageId.fetch_add(1, std::memory_order_relaxed);
-  std::unique_ptr<RequestItem> item(new RequestItem());
-
-  item->_messageID = request->messageID;
-  item->_callback = cb;
-  item->_request = std::move(request);
-  item->prepareForNetwork(_vstVersion);
-
-  return item;
 }
 
 std::size_t VstConnection::requestsLeft() const {
@@ -123,7 +115,7 @@ void VstConnection::finishInitialization() {
       [this, self](BoostEC const& error, std::size_t transferred) {
         if (error) {
           FUERTE_LOG_ERROR << error.message() << std::endl;
-          _connected = false;
+          _connected.store(false, std::memory_order_release);
           shutdownConnection(ErrorCondition::WriteError);
           onFailure(
               errorToInt(ErrorCondition::CouldNotConnect),
@@ -132,42 +124,83 @@ void VstConnection::finishInitialization() {
           FUERTE_LOG_CALLBACKS
               << "VST connection established; starting send/read loop"
               << std::endl;
-          insertAuthenticationRequests();
-          _connected = true;
-          startWriting();
-          startReading();
+          if (_configuration._authenticationType != AuthenticationType::None) {
+            // send the auth, then set _connected == true
+            sendAuthenticationRequest();
+          } else {
+            _connected.store(true, std::memory_order_release);
+            startWriting(); // start writing if something is queued
+          }
         }
       });
 }
 
-// Insert all requests needed for authenticating a new connection at the front
-// of the send queue.
-void VstConnection::insertAuthenticationRequests() {
-  switch (_configuration._authenticationType) {
-    case AuthenticationType::None:
-      // Do nothing
-      break;
-    case AuthenticationType::Basic: {
-      auto req = std::unique_ptr<Request>(new Request());
-      req->header.type = MessageType::Authentication;
-      req->header.encryption = "plain";
-      req->header.user = _configuration._user;
-      req->header.password = _configuration._password;
-      auto self = shared_from_this();
-      auto item = createRequestItem(
-          std::move(req), [this, self](Error error, std::unique_ptr<Request>,
-                                       std::unique_ptr<Response>) {
-            if (error) {
-              _permanent_failure = true;
-              onFailure(error, "authentication failed");
-            }
-          });
-      queueRequest(std::move(item));
-    } break;
-    case AuthenticationType::Jwt:
-      throw std::invalid_argument("JWT authentication not yet implemented");
-      break;
+// Send out the authentication message on this connection
+void VstConnection::sendAuthenticationRequest() {
+  assert(_configuration._authenticationType != AuthenticationType::None);
+  
+  // Part 1: Build ArangoDB VST auth message (1000)
+  auto item = std::make_shared<RequestItem>();
+  item->_request = nullptr; // should not break anything
+  item->_messageID = vstMessageId.fetch_add(1, std::memory_order_relaxed);
+  
+  if (_configuration._authenticationType == AuthenticationType::Basic) {
+    item->_msgHdr = authMessageBasic(_configuration._user, _configuration._password);
+  } else if (_configuration._authenticationType == AuthenticationType::Jwt) {
+    item->_msgHdr = authMessageJWT(_configuration._jwtToken);
   }
+  assert(item->_msgHdr.size() < defaultMaxChunkSize);
+
+  // Part 2: Build a single chunk
+  ChunkHeader chunk;
+  chunk._chunkX = 3;  // ((1 << 1)| 1)
+  chunk._messageID = item->_messageID;
+  chunk._messageLength = item->_msgHdr.size();
+  chunk._data = boost::asio::const_buffer(item->_msgHdr.data(),
+                                          item->_msgHdr.byteSize());
+  
+  // write chunk header into the chunk header buffer
+  item->_requestChunkBuffer.reserve(maxChunkHeaderSize);
+  size_t chunkHdrLen;
+  switch (_vstVersion) {
+    case VST1_0:
+      chunkHdrLen = chunk.writeHeaderToVST1_0(item->_requestChunkBuffer);
+      break;
+    case VST1_1:
+      chunkHdrLen = chunk.writeHeaderToVST1_1(item->_requestChunkBuffer);
+      break;
+    default:
+      throw std::logic_error("Unknown VST version");
+  }
+  
+  // Chunk Header + Auth Message
+  item->_requestBuffers.emplace_back(item->_requestChunkBuffer.data(),
+                                     item->_requestChunkBuffer.byteSize());
+  item->_requestBuffers.emplace_back(item->_msgHdr.data(), item->_msgHdr.byteSize());
+  auto self = shared_from_this();
+  item->_callback = [this, self](Error error, std::unique_ptr<Request>,
+                                 std::unique_ptr<Response> resp) {
+    if (error || resp->statusCode() != StatusOK) {
+      _permanent_failure = true;
+      onFailure(error, "authentication failed");
+    }
+  };
+  // add message to store
+  _messageStore.add(item);
+  
+  // actually send auth request
+  boost::asio::post(*_io_context, [this, self, item] {
+    auto cb = [this, self, item](BoostEC const& e, std::size_t transferred) {
+      _connected.store(true, std::memory_order_release);
+      asyncWriteCallback(e, transferred, std::move(item)); // calls startReading()
+      startWriting(); // start writing if something was queued
+    };
+    if (_configuration._ssl) {
+      boost::asio::async_write(*_sslSocket, item->_requestBuffers, cb);
+    } else {
+      boost::asio::async_write(*_socket, item->_requestBuffers, cb);
+    }
+  });
 }
 
 // ------------------------------------
@@ -427,10 +460,19 @@ void VstConnection::processChunk(ChunkHeader& chunk) {
 
     // Create response
     auto response = createResponse(*item, completeBuffer);
+    if (response == nullptr) {
+      item->_callback.invoke(errorToInt(ErrorCondition::ProtocolError),
+                             std::move(item->_request), nullptr);
+      // Notify listeners
+      FUERTE_LOG_VSTTRACE
+      << "processChunk: notifying RequestItem error callback"
+      << std::endl;
+      return;
+    }
 
     // Notify listeners
     FUERTE_LOG_VSTTRACE
-        << "processChunk: notifying RequestItem onSuccess callback"
+        << "processChunk: notifying RequestItem success callback"
         << std::endl;
     item->_callback.invoke(0, std::move(item->_request), std::move(response));
   }
@@ -438,19 +480,26 @@ void VstConnection::processChunk(ChunkHeader& chunk) {
 
 // Create a response object for given RequestItem & received response buffer.
 std::unique_ptr<fu::Response> VstConnection::createResponse(
-    RequestItem& item, std::unique_ptr<VBuffer>& responseBuffer) {
+    RequestItem& item, std::unique_ptr<VPackBuffer<uint8_t>>& responseBuffer) {
   FUERTE_LOG_VSTTRACE << "creating response for item with messageid: "
                       << item._messageID << std::endl;
   auto itemCursor = responseBuffer->data();
   auto itemLength = responseBuffer->byteSize();
-  std::size_t messageHeaderLength;
-
+  
+  // first part of the buffer contains the response buffer
+  std::size_t headerLength;
+  MessageType type = parser::validateAndExtractMessageType(itemCursor, itemLength, headerLength);
+  if (type != MessageType::Response) {
+    FUERTE_LOG_ERROR << "received unsupported vst message from server";
+    return nullptr;
+  }
+  
+  ResponseHeader header = parser::responseHeaderFromSlice(VPackSlice(itemCursor));
+  /*
   MessageHeader messageHeader = parser::validateAndExtractMessageHeader(
-      _vstVersion, itemCursor, itemLength, messageHeaderLength);
-  auto response =
-      std::unique_ptr<Response>(new Response(std::move(messageHeader)));
-  response->messageID = item._messageID;
-  response->setPayload(std::move(*responseBuffer), messageHeaderLength);
+      _vstVersion, itemCursor, itemLength, messageHeaderLength);*/
+  auto response = std::unique_ptr<Response>(new Response(std::move(header)));
+  response->setPayload(std::move(*responseBuffer), /*offset*/headerLength);
 
   return response;
 }

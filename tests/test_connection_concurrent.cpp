@@ -23,8 +23,9 @@
 #include <fuerte/fuerte.h>
 #include <fuerte/loop.h>
 #include <fuerte/helper.h>
-
 #include <thread>
+#include <velocypack/velocypack-aliases.h>
+
 
 #include "gtest/gtest.h"
 #include "authentication_test.h"
@@ -36,34 +37,18 @@
 
 // need a new class to use test fixture
 class ConcurrentConnectionF : public ConnectionTestF {
-  
-  fu::StatusCode dropCollection() {
-    auto request = fu::createRequest(fu::RestVerb::Delete, "/_api/collection/parallel");
-    auto response = _connection->sendRequest(std::move(request));
-    return response->statusCode();
-  }
-  
+
   virtual void SetUp() override {
     ConnectionTestF::SetUp();
-    dropCollection(); // ignore response
-    
-    // create the collection
-    fu::VBuilder builder;
-    builder.openObject();
-    builder.add("name", fu::VValue("parallel"));
-    builder.close();
-    auto request = fu::createRequest(fu::RestVerb::Post, "/_api/collection");
-    request->addVPack(builder.slice());
-    auto response = _connection->sendRequest(std::move(request));
-    ASSERT_EQ(response->statusCode(), fu::StatusOK);
+    dropCollection("concurrent"); // ignore response
+    ASSERT_EQ(createCollection("concurrent"), fu::StatusOK);
   }
   
   virtual void TearDown() override {
     // drop the collection
-    ASSERT_EQ(dropCollection(), fu::StatusOK);
+    ASSERT_EQ(dropCollection("concurrent"), fu::StatusOK);
     ConnectionTestF::TearDown();
   }
-    
 };
 
 TEST_P(ConnectionTestF, ApiVersionParallel) {
@@ -123,9 +108,9 @@ TEST_P(ConcurrentConnectionF, CreateDocumentsParallel){
     }
   };
   
-  fu::VBuilder builder;
+  VPackBuilder builder;
   builder.openObject();
-  builder.add("hello", fu::VValue("world"));
+  builder.add("hello", VPackValue("world"));
   builder.close();
   
   std::vector<std::thread> joins;
@@ -133,7 +118,7 @@ TEST_P(ConcurrentConnectionF, CreateDocumentsParallel){
     wg.add(repeat());
     joins.emplace_back([&]{
       for (size_t i = 0; i < repeat(); i++) {
-        auto request = fu::createRequest(fu::RestVerb::Post, "/_api/document/parallel");
+        auto request = fu::createRequest(fu::RestVerb::Post, "/_api/document/concurrent");
         request->addVPack(builder.slice());
         _connection->sendRequest(std::move(request), cb);
       }

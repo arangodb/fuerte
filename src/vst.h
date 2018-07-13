@@ -24,14 +24,11 @@
 #define ARANGO_CXX_DRIVER_VST
 
 #include <memory>
-#include <mutex>
-#include <stdexcept>
 #include <string>
 #include <unordered_map>
 
 #include <boost/asio/buffer.hpp>
 
-#include <fuerte/FuerteLogger.h>
 #include <fuerte/message.h>
 #include <fuerte/types.h>
 
@@ -61,14 +58,16 @@ struct ChunkHeader {
   uint32_t _chunkX;         // number of chunks or chunk number
   uint64_t _messageID;      // messageid
   uint64_t _messageLength;  // length of total payload
-
-  /// Reference to data that belongs to this chunk.
-  boost::asio::const_buffer _data;  //
-  size_t _responseChunkContentOffset;  // Offset of start of content of this
-                                       // chunk in
-                                       // RequestItem._responseChunkContent.
-  size_t _responseContentLength;  // Content length of this chunk (only used
-                                  // during read operations).
+  /// Reference to request data that this header belongs to
+  boost::asio::const_buffer _data;
+  
+  // Used when receiving the response:
+  // Offset of start of content of this chunk in
+  // RequestItem._responseChunkContent.
+  size_t _responseChunkContentOffset;
+  /// Content length of this chunk (only used
+  /// during read operations).
+  size_t _responseContentLength;
 
   // Return length of this chunk (in host byte order)
   inline uint32_t chunkLength() const { return _chunkLength; }
@@ -92,17 +91,17 @@ struct ChunkHeader {
 
   // writeHeaderToVST1_0 write the chunk to the given buffer in VST 1.0 format.
   // The length of the buffer is returned.
-  size_t writeHeaderToVST1_0(VBuffer& buffer) const;
+  size_t writeHeaderToVST1_0(velocypack::Buffer<uint8_t>& buffer) const;
 
   // writeHeaderToVST1_1 write the chunk to the given buffer in VST 1.1 format.
   // The length of the buffer is returned.
-  size_t writeHeaderToVST1_1(VBuffer& buffer) const;
+  size_t writeHeaderToVST1_1(velocypack::Buffer<uint8_t>& buffer) const;
 };
 
 // buildChunks builds a list of chunks that are ready to be send to the server.
 // The resulting set of chunks are added to the given result vector.
 void buildChunks(uint64_t messageID, uint32_t maxChunkSize,
-                 std::vector<VSlice> const& messageParts,
+                 std::vector<velocypack::Slice> const& messageParts,
                  std::vector<ChunkHeader>& result);
 
 // chunkHeaderLength returns the length of a VST chunk header for given
@@ -124,24 +123,33 @@ isSingle) {
 
 // Item that represents a Request in flight
 struct RequestItem {
-  std::unique_ptr<Request>
-      _request;  // Reference to the request we're processing
-  impl::CallOnceRequestCallback
-      _callback;  // Callback for when request is done (in error or succeeded)
-  MessageID _messageID;  // ID of this message
-  // Request variables
-  std::string _msgHdr;          // VST message header
-  VBuffer _requestChunkBuffer;  // Buffer used to hold chunk headers
-  std::vector<boost::asio::const_buffer>
-      _requestBuffers;  // Buffers the will be send to the socket.
-  // Response variables
-  std::vector<ChunkHeader>
-      _responseChunks;             // List of chunks that have been received.
-  VBuffer _responseChunkContent;   // Buffer containing content of received
-                                   // chunks. (this is not in sorted order!)
-  size_t _responseNumberOfChunks;  // The number of chunks we're expecting
-                                   // (0==not know yet).
-
+  /// Reference to the request we're processing
+  std::unique_ptr<Request> _request;
+  /// Callback for when request is done (in error or succeeded)
+  impl::CallOnceRequestCallback _callback;
+  /// ID of this message
+  MessageID _messageID;
+  
+  // ======= Request variables =======
+  
+  /// VST message header
+  velocypack::Buffer<uint8_t> _msgHdr;
+  /// Buffer used to hold chunk headers
+  velocypack::Buffer<uint8_t> _requestChunkBuffer;
+  
+  /// Buffers the will be send to the socket.
+  std::vector<boost::asio::const_buffer> _requestBuffers;
+  
+  // ======= Response variables =======
+  
+  /// List of chunks that have been received.
+  std::vector<ChunkHeader> _responseChunks;
+  /// Buffer containing content of received chunks.
+  /// Not necessarily in a sorted order!
+  velocypack::Buffer<uint8_t> _responseChunkContent;
+  /// The number of chunks we're expecting (0==not know yet).
+  size_t _responseNumberOfChunks;
+  
   inline MessageID messageID() { return _messageID; }
   inline void invokeOnError(Error e, std::unique_ptr<Request> req,
                             std::unique_ptr<Response> res) {
@@ -156,15 +164,19 @@ struct RequestItem {
   void addChunk(ChunkHeader&);
   // try to assembly the received chunks into a response.
   // returns NULL if not all chunks are available.
-  std::unique_ptr<VBuffer> assemble();
+  std::unique_ptr<velocypack::Buffer<uint8_t>> assemble();
 
   // Flush all memory needed for sending this request.
   inline void resetSendData() {
     _msgHdr.clear();
-    _requestBuffers.clear();
     _requestChunkBuffer.clear();
+    _requestBuffers.clear();
   }
 };
+  
+velocypack::Buffer<uint8_t> authMessageJWT(std::string const& token);
+velocypack::Buffer<uint8_t> authMessageBasic(std::string const& username,
+                                             std::string const& password);
 
 /////////////////////////////////////////////////////////////////////////////////////
 // parse vst
@@ -184,16 +196,16 @@ ChunkHeader readChunkHeaderVST1_0(uint8_t const* const bufferBegin);
 
 // readChunkHeaderVST1_1 reads a chunk header in VST1.1 format.
 ChunkHeader readChunkHeaderVST1_1(uint8_t const* const bufferBegin);
+  
+/// @brief verifies header input and checks correct length
+/// @return message type or MessageType::Undefined on an error
+MessageType validateAndExtractMessageType(uint8_t const* const vpStart,
+                                          size_t length, size_t& hLength);
 
-// creates a MessageHeader form a given slice
-MessageHeader messageHeaderFromSlice(vst::VSTVersion version,
-                                     VSlice const& header);
-// validates if a data range contains a slice and converts it
-// to a message Hader and returns size occupied by the sloce via reference
-MessageHeader validateAndExtractMessageHeader(vst::VSTVersion version,
-                                              uint8_t const* const vpStart,
-                                              std::size_t length,
-                                              std::size_t& headerLength);
+/// creates a RequestHeader from a given slice
+RequestHeader requestHeaderFromSlice(velocypack::Slice const& header);
+/// creates a RequestHeader from a given slice
+ResponseHeader responseHeaderFromSlice(velocypack::Slice const& header);
 
 // Validates if payload consitsts of valid velocypack slices
 std::size_t validateAndCount(uint8_t const* vpHeaderStart, std::size_t len);

@@ -79,6 +79,24 @@ class ConnectionTestF : public ::testing::TestWithParam<ConnectionTestParams> {
   inline size_t repeat() const {
     return std::max(GetParam()._repeat, size_t(1));
   }
+  
+  fu::StatusCode createCollection(std::string const& name) {
+    // create the collection
+    VPackBuilder builder;
+    builder.openObject();
+    builder.add("name", VPackValue(name));
+    builder.close();
+    auto request = fu::createRequest(fu::RestVerb::Post, "/_api/collection");
+    request->addVPack(builder.slice());
+    auto response = _connection->sendRequest(std::move(request));
+    return response->statusCode();
+  }
+  
+  fu::StatusCode dropCollection(std::string const& name) {
+    auto request = fu::createRequest(fu::RestVerb::Delete, "/_api/collection/" + name);
+    auto response = _connection->sendRequest(std::move(request));
+    return response->statusCode();
+  }
 
   std::shared_ptr<fu::Connection> _connection;
 

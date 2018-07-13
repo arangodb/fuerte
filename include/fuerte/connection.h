@@ -127,11 +127,12 @@ class ConnectionBuilder {
     return *this;
   }
   // Set the maximum size for chunks (VST only)
-  inline std::size_t maxChunkSize() const { return _conf._maxChunkSize; }
+  /*inline std::size_t maxChunkSize() const { return _conf._maxChunkSize; }
   ConnectionBuilder& maxChunkSize(std::size_t c) {
     _conf._maxChunkSize = c;
     return *this;
-  }
+  }*/
+  
   // Set the VST version to use (VST only)
   inline vst::VSTVersion vstVersion() const { return _conf._vstVersion; }
   ConnectionBuilder& vstVersion(vst::VSTVersion c) {

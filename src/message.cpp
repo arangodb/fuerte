@@ -21,88 +21,31 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <fuerte/message.h>
-#include <velocypack/Validator.h>
 #include <sstream>
+#include <velocypack/Validator.h>
+#include <velocypack/velocypack-aliases.h>
 
 #include "vst.h"
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
-std::string to_string(MessageHeader const& header) {
-  /*  ::boost::optional<int> version;
-    ::boost::optional<MessageType> type;
-    ::boost::optional<unsigned> responseCode;
-    ::boost::optional<std::string> database;
-    ::boost::optional<RestVerb> restVerb;           // GET POST ...
-    ::boost::optional<std::string> path;            // equivalent of http path
-    ::boost::optional<StringMap> parameters;        // equivalent of http
-    parametes ?foo=bar
-    ::boost::optional<StringMap> meta;              // equivalent of http
-    headers
-    ::boost::optional<std::string> user;
-    ::boost::optional<std::string> password;*/
-  std::stringstream ss;
-
-  if (header.byteSize) {
-    ss << "byteSize: " << header.byteSize.get() << std::endl;
-  }
-
-  if (header.version) {
-    ss << "version: " << header.version << std::endl;
-  }
-
-  if (header.type != MessageType::Undefined) {
-    ss << "type: " << static_cast<int>(header.type) << std::endl;
-  }
-
-  if (header.responseCode) {
-    ss << "responseCode: " << header.responseCode << std::endl;
-  }
-
-  if (!header.database.empty()) {
-    ss << "database: " << header.database << std::endl;
-  }
-
-  if (header.restVerb != RestVerb::Illegal) {
-    ss << "restVerb: " << to_string(header.restVerb) << std::endl;
-  }
-
-  if (!header.path.empty()) {
-    ss << "path: " << header.path << std::endl;
-  }
-
-  if (!header.parameters.empty()) {
-    ss << "parameters: ";
-    for (auto const& item : header.parameters) {
-      ss << item.first << " -:- " << item.second << "\n";
-    }
-    ss << std::endl;
-  }
-
-  if (!header.meta.empty()) {
-    ss << "meta:\n";
-    for (auto const& item : header.meta) {
-      ss << "\t" << item.first << " -:- " << item.second << "\n";
-    }
-    ss << std::endl;
-  }
-
-  if (header.user) {
-    ss << "user: " << header.user.get() << std::endl;
-  }
-
-  if (header.password) {
-    ss << "password: " << header.password.get() << std::endl;
-  }
-
-  ss << "contentType: " << header.contentTypeString() << std::endl;
-
-  return ss.str();
-}
-
+  
 ///////////////////////////////////////////////
 // class MessageHeader
 ///////////////////////////////////////////////
 
+void MessageHeader::addMeta(std::string const& key, std::string const& value) {
+  meta.emplace(key, value);
+}
+
+// Get value for header metadata key, returns empty string if not found.
+std::string MessageHeader::metaByKey(std::string const& key) const {
+  if (meta.empty()) {
+    return "";
+  }
+  auto found = meta.find(key);
+  return (found == meta.end()) ? "" : found->second;
+}
+  
 // content type accessors
 std::string MessageHeader::contentTypeString() const {
   return metaByKey(fu_content_type_key);
@@ -119,41 +62,33 @@ void MessageHeader::contentType(std::string const& type) {
 void MessageHeader::contentType(ContentType type) {
   contentType(to_string(type));
 }
-
+  
+///////////////////////////////////////////////
+// class RequestHeader
+///////////////////////////////////////////////
+  
 // accept header accessors
-std::string MessageHeader::acceptTypeString() const {
+std::string RequestHeader::acceptTypeString() const {
   return metaByKey(fu_accept_key);
 }
 
-ContentType MessageHeader::acceptType() const {
+ContentType RequestHeader::acceptType() const {
   return to_ContentType(acceptTypeString());
 }
 
-void MessageHeader::acceptType(std::string const& type) {
+void RequestHeader::acceptType(std::string const& type) {
   addMeta(fu_accept_key, type);
 }
 
-void MessageHeader::acceptType(ContentType type) {
+void RequestHeader::acceptType(ContentType type) {
   acceptType(to_string(type));
 }
-
-void MessageHeader::addParameter(std::string const& key,
+  
+void RequestHeader::addParameter(std::string const& key,
                                  std::string const& value) {
   parameters.emplace(key, value);
 }
 
-void MessageHeader::addMeta(std::string const& key, std::string const& value) {
-  meta.emplace(key, value);
-}
-
-// Get value for header metadata key, returns empty string if not found.
-std::string MessageHeader::metaByKey(std::string const& key) const {
-  if (meta.empty()) {
-    return "";
-  }
-  auto found = meta.find(key);
-  return (found == meta.end()) ? "" : found->second;
-}
 
 ///////////////////////////////////////////////
 // class Message
@@ -161,36 +96,29 @@ std::string MessageHeader::metaByKey(std::string const& key) const {
 
 // content-type header accessors
 std::string Message::contentTypeString() const {
-  return header.contentTypeString();
+  return messageHeader().contentTypeString();
 }
 
-ContentType Message::contentType() const { return header.contentType(); }
+ContentType Message::contentType() const { return  messageHeader().contentType(); }
 
-void Request::contentType(std::string const& type) { header.contentType(type); }
-
-void Request::contentType(ContentType type) { header.contentType(type); }
-
-// accept header accessors
-std::string Message::acceptTypeString() const {
-  return header.acceptTypeString();
-}
-
-ContentType Message::acceptType() const { return header.acceptType(); }
 
 ///////////////////////////////////////////////
 // class Request
 ///////////////////////////////////////////////
+  
+// accept header accessors
+std::string Request::acceptTypeString() const {
+  return header.acceptTypeString();
+}
+
+ContentType Request::acceptType() const { return header.acceptType(); }
 
 std::chrono::milliseconds Request::_defaultTimeout =
     std::chrono::milliseconds(30 * 1000);
 
-void Request::acceptType(std::string const& type) { header.acceptType(type); }
-
-void Request::acceptType(ContentType type) { header.acceptType(type); }
-
 //// add payload
 // add VelocyPackData
-void Request::addVPack(VSlice const& slice) {
+void Request::addVPack(VPackSlice const& slice) {
 #ifdef FUERTE_CHECKED_MODE
   // FUERTE_LOG_ERROR << "Checking data that is added to the message: " <<
   // std::endl;
@@ -201,10 +129,10 @@ void Request::addVPack(VSlice const& slice) {
   };
 
   if (!_builder) {
-    _builder = std::make_shared<VBuilder>(_payload);
+    _builder = std::make_shared<VPackBuilder>(_payload);
   }
 
-  contentType(ContentType::VPack);
+  header.contentType(ContentType::VPack);
   _isVpack = true;
   _modified = true;
   _builder->add(slice);
@@ -212,7 +140,7 @@ void Request::addVPack(VSlice const& slice) {
   _payload.resetTo(_payloadLength);
 }
 
-void Request::addVPack(VBuffer const& buffer) {
+void Request::addVPack(VPackBuffer<uint8_t> const& buffer) {
 #ifdef FUERTE_CHECKED_MODE
   // FUERTE_LOG_ERROR << "Checking data that is added to the message: " <<
   // std::endl;
@@ -222,18 +150,18 @@ void Request::addVPack(VBuffer const& buffer) {
     throw std::logic_error("Message is sealed or of wrong type (vst/binary)");
   };
   _isVpack = true;
-  contentType(ContentType::VPack);
+  header.contentType(ContentType::VPack);
   _modified = true;
   _modified = true;
   auto length = buffer.byteSize();
   auto cursor = buffer.data();
 
   if (!_builder) {
-    _builder = std::make_shared<VBuilder>(_payload);
+    _builder = std::make_shared<VPackBuilder>(_payload);
   }
 
   while (length) {
-    VSlice slice(cursor);
+    VPackSlice slice(cursor);
     _builder->add(slice);
     auto sliceSize = _slices.back().byteSize();
     if (length < sliceSize) {
@@ -246,16 +174,16 @@ void Request::addVPack(VBuffer const& buffer) {
   }
 }
 
-void Request::addVPack(VBuffer&& buffer) {
+void Request::addVPack(VPackBuffer<uint8_t>&& buffer) {
 #ifdef FUERTE_CHECKED_MODE
   // FUERTE_LOG_ERROR << "Checking data that is added to the message: " <<
   // std::endl;
   vst::parser::validateAndCount(buffer.data(), buffer.byteSize());
 #endif
-  if (_sealed || _isVpack) {
+  if (_sealed || !_isVpack) {
     throw std::logic_error("Message is sealed or of wrong type (vst/binary)");
   };
-  contentType(ContentType::VPack);
+  header.contentType(ContentType::VPack);
   _isVpack = true;
   _sealed = true;
   _modified = true;
@@ -276,7 +204,7 @@ void Request::addBinary(uint8_t const* data, std::size_t length) {
   _payload.resetTo(_payloadLength);
 }
 
-void Request::addBinarySingle(VBuffer&& buffer) {
+void Request::addBinarySingle(VPackBuffer<uint8_t>&& buffer) {
   if (_sealed || (_isVpack && _isVpack.get())) {
     return;
   };
@@ -289,7 +217,7 @@ void Request::addBinarySingle(VBuffer&& buffer) {
 }
 
 // get payload as slices
-std::vector<VSlice> const& Request::slices() {
+std::vector<VPackSlice> const& Request::slices() {
   if (_isVpack && _modified) {
     _slices.clear();
     auto length = _payload.byteSize();
@@ -335,7 +263,7 @@ bool Response::isContentTypeText() const {
   return (header.contentType() == ContentType::Text);
 }
 
-std::vector<VSlice> const& Response::slices() {
+std::vector<VPackSlice> const& Response::slices() {
   if (_slices.empty()) {
     auto length = _payload.byteSize() - _payloadOffset;
     auto cursor = _payload.data() + _payloadOffset;
@@ -361,7 +289,7 @@ size_t Response::payloadSize() const {
   return _payload.byteSize() - _payloadOffset;
 }
 
-void Response::setPayload(VBuffer&& buffer, size_t payloadOffset) {
+void Response::setPayload(VPackBuffer<uint8_t>&& buffer, size_t payloadOffset) {
   _slices.clear();
   _payloadOffset = payloadOffset;
   _payload = std::move(buffer);

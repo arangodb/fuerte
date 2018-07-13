@@ -90,6 +90,21 @@ std::string to_string(RestVerb type) {
 
   return "undefined";
 }
+  
+MessageType intToMessageType(int integral) {
+  switch (integral) {
+    case 1:
+      return MessageType::Request;
+    case 2:
+      return MessageType::Response;
+    case 3:
+      return MessageType::ResponseUnfinished;
+    case 1000:
+      return MessageType::Authentication;
+    default: break;
+  }
+  return MessageType::Undefined;
+}
 
 std::string to_string(MessageType type) {
   switch (type) {

@@ -356,9 +356,7 @@ void AsioConnection<T>::asyncReadSome() {
   // Set timeout
   /*auto self = shared_from_this();
   _deadline.expires_from_now(boost::posix_time::milliseconds(timeout.count()));
-  _deadline.async_wait(boost::bind(&ReadLoop::deadlineHandler, self, _1));
-
-  _connection->_async_calls++;*/
+  _deadline.async_wait(boost::bind(&ReadLoop::deadlineHandler, self, _1));*/
 
   assert(_socket);
   auto self = shared_from_this();

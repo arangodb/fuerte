@@ -80,10 +80,10 @@ std::string mapToString(IteratorType begin, IteratorType end) {
 }
 }  // namespace _detail
 
-std::string to_string(VSlice const& slice);
-std::string to_string(std::vector<VSlice> const& payload);
+std::string to_string(velocypack::Slice const& slice);
+std::string to_string(std::vector<velocypack::Slice> const& payload);
 std::string to_string(Message& message);
-StringMap sliceToStringMap(VSlice const&);
+StringMap sliceToStringMap(velocypack::Slice const&);
 
 template <typename K, typename V, typename A>
 std::string mapToString(std::map<K, V, A> map) {

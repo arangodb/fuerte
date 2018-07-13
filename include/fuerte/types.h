@@ -25,12 +25,6 @@
 #ifndef ARANGO_CXX_DRIVER_TYPES
 #define ARANGO_CXX_DRIVER_TYPES
 
-#include <velocypack/Buffer.h>
-#include <velocypack/Builder.h>
-#include <velocypack/Slice.h>
-
-#include <algorithm>
-#include <cassert>
 #include <map>
 #include <string>
 #include <vector>
@@ -67,12 +61,6 @@ using RequestCallback = std::function<void(Error, std::unique_ptr<Request>,
 // - Connection lost
 using ConnectionFailureCallback =
     std::function<void(Error errorCode, const std::string& errorMessage)>;
-
-using VBuffer = arangodb::velocypack::Buffer<uint8_t>;
-using VSlice = arangodb::velocypack::Slice;
-using VBuilder = arangodb::velocypack::Builder;
-using VValue = arangodb::velocypack::Value;
-using VValueType = arangodb::velocypack::ValueType;
 
 using StringMap = std::map<std::string, std::string>;
 
@@ -131,6 +119,7 @@ enum class MessageType : int {
   ResponseUnfinished = 3,
   Authentication = 1000
 };
+MessageType intToMessageType(int integral);
 
 std::string to_string(MessageType type);
 
@@ -178,8 +167,7 @@ struct ConnectionConfiguration {
         _authenticationType(AuthenticationType::None),
         _user(""),
         _password(""),
-        _maxChunkSize(5000ul)  // in bytes
-        ,
+        _jwtToken(""),
         _vstVersion(vst::VST1_1) {}
 
   TransportType _connType;  // vst or http
@@ -189,7 +177,7 @@ struct ConnectionConfiguration {
   AuthenticationType _authenticationType;
   std::string _user;
   std::string _password;
-  std::size_t _maxChunkSize;
+  std::string _jwtToken;
   vst::VSTVersion _vstVersion;
   ConnectionFailureCallback _onFailure;
 };

@@ -32,6 +32,8 @@
 #include <fuerte/loop.h>
 #include <fuerte/types.h>
 
+#include "jwt.h"
+
 namespace {
 using namespace arangodb::fuerte::v1;
 using namespace arangodb::fuerte::v1::http;
@@ -87,7 +89,7 @@ using namespace arangodb::fuerte::detail;
 
 HttpConnection::HttpConnection(std::shared_ptr<asio_io_context>& ctx,
                                ConnectionConfiguration const& configuration)
-    : AsioConnection(ctx, configuration), _inFlight(nullptr) {
+    : AsioConnection(ctx, configuration), _authHeader(""), _inFlight(nullptr) {
   _parserSettings.on_message_begin = ::on_message_began;
   _parserSettings.on_status = ::on_status;
   _parserSettings.on_header_field = ::on_header_field;
@@ -96,19 +98,36 @@ HttpConnection::HttpConnection(std::shared_ptr<asio_io_context>& ctx,
   _parserSettings.on_body = ::on_body;
   _parserSettings.on_message_complete = ::on_message_complete;
   http_parser_init(&_parser, HTTP_RESPONSE);
+      
+  if (_configuration._authenticationType == AuthenticationType::Basic) {
+    _authHeader.append("Authorization: Basic ");
+    _authHeader.append(fu::encodeBase64(_configuration._user + ":" +
+                                   _configuration._password));
+    _authHeader.append("\r\n");
+  } else if (_configuration._authenticationType == AuthenticationType::Jwt) {
+    if (_configuration._jwtToken.empty()) {
+      throw std::logic_error("JWT token is not set");
+    }
+    _authHeader.append("Authorization: bearer ");
+    if (_configuration._user.empty()) {
+      _authHeader.append(
+      jwt::generateInternalToken(_configuration._jwtToken, "fuerte"));
+    } else {
+      _authHeader.append(jwt::generateUserToken(_configuration._jwtToken,
+                                                _configuration._user));
+    }
+    _authHeader.append("\r\n");
+  }
 }
 
 MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request,
                                       RequestCallback callback) {
   FUERTE_LOG_HTTPTRACE << "queueRequest - start - at address: " << request.get()
                        << std::endl;
-  static std::atomic<uint64_t> ticketId(1);
 
   // Prepare a new request
-  uint64_t id = ticketId.fetch_add(1, std::memory_order_relaxed);
-  request->messageID = id;
   auto item = createRequestItem(std::move(request), callback);
-
+  uint64_t id = item->_messageID;
   uint32_t state = queueRequest(std::move(item));
   if (_connected) {
     FUERTE_LOG_HTTPTRACE << "sendRequest (http): start sending & reading"
@@ -129,6 +148,8 @@ MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request,
 
 std::unique_ptr<RequestItem> HttpConnection::createRequestItem(
     std::unique_ptr<Request> request, RequestCallback callback) {
+  static std::atomic<uint64_t> ticketId(1);
+
   assert(request);
   // build the request header
   assert(request->header.restVerb != RestVerb::Illegal);
@@ -175,16 +196,8 @@ std::unique_ptr<RequestItem> HttpConnection::createRequestItem(
     header.append("\r\n");
   }
 
-  if (_configuration._authenticationType == AuthenticationType::Basic) {
-    header.append("Authorization: Basic ");
-    header.append(fu::encodeBase64(_configuration._user + ":" +
-                                   _configuration._password));
-    header.append("\r\n");
-  } else if (_configuration._authenticationType == AuthenticationType::Jwt) {
-    assert(false);
-    /*header.append("Authorization: bearer ");
-    header.append(_configuration._);
-    header.append("\r\n");*/
+  if (!_authHeader.empty()) {
+    header.append(_authHeader);
   }
 
   if (request->header.restVerb != RestVerb::Get) {
@@ -202,6 +215,7 @@ std::unique_ptr<RequestItem> HttpConnection::createRequestItem(
   requestItem->_request = std::move(request);
   requestItem->_callback = std::move(callback);
   // requestItem->_response later
+  requestItem->_messageID = ticketId.fetch_add(1, std::memory_order_relaxed);
   requestItem->_requestHeader = std::move(header);
   return requestItem;
 }
@@ -219,7 +233,7 @@ void HttpConnection::shutdownConnection(const ErrorCondition ec) {
   // destructor
   if (_inFlight) {
     // Item has failed, remove from message store
-    _messageStore.removeByID(_inFlight->_request->messageID);
+    _messageStore.removeByID(_inFlight->_messageID);
     _inFlight->invokeOnError(errorToInt(ec), std::move(_inFlight->_request),
                              {nullptr});
     _inFlight.reset();
@@ -269,7 +283,7 @@ void HttpConnection::asyncWriteCallback(
     FUERTE_LOG_ERROR << error.message() << std::endl;
 
     // Item has failed, remove from message store
-    _messageStore.removeByID(item->_request->messageID);
+    _messageStore.removeByID(item->_messageID);
 
     // let user know that this request caused the error
     item->_callback.invoke(errorToInt(ErrorCondition::WriteError),
@@ -293,7 +307,6 @@ void HttpConnection::asyncWriteCallback(
     _inFlight = std::move(item);
     assert(_inFlight->_response == nullptr);
     _inFlight->_response.reset(new Response());
-    _inFlight->_response->messageID = _inFlight->_request->messageID;
 
     http_parser_init(&_parser, HTTP_RESPONSE);
     _parser.data = static_cast<void*>(_inFlight.get());
@@ -359,7 +372,7 @@ void HttpConnection::asyncReadCallback(::boost::system::error_code const& ec,
       return;
     } else if (_inFlight->message_complete) {
       // remove processed item from the message store
-      _messageStore.removeByID(_inFlight->_request->messageID);
+      _messageStore.removeByID(_inFlight->_messageID);
       // thread-safe access on IO-Thread
       _inFlight->_response->setPayload(std::move(_inFlight->_responseBuffer),
                                        0);

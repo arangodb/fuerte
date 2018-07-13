@@ -40,11 +40,13 @@ struct RequestItem {
   impl::CallOnceRequestCallback _callback;
   /// response data, may be null before response header is received
   std::unique_ptr<arangodb::fuerte::v1::Response> _response;
+  /// ID of this message
+  MessageID _messageID;
 
   // buffer for the request header, reset after request was send
   std::string _requestHeader;
   /// response buffer, moved after writing
-  VBuffer _responseBuffer;
+  velocypack::Buffer<uint8_t> _responseBuffer;
 
   // parser state
   bool message_complete = false;
@@ -52,7 +54,7 @@ struct RequestItem {
   std::string lastHeaderField;
   std::string lastHeaderValue;
 
-  inline MessageID messageID() { return _request->messageID; }
+  inline MessageID messageID() { return _messageID; }
   inline void invokeOnError(Error e, std::unique_ptr<Request> req,
                             std::unique_ptr<Response> res) {
     _callback.invoke(e, std::move(req), std::move(res));

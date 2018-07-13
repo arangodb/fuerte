@@ -24,6 +24,8 @@
 #include <fuerte/fuerte.h>
 #include <fuerte/loop.h>
 #include <fuerte/helper.h>
+#include <velocypack/Builder.h>
+#include <velocypack/velocypack-aliases.h>
 
 #include "connection_test.h"
 
@@ -109,9 +111,9 @@ TEST_P(ConnectionTestF, ApiVersionASync20) {
 
 TEST_P(ConnectionTestF, SimpleCursorSync){
   auto request = fu::createRequest(fu::RestVerb::Post, "/_api/cursor");
-  fu::VBuilder builder;
+  VPackBuilder builder;
   builder.openObject();
-  builder.add("query", fu::VValue("FOR x IN 1..5 RETURN x"));
+  builder.add("query", VPackValue("FOR x IN 1..5 RETURN x"));
   builder.close();
   request->addVPack(builder.slice());
   auto response = _connection->sendRequest(std::move(request));
@@ -125,8 +127,11 @@ TEST_P(ConnectionTestF, SimpleCursorSync){
 }
 
 TEST_P(ConnectionTestF, CreateDocumentSync){
-  auto request = fu::createRequest(fu::RestVerb::Post, "/_api/document/_users");
-  request->addVPack(fu::VSlice::emptyObjectSlice());
+  dropCollection("test");
+  createCollection("test");
+
+  auto request = fu::createRequest(fu::RestVerb::Post, "/_api/document/test");
+  request->addVPack(VPackSlice::emptyObjectSlice());
   auto response = _connection->sendRequest(std::move(request));
   ASSERT_EQ(response->statusCode(), fu::StatusAccepted);
   auto slice = response->slices().front();
@@ -134,6 +139,8 @@ TEST_P(ConnectionTestF, CreateDocumentSync){
   ASSERT_TRUE(slice.get("_id").isString());
   ASSERT_TRUE(slice.get("_key").isString());
   ASSERT_TRUE(slice.get("_rev").isString());
+  
+  dropCollection("test");
 }
 
 TEST_P(ConnectionTestF, ShortAndLongASync){
@@ -153,18 +160,18 @@ TEST_P(ConnectionTestF, ShortAndLongASync){
 
   auto requestShort = fu::createRequest(fu::RestVerb::Post, "/_api/cursor");
   {
-    fu::VBuilder builder;
+    VPackBuilder builder;
     builder.openObject();
-    builder.add("query", fu::VValue("RETURN SLEEP(1)"));
+    builder.add("query", VPackValue("RETURN SLEEP(1)"));
     builder.close();
     requestShort->addVPack(builder.slice());
   }
 
   auto requestLong = fu::createRequest(fu::RestVerb::Post, "/_api/cursor");
   {
-    fu::VBuilder builder;
+    VPackBuilder builder;
     builder.openObject();
-    builder.add("query", fu::VValue("RETURN SLEEP(2)"));
+    builder.add("query", VPackValue("RETURN SLEEP(2)"));
     builder.close();
     requestLong->addVPack(builder.slice());
   }
@@ -178,10 +185,10 @@ TEST_P(ConnectionTestF, ShortAndLongASync){
 
 // threads parameter has no effect in this testsuite
 static const ConnectionTestParams connectionTestBasicParams[] = {
-  {._url= "http://127.0.0.1:8529", ._threads=1, ._repeat=100},
+  //{._url= "http://127.0.0.1:8529", ._threads=1, ._repeat=100},
   {._url= "vst://127.0.0.1:8529", ._threads=1, ._repeat=100},
-  {._url= "http://localhost:8529", ._threads=1, ._repeat=5000},
-  {._url= "vst://localhost:8529", ._threads=1, ._repeat=5000}
+  //{._url= "http://localhost:8529", ._threads=1, ._repeat=5000},
+  //{._url= "vst://localhost:8529", ._threads=1, ._repeat=5000}
 };
 
 INSTANTIATE_TEST_CASE_P(BasicConnectionTests, ConnectionTestF,

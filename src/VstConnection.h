@@ -83,23 +83,14 @@ class VstConnection final
                          size_t transferred) override;
 
  private:
-  // Insert all requests needed for authenticating a new connection at the front
-  // of the send queue.
-  void insertAuthenticationRequests();
-
-  // createRequestItem prepares a RequestItem for the given parameters.
-  std::unique_ptr<RequestItem> createRequestItem(
-      std::unique_ptr<Request> request, RequestCallback cb);
-
-  // Restart the connection if the given ReadLoop is still the current read
-  // loop.
-  // void restartConnection(const ReadLoop*, const ErrorCondition);
+  // Send out the authentication message on this connection
+  void sendAuthenticationRequest();
 
   // Process the given incoming chunk.
   void processChunk(ChunkHeader& chunk);
   // Create a response object for given RequestItem & received response buffer.
-  std::unique_ptr<Response> createResponse(
-      RequestItem& item, std::unique_ptr<VBuffer>& responseBuffer);
+  std::unique_ptr<Response> createResponse(RequestItem& item,
+                                           std::unique_ptr<velocypack::Buffer<uint8_t>>&);
 
   // called when the timeout expired
   void timeoutExpired(boost::system::error_code const& e);

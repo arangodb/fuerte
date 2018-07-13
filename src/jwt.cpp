@@ -39,10 +39,10 @@
 #define RAND_BYTES RAND_pseudo_bytes
 #endif
 
-namespace arangodb { namespace fuerte { inline namespace v1 { namespace jwt {
+namespace arangodb { namespace fuerte { inline namespace v1 {
 
 /// generate a JWT token for internal cluster communication
-std::string generateInternalToken(std::string const& secret,
+  std::string jwt::generateInternalToken(std::string const& secret,
                                   std::string const& id) {
   std::chrono::seconds iss = std::chrono::duration_cast<std::chrono::seconds>(
       std::chrono::system_clock::now().time_since_epoch());
@@ -57,11 +57,11 @@ std::string generateInternalToken(std::string const& secret,
   bodyBuilder.add("iat", VPackValue(iss.count()));
   // bodyBuilder.add("exp", VPackValue(exp.count()));
   bodyBuilder.close();
-  return generateRawJwt(bodyBuilder.slice());
+  return generateRawJwt(secret, bodyBuilder.slice());
 }
 
-std::string generateJwtToken(std::string const& secret,
-                             std::string const& username) {
+std::string jwt::generateUserToken(std::string const& secret,
+                                   std::string const& username) {
   assert(!secret.empty());
 
   std::chrono::seconds iss = std::chrono::duration_cast<std::chrono::seconds>(
@@ -77,10 +77,10 @@ std::string generateJwtToken(std::string const& secret,
   bodyBuilder.add("iat", VPackValue(iss.count()));
   // bodyBuilder.add("exp", VPackValue(exp.count()));
   bodyBuilder.close();
-  return generateRawJwt(bodyBuilder.slice());
+  return generateRawJwt(secret, bodyBuilder.slice());
 }
 
-std::string generateRawJwt(std::string const& secret, VPackSlice const& body) {
+std::string jwt::generateRawJwt(std::string const& secret, VPackSlice const& body) {
   VPackBuilder headerBuilder;
   {
     VPackObjectBuilder h(&headerBuilder);
@@ -100,19 +100,19 @@ std::string generateRawJwt(std::string const& secret, VPackSlice const& body) {
 
 // code from ArangoDBs SslInterface.cpp
 
-std::string sslHMAC(char const* key, size_t keyLength, char const* message,
+std::string jwt::sslHMAC(char const* key, size_t keyLength, char const* message,
                     size_t messageLen, Algorithm algorithm) {
   EVP_MD* evp_md = nullptr;
 
   if (algorithm == Algorithm::ALGORITHM_SHA1) {
     evp_md = const_cast<EVP_MD*>(EVP_sha1());
-  } else if (algorithm == Algorithm::ALGORITHM_SHA224) {
+  } else if (algorithm == jwt::Algorithm::ALGORITHM_SHA224) {
     evp_md = const_cast<EVP_MD*>(EVP_sha224());
-  } else if (algorithm == Algorithm::ALGORITHM_MD5) {
+  } else if (algorithm == jwt::Algorithm::ALGORITHM_MD5) {
     evp_md = const_cast<EVP_MD*>(EVP_md5());
-  } else if (algorithm == Algorithm::ALGORITHM_SHA384) {
+  } else if (algorithm == jwt::Algorithm::ALGORITHM_SHA384) {
     evp_md = const_cast<EVP_MD*>(EVP_sha384());
-  } else if (algorithm == Algorithm::ALGORITHM_SHA512) {
+  } else if (algorithm == jwt::Algorithm::ALGORITHM_SHA512) {
     evp_md = const_cast<EVP_MD*>(EVP_sha512());
   } else {
     // default
@@ -137,9 +137,9 @@ std::string sslHMAC(char const* key, size_t keyLength, char const* message,
   return "";
 }
 
-bool verifyHMAC(char const* challenge, size_t challengeLength,
+bool jwt::verifyHMAC(char const* challenge, size_t challengeLength,
                 char const* secret, size_t secretLen, char const* response,
-                size_t responseLen, Algorithm algorithm) {
+                size_t responseLen, jwt::Algorithm algorithm) {
   // challenge = key
   // secret, secretLen = message
   // result must == BASE64(response, responseLen)
@@ -154,4 +154,4 @@ bool verifyHMAC(char const* challenge, size_t challengeLength,
 
   return false;
 }
-}}}}  // namespace arangodb::fuerte::v1::jwt
+}}}  // namespace arangodb::fuerte::v1

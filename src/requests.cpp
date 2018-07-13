@@ -21,40 +21,38 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <fuerte/requests.h>
+#include <velocypack/velocypack-aliases.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 // Helper and Implementation
-std::unique_ptr<Request> createRequest(MessageHeader&& messageHeader,
+std::unique_ptr<Request> createRequest(RequestHeader&& messageHeader,
                                        StringMap&& headerStrings,
                                        RestVerb const& verb,
                                        ContentType const& contentType) {
   if (!headerStrings.empty()) {
     messageHeader.meta = std::move(headerStrings);
   }
-  auto request =
-      std::unique_ptr<Request>(new Request(std::move(messageHeader)));
+  std::unique_ptr<Request> request(new Request(std::move(messageHeader)));
 
   request->header.restVerb = verb;
-  if (request->header.type == MessageType::Undefined) {
-    request->header.type = MessageType::Request;
-  }
 
   request->header.contentType(contentType);
+  request->header.acceptType(contentType);
   // fuerte requests default to vpack content type for accept
-  request->header.acceptType(ContentType::VPack);
+  //request->header.acceptType(ContentType::VPack);
 
   return request;
 }
 
 std::unique_ptr<Request> createRequest(RestVerb const& verb,
                                        ContentType const& contentType) {
-  return createRequest(MessageHeader(), StringMap(), verb, contentType);
+  return createRequest(RequestHeader(), StringMap(), verb, contentType);
 }
 
 // For User
 std::unique_ptr<Request> createRequest(RestVerb verb, std::string const& path,
                                        StringMap const& parameters,
-                                       VBuffer&& payload) {
+                                       VPackBuffer<uint8_t>&& payload) {
   auto request = createRequest(verb, ContentType::VPack);
   request->header.path = path;
   request->header.parameters = parameters;
@@ -64,7 +62,7 @@ std::unique_ptr<Request> createRequest(RestVerb verb, std::string const& path,
 
 std::unique_ptr<Request> createRequest(RestVerb verb, std::string const& path,
                                        StringMap const& parameters,
-                                       VSlice const& payload) {
+                                       VPackSlice const& payload) {
   auto request = createRequest(verb, ContentType::VPack);
   request->header.path = path;
   request->header.parameters = parameters;

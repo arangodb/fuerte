@@ -35,6 +35,8 @@
 #include <fuerte/requests.h>
 #include <fuerte/helper.h>
 
+#include <velocypack/velocypack-aliases.h>
+
 using ConnectionBuilder = arangodb::fuerte::ConnectionBuilder;
 using EventLoopService = arangodb::fuerte::EventLoopService;
 using Request = arangodb::fuerte::Request;
@@ -148,8 +150,8 @@ int main(int argc, char* argv[]) {
     if (err) {
       std::cout << "--------------------------------------------------------------------------" << std::endl;
       std::cout << "received error: " << err << std::endl
-                << to_string(request->header)
-                << "request payload:"
+                << to_string(*request)
+                << "response payload:"
                 << (response ? fu::to_string(*response) : "no response")
                 << std::endl;
     } else {
@@ -160,7 +162,7 @@ int main(int argc, char* argv[]) {
     }
   };
 
-  arangodb::velocypack::Builder vbuilder;
+  VPackBuilder vbuilder;
   vbuilder.openObject();
   vbuilder.add("name",arangodb::velocypack::Value("superdb"));
   vbuilder.close();

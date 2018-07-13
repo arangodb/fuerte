@@ -94,6 +94,8 @@ class HttpConnection
       std::unique_ptr<Request> request, RequestCallback cb);
 
  private:
+  /// cached authentication header
+  std::string _authHeader;
   /// currently in fligth request
   std::shared_ptr<RequestItem> _inFlight;
   /// the node http-parser

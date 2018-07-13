@@ -26,9 +26,11 @@
 #include <stdexcept>
 
 #include <velocypack/Iterator.h>
+#include <velocypack/Slice.h>
+#include <velocypack/velocypack-aliases.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
-StringMap sliceToStringMap(VSlice const& slice) {
+StringMap sliceToStringMap(VPackSlice const& slice) {
   StringMap rv;
   assert(slice.isObject());
   for (auto const& it : ::arangodb::velocypack::ObjectIterator(slice)) {
@@ -37,7 +39,7 @@ StringMap sliceToStringMap(VSlice const& slice) {
   return rv;
 }
 
-std::string to_string(VSlice const& slice) {
+std::string to_string(VPackSlice const& slice) {
   std::stringstream ss;
   try {
     std::string json = slice.toJson();
@@ -50,7 +52,7 @@ std::string to_string(VSlice const& slice) {
   return ss.str();
 }
 
-std::string to_string(std::vector<VSlice> const& slices) {
+std::string to_string(std::vector<VPackSlice> const& slices) {
   std::stringstream ss;
   if (!slices.empty()) {
     for (auto const& slice : slices) {
@@ -67,9 +69,83 @@ std::string to_string(std::vector<VSlice> const& slices) {
 std::string to_string(Message& message) {
   std::stringstream ss;
   ss << "\n#### Message #####################################\n";
-  ss << "Id:" << message.messageID << "\n";
+  //ss << "Id:" << message.messageID << "\n";
   ss << "Header:\n";
-  ss << to_string(message.header);
+  if (message.type() == MessageType::Request) {
+    Request const& req = static_cast<Request const&>(message);
+#ifndef NDEBUG
+    if (req.header.byteSize) {
+      ss << "byteSize: " << req.header.byteSize << std::endl;
+    }
+#endif
+    
+    if (req.header.version()) {
+      ss << "version: " << req.header.version() << std::endl;
+    }
+    
+    ss << "type: request" << std::endl;
+    
+    if (!req.header.database.empty()) {
+      ss << "database: " << req.header.database << std::endl;
+    }
+    
+    if (req.header.restVerb != RestVerb::Illegal) {
+      ss << "restVerb: " << to_string(req.header.restVerb) << std::endl;
+    }
+    
+    if (!req.header.path.empty()) {
+      ss << "path: " << req.header.path << std::endl;
+    }
+    
+    if (!req.header.parameters.empty()) {
+      ss << "parameters: ";
+      for (auto const& item : req.header.parameters) {
+        ss << item.first << " -:- " << item.second << "\n";
+      }
+      ss << std::endl;
+    }
+    
+    if (!req.header.meta.empty()) {
+      ss << "meta:\n";
+      for (auto const& item : req.header.meta) {
+        ss << "\t" << item.first << " -:- " << item.second << "\n";
+      }
+      ss << std::endl;
+    }
+  } else if (message.type() == MessageType::Response) {
+    Response const& res = static_cast<Response const&>(message);
+#ifndef NDEBUG
+    if (res.header.byteSize) {
+      ss << "byteSize: " << res.header.byteSize << std::endl;
+    }
+#endif
+    
+    if (res.header.version()) {
+      ss << "version: " << res.header.version() << std::endl;
+    }
+    
+    ss << "type: response" << std::endl;
+    if (res.header.responseCode != StatusUndefined) {
+      ss << "responseCode: " << res.header.responseCode << std::endl;
+    }
+    
+    if (!res.header.meta.empty()) {
+      ss << "meta:\n";
+      for (auto const& item : res.header.meta) {
+        ss << "\t" << item.first << " -:- " << item.second << "\n";
+      }
+      ss << std::endl;
+    }
+    
+    ss << "contentType: " << res.header.contentTypeString() << std::endl;
+  }
+  /*  if (header.user) {
+   ss << "user: " << header.user.get() << std::endl;
+   }
+   
+   if (header.password) {
+   ss << "password: " << header.password.get() << std::endl;
+   }*/
   ss << "\nBody:\n";
   if (message.contentType() == ContentType::VPack) {
     ss << to_string(message.slices());
