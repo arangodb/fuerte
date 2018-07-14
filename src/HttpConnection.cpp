@@ -339,12 +339,9 @@ void HttpConnection::asyncReadCallback(::boost::system::error_code const& ec,
         << " bytes\n";  // async-calls=" << pendingAsyncCalls << std::endl;
 
 
-    if (!_inFlight) {
-      _receiveBuffer.consume(_receiveBuffer.size());
-      return; // just stop
-    }
-    
+    assert(_inFlight);
     // Inspect the data we've received so far.
+    size_t parsedBytes = 0;
     auto buffers = _receiveBuffer.data(); // no copy
     for (auto const& buffer : buffers) {
       
@@ -354,14 +351,12 @@ void HttpConnection::asyncReadCallback(::boost::system::error_code const& ec,
       size_t nparsed = http_parser_execute(&_parser, &_parserSettings,
                                            static_cast<const char *>(buffer.data()),
                                            buffer.size());
-      // Remove consumed data from receive buffer.
-      _receiveBuffer.consume(nparsed);
+      parsedBytes += nparsed;
       
       if (_parser.upgrade) {
         /* handle new protocol */
         FUERTE_LOG_ERROR << "Upgrading is not supported" << std::endl;
-        shutdownConnection(
-                           ErrorCondition::ProtocolError);  // will cleanup _inFlight
+        shutdownConnection(ErrorCondition::ProtocolError);  // will cleanup _inFlight
         return;
       } else if (nparsed != transferred) {
         /* Handle error. Usually just close the connection. */
@@ -370,7 +365,10 @@ void HttpConnection::asyncReadCallback(::boost::system::error_code const& ec,
         return;
       } else if (_inFlight->message_complete) {
         
-        _timeout.cancel();
+        _timeout.cancel(); // got response in time
+        // Remove consumed data from receive buffer.
+        _receiveBuffer.consume(parsedBytes);
+        
         // remove processed item from the message store
         _messageStore.removeByID(_inFlight->_messageID);
         // thread-safe access on IO-Thread
@@ -400,30 +398,14 @@ void HttpConnection::asyncReadCallback(::boost::system::error_code const& ec,
         return;
       }
     }
+    
+    // Remove consumed data from receive buffer.
+    _receiveBuffer.consume(parsedBytes);
+    
     FUERTE_LOG_HTTPTRACE
         << "asyncReadCallback (http): response not complete yet\n";
     asyncReadSome();  // keep reading from socket
   }
 }
-  
-void HttpConnection::setTimeout(std::chrono::milliseconds millis) {
-  // Set HTTP timeout
-  if (millis.count() == 0) {
-    _timeout.cancel();
-    return; // do
-  }
-  assert(millis.count() > 0);
-  auto self = shared_from_this();
-  _timeout.expires_from_now(millis);
-  _timeout.async_wait(std::bind(&HttpConnection::timeoutExpired,
-                                std::static_pointer_cast<HttpConnection>(self), std::placeholders::_1));
-}
-  
-// called when the timeout expired
-void HttpConnection::timeoutExpired(boost::system::error_code const& e) {
-  if (!e) {  // expired
-    restartConnection(ErrorCondition::Timeout);
-  }
-}
-  
+
 }}}}  // namespace arangodb::fuerte::v1::http

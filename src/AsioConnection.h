@@ -111,6 +111,13 @@ class AsioConnection : public Connection {
 
   // Call on IO-Thread: read from socket
   void asyncReadSome();
+  
+  /// set the timer accordingly
+  void setTimeout(std::chrono::milliseconds);
+  
+  // called when the timeout expired
+  void timeoutExpired(boost::system::error_code const& e);
+
 
  protected:
   // socket connection is up (with optional SSL)

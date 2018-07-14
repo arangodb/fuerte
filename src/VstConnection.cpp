@@ -54,7 +54,7 @@ VstConnection::VstConnection(
 // Deconstruct.
 VstConnection::~VstConnection() {}
 
-static std::atomic<uint64_t> vstMessageId(1);
+static std::atomic<MessageID> vstMessageId(1);
 // sendRequest prepares a RequestItem for the given parameters
 // and adds it to the send queue.
 MessageID VstConnection::sendRequest(std::unique_ptr<Request> request,
@@ -375,9 +375,11 @@ void VstConnection::asyncReadCallback(const boost::system::error_code& e,
 
     // Inspect the data we've received so far.
     auto recvBuffs = _receiveBuffer.data();  // no copy
-    auto cursor = boost::asio::buffer_cast<const uint8_t*>(
-        recvBuffs);  // TODO this is deprecated
+    auto cursor = boost::asio::buffer_cast<const uint8_t*>(recvBuffs);
     auto available = boost::asio::buffer_size(recvBuffs);
+    // TODO technically buffer_cast is deprecated
+    
+    size_t parsedBytes = 0;
     while (vst::parser::isChunkComplete(cursor, available)) {
       // Read chunk
       ChunkHeader chunk;
@@ -395,11 +397,13 @@ void VstConnection::asyncReadCallback(const boost::system::error_code& e,
       // Process chunk
       processChunk(chunk);
 
-      // Remove consumed data from receive buffer.
-      _receiveBuffer.consume(chunk.chunkLength());
       cursor += chunk.chunkLength();
       available -= chunk.chunkLength();
+      parsedBytes += chunk.chunkLength();
     }
+    
+    // Remove consumed data from receive buffer.
+    _receiveBuffer.consume(parsedBytes);
 
     // check for more messages that could arrive
     if (_messageStore.empty(true) &&

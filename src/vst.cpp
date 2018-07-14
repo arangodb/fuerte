@@ -185,22 +185,24 @@ static VPackBuffer<uint8_t> createVstRequestHeader(RequestHeader const& header) 
   FUERTE_LOG_DEBUG << "MessageHeader.path=" << header.path << std::endl;
 
   // 5 - parameters - not optional in current server
-  builder.openObject();
   if (!header.parameters.empty()) {
+    VPackObjectBuilder guard(&builder);
     for (auto const& item : header.parameters) {
       builder.add(item.first, VPackValue(item.second));
     }
+  } else {
+    builder.add(VPackSlice::emptyObjectSlice());
   }
-  builder.close();
 
   // 6 - meta
-  builder.openObject();
   if (!header.meta.empty()) {
+    VPackObjectBuilder guard(&builder);
     for (auto const& item : header.meta) {
       builder.add(item.first, VPackValue(item.second));
     }
+  } else {
+    builder.add(VPackSlice::emptyObjectSlice());
   }
-  builder.close(); // </meta>
 
   builder.close(); // </array>
 
@@ -261,6 +263,7 @@ void RequestItem::prepareForNetwork(VSTVersion vstVersion) {
 
   // Create the message header
   _msgHdr = createVstRequestHeader(_request->header);
+  assert(!_msgHdr.empty());
 
   // Split message into chunks
   std::vector<VPackSlice> slices(_request->slices());
@@ -274,7 +277,7 @@ void RequestItem::prepareForNetwork(VSTVersion vstVersion) {
   _requestChunkBuffer.reserve(chunks.size() * maxChunkHeaderSize);
   for (auto it = std::begin(chunks); it != std::end(chunks); ++it) {
     auto chunkOffset = _requestChunkBuffer.byteSize();
-    size_t chunkHdrLen;
+    size_t chunkHdrLen = 0;
     switch (vstVersion) {
       case VST1_0:
         chunkHdrLen = it->writeHeaderToVST1_0(_requestChunkBuffer);
@@ -285,6 +288,7 @@ void RequestItem::prepareForNetwork(VSTVersion vstVersion) {
       default:
         throw std::logic_error("Unknown VST version");
     }
+    assert(chunkHdrLen > 0 && chunkHdrLen <= maxChunkHeaderSize);
     // Add chunk buffer
     _requestBuffers.push_back(boost::asio::const_buffer(
         _requestChunkBuffer.data() + chunkOffset, chunkHdrLen));

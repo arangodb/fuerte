@@ -57,7 +57,7 @@ template <typename T>
 AsioConnection<T>::~AsioConnection() {
   _resolver.cancel();
   if (!_messageStore.empty()) {
-    FUERTE_LOG_HTTPTRACE << "DESTROYING CONNECTION WITH: "
+    FUERTE_LOG_TRACE << "DESTROYING CONNECTION WITH: "
                          << _messageStore.size() << " outstanding requests!"
                          << std::endl;
   }
@@ -159,6 +159,9 @@ void AsioConnection<T>::shutdownConnection(const ErrorCondition ec) {
   
   // Cancel all items and remove them from the message store.
   _messageStore.cancelAll(ec);
+  
+  // clear buffer of received messages
+  /*_receiveBuffer.consume(_receiveBuffer.size());*/
 }
 
 template <typename T>
@@ -386,6 +389,30 @@ void AsioConnection<T>::asyncReadSome() {
   FUERTE_LOG_TRACE << "asyncReadSome: done" << std::endl;
 }
 
+/// Set timeout accordingly
+template<typename T>
+void AsioConnection<T>::setTimeout(std::chrono::milliseconds millis) {
+  if (millis.count() == 0) {
+    _timeout.cancel();
+    return; // do
+  }
+  assert(millis.count() > 0);
+  auto self = shared_from_this();
+  _timeout.expires_from_now(millis);
+  _timeout.async_wait(std::bind(&AsioConnection<T>::timeoutExpired,
+                                std::static_pointer_cast<AsioConnection<T>>(self), std::placeholders::_1));
+}
+
+// called when the timeout expired
+template<typename T>
+void AsioConnection<T>::timeoutExpired(boost::system::error_code const& e) {
+  if (!e) {  // expired
+    FUERTE_LOG_DEBUG << "Request timeout";
+    restartConnection(ErrorCondition::Timeout);
+  }
+}
+
+  
 template class arangodb::fuerte::v1::AsioConnection<
     arangodb::fuerte::v1::vst::RequestItem>;
 template class arangodb::fuerte::v1::AsioConnection<

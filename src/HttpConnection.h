@@ -96,12 +96,6 @@ class HttpConnection
   std::unique_ptr<RequestItem> createRequestItem(
       std::unique_ptr<Request> request, RequestCallback cb);
   
-  /// set the timer accordingly
-  void setTimeout(std::chrono::milliseconds);
-      
-  // called when the timeout expired
-  void timeoutExpired(boost::system::error_code const& e);
-
  private:
   /// cached authentication header
   std::string _authHeader;

@@ -40,14 +40,14 @@ class MessageStore {
  public:
   // add a given item to the store (indexed by its ID).
   void add(std::shared_ptr<RequestItemT> item) {
-    //std::lock_guard<std::mutex> lockMap(_mutex);
+    std::lock_guard<std::mutex> lockMap(_mutex);
     _map.emplace(item->messageID(), item);
   }
 
   // findByID returns the item with given ID or nullptr is no such ID is
   // found in the store.
   std::shared_ptr<RequestItemT> findByID(MessageID id) {
-    //std::lock_guard<std::mutex> lockMap(_mutex);
+    std::lock_guard<std::mutex> lockMap(_mutex);
     auto found = _map.find(id);
     if (found == _map.end()) {
       // ID not found
@@ -58,7 +58,7 @@ class MessageStore {
 
   // removeByID removes the item with given ID from the store.
   void removeByID(MessageID id) {
-    //std::lock_guard<std::mutex> lockMap(_mutex);
+    std::lock_guard<std::mutex> lockMap(_mutex);
     _map.erase(id);
   }
 
@@ -66,7 +66,7 @@ class MessageStore {
   // and remove all items from the store.
   void cancelAll(
       const ErrorCondition error = ErrorCondition::CanceledDuringReset) {
-    //std::lock_guard<std::mutex> lockMap(_mutex);
+    std::lock_guard<std::mutex> lockMap(_mutex);
     for (auto& item : _map) {
       item.second->invokeOnError(errorToInt(error),
                                  std::move(item.second->_request), nullptr);
@@ -76,7 +76,7 @@ class MessageStore {
 
   // size returns the number of elements in the store.
   size_t size() const {
-    //std::lock_guard<std::mutex> lockMap(_mutex);
+    std::lock_guard<std::mutex> lockMap(_mutex);
     return _map.size();
   }
 
@@ -86,7 +86,7 @@ class MessageStore {
     if (unlocked) {
       return _map.empty();
     } else {
-      //std::lock_guard<std::mutex> lockMap(_mutex);
+      std::lock_guard<std::mutex> lockMap(_mutex);
       return _map.empty();
     }
   }
@@ -107,7 +107,7 @@ class MessageStore {
       }
       return min;
     } else {
-      //std::lock_guard<std::mutex> lockMap(_mutex);
+      std::lock_guard<std::mutex> lockMap(_mutex);
       return minimumTimeout(true);
     }
   }
@@ -117,12 +117,12 @@ class MessageStore {
 
   // keys returns a string representation of all MessageID's in the store.
   std::string keys() const {
-    //std::lock_guard<std::mutex> lockMap(_mutex);
+    std::lock_guard<std::mutex> lockMap(_mutex);
     return mapToKeys(_map);
   }
 
  private:
-  //mutable std::mutex _mutex;
+  mutable std::mutex _mutex;
   std::map<MessageID, std::shared_ptr<RequestItemT>> _map;
 };
 
