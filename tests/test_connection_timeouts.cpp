@@ -57,7 +57,7 @@ TEST(RequestTimeout, HTTP) {
     fu::WaitGroupDone done(wg);
     ASSERT_EQ(fu::intToError(e), fu::ErrorCondition::Timeout);
   });
-  ASSERT_TRUE(wg.wait_for(std::chrono::milliseconds(10000)));
+  ASSERT_TRUE(wg.wait_for(std::chrono::milliseconds(1100)));
   
   // connection must now reconnect and work again
   req = fu::createRequest(fu::RestVerb::Post, "/_api/version");

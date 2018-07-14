@@ -331,13 +331,12 @@ namespace parser {
 // Otherwise 0 is returned.
 std::size_t isChunkComplete(uint8_t const* const begin,
                             std::size_t const lengthAvailable) {
-  if (lengthAvailable <
-      sizeof(uint32_t)) {  // there is not enought to read the length of
+  // there is not enought to read the length of
+  if (lengthAvailable < sizeof(uint32_t)) {
     return 0;
   }
   // read chunk length
-  uint32_t lengthThisChunk =
-      basics::uintFromPersistentLittleEndian<uint32_t>(begin);
+  uint32_t lengthThisChunk = basics::uintFromPersistentLittleEndian<uint32_t>(begin);
   if (lengthAvailable < lengthThisChunk) {
     FUERTE_LOG_VSTCHUNKTRACE << "\nchunk incomplete: " << lengthAvailable << "/"
                              << lengthThisChunk << "(available/len)"
@@ -388,8 +387,7 @@ ChunkHeader readChunkHeaderVST1_1(uint8_t const* const bufferBegin) {
   header._messageLength =
       basics::uintFromPersistentLittleEndian<uint64_t>(hdr + 16);
   size_t contentLength = header._chunkLength - maxChunkHeaderSize;
-  header._data =
-      boost::asio::const_buffer(hdr + maxChunkHeaderSize, contentLength);
+  header._data = boost::asio::const_buffer(hdr + maxChunkHeaderSize, contentLength);
   FUERTE_LOG_VSTCHUNKTRACE << "readChunkHeaderVST1_1: got " << contentLength
                            << " data bytes after " << std::endl;
 
