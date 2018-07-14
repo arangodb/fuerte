@@ -56,7 +56,7 @@ TEST(VelocyStream_11, ChunkHeader) {
   ASSERT_EQ(val, static_cast<uint32_t>(0x0d0c0b0a));
   
   arangodb::velocypack::Buffer<uint8_t> buffer;
-  size_t t = header.writeHeaderToVST1_1(buffer);
+  size_t t = header.writeHeaderToVST1_1(4, buffer);
   ASSERT_EQ(buffer.size(), fu::vst::maxChunkHeaderSize);
   ASSERT_EQ(t, fu::vst::maxChunkHeaderSize);
   ASSERT_LE(fu::vst::maxChunkHeaderSize, chunk.length());

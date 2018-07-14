@@ -56,7 +56,8 @@ namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
 // writeHeaderToVST1_0 write the chunk to the given buffer in VST 1.0 format.
 // The length of the buffer is returned.
-size_t ChunkHeader::writeHeaderToVST1_0(VPackBuffer<uint8_t>& buffer) const {
+size_t ChunkHeader::writeHeaderToVST1_0(size_t chunkDataLen,
+                                        VPackBuffer<uint8_t>& buffer) const {
   size_t hdrLength;
   uint8_t hdr[maxChunkHeaderSize];
   if (isFirst() && numberOfChunks() > 1) {
@@ -67,10 +68,9 @@ size_t ChunkHeader::writeHeaderToVST1_0(VPackBuffer<uint8_t>& buffer) const {
     // Use minimal header
     hdrLength = minChunkHeaderSize;
   }
-  auto dataSize = boost::asio::buffer_size(_data);
-  basics::uintToPersistentLittleEndian<uint32_t>(hdr + 0, hdrLength + dataSize);  // chunk length (header+data)
+  basics::uintToPersistentLittleEndian<uint32_t>(hdr + 0, hdrLength + chunkDataLen);  // chunk length (header+data)
   basics::uintToPersistentLittleEndian<uint32_t>(hdr + 4, _chunkX);  // chunkX
-  basics::uintToPersistentLittleEndian<uint64_t>(hdr + 8,  _messageID);  // messageID
+  basics::uintToPersistentLittleEndian<uint64_t>(hdr + 8, _messageID);  // messageID
   
   // Now add hdr to buffer
   buffer.append(hdr, hdrLength);
@@ -79,11 +79,11 @@ size_t ChunkHeader::writeHeaderToVST1_0(VPackBuffer<uint8_t>& buffer) const {
 
 // writeHeaderToVST1_1 write the chunk to the given buffer in VST 1.1 format.
 // The length of the buffer is returned.
-size_t ChunkHeader::writeHeaderToVST1_1(VPackBuffer<uint8_t>& buffer) const {
+size_t ChunkHeader::writeHeaderToVST1_1(size_t chunkDataLen,
+                                        VPackBuffer<uint8_t>& buffer) const {
   buffer.reserve(maxChunkHeaderSize);
   uint8_t* hdr = buffer.data() + buffer.size();
-  auto dataSize = boost::asio::buffer_size(_data);
-  basics::uintToPersistentLittleEndian<uint32_t>(hdr + 0, maxChunkHeaderSize + dataSize);  // chunk length (header+data)
+  basics::uintToPersistentLittleEndian<uint32_t>(hdr + 0, maxChunkHeaderSize + chunkDataLen);
   basics::uintToPersistentLittleEndian<uint32_t>(hdr + 4, _chunkX);  // chunkX
   basics::uintToPersistentLittleEndian<uint64_t>(hdr + 8, _messageID);  // messageID
   basics::uintToPersistentLittleEndian<uint64_t>(hdr + 16, _messageLength);  // total message length
@@ -92,63 +92,10 @@ size_t ChunkHeader::writeHeaderToVST1_1(VPackBuffer<uint8_t>& buffer) const {
   return maxChunkHeaderSize;
 }
 
-// buildChunks builds a list of chunks that are ready to be send to the server.
-// The resulting set of chunks are added to the given result vector.
-void buildChunks(uint64_t messageID, uint32_t maxChunkSize,
-                 std::vector<VPackSlice> const& messageParts,
-                 std::vector<ChunkHeader>& result) {
-  // Check arguments
-  assert(maxChunkSize > maxChunkHeaderSize);
+// section - VstMessageHeaders
 
-  // calculate total message length
-  uint64_t messageLength = 0;
-  for (auto it = std::begin(messageParts); it != std::end(messageParts); ++it) {
-    auto byteSize = it->byteSize();
-    messageLength += byteSize;
-  }
-
-  // FIXME request headers always get their own chunk, therefore we waste
-  // 24 bytes everytime even when the message is smallish.
-  // this code should just merge small slices
-  
-  // Build the chunks
-  result.clear();
-  // auto minChunkCount = messageLength / maxChunkSize;
-  auto maxDataLength = maxChunkSize - maxChunkHeaderSize;
-  uint32_t chunkIndex = 0;
-  for (auto it = std::begin(messageParts); it != std::end(messageParts); ++it) {
-    size_t offset = 0;
-    auto remaining = it->byteSize();
-    while (remaining > 0) {
-      auto dataLength = remaining;
-      if (dataLength > maxDataLength) {
-        dataLength = maxDataLength;
-      }
-      uint32_t chunkX = chunkIndex << 1;
-      ChunkHeader chunk;
-      chunk._chunkX = chunkX;
-      chunk._messageID = messageID;
-      chunk._messageLength = messageLength;
-      chunk._data = boost::asio::const_buffer(it->start() + offset, dataLength);
-      result.push_back(chunk);
-      remaining -= dataLength;
-      offset += dataLength;
-      chunkIndex++;
-    }
-  }
-  // Set chunkX of first chunk
-  if (result.size() == 1) {
-    result[0]._chunkX = 3;  // ((1 << 1)| 1)
-  } else {
-    result[0]._chunkX = (result.size() << 1) | 1;
-  }
-}
-
-// section - VstMessageHeader
-
-// createVstRequestHeader creates a slice containing a VST request
-//  header (effectively a VPack array).
-static VPackBuffer<uint8_t> createVstRequestHeader(RequestHeader const& header) {
+/// @brief creates a slice containing a VST request header.
+VPackBuffer<uint8_t> message::requestHeader(RequestHeader const& header) {
   static std::string const message = " for message not set";
   VPackBuffer<uint8_t> buffer;
   VPackBuilder builder(buffer);
@@ -209,10 +156,8 @@ static VPackBuffer<uint8_t> createVstRequestHeader(RequestHeader const& header) 
   return buffer;
 }
   
-  
-// createVstResponseHeader creates a slice containing a VST request
-//  header (effectively a VPack array).
-static VPackBuffer<uint8_t> createVstResponseHeader(ResponseHeader const& header) {
+/// @brief creates a slice containing a VST request header.
+VPackBuffer<uint8_t> message::responseHeader(ResponseHeader const& header) {
   static std::string const message = " for message not set";
   VPackBuffer<uint8_t> buffer;
   VPackBuilder builder(buffer);
@@ -249,6 +194,33 @@ static VPackBuffer<uint8_t> createVstResponseHeader(ResponseHeader const& header
   return buffer;
 }
 
+/// @brief creates a slice containing a VST auth message with JWT encryption
+VPackBuffer<uint8_t> message::authJWT(std::string const& token) {
+  VPackBuffer<uint8_t> buffer;
+  VPackBuilder builder(buffer);
+  builder.openArray();
+  builder.add(VPackValue(1)); // version
+  builder.add(VPackValue(static_cast<int>(MessageType::Authentication)));  // type
+  builder.add(VPackValue("jwt")); // encryption
+  builder.add(VPackValue(token)); // token
+  builder.close();
+  return buffer;
+}
+
+/// @brief creates a slice containing a VST auth message with plain enctyption
+VPackBuffer<uint8_t> message::authBasic(std::string const& username,
+                                      std::string const& password) {
+  VPackBuffer<uint8_t> buffer;
+  VPackBuilder builder(buffer);
+  builder.openArray();
+  builder.add(VPackValue(1)); // version
+  builder.add(VPackValue(static_cast<int>(MessageType::Authentication))); // type
+  builder.add(VPackValue("plain")); // encryption
+  builder.add(VPackValue(username)); // user
+  builder.add(VPackValue(password)); // password
+  builder.close();
+  return buffer;
+}
 
 // ################################################################################
 
@@ -261,66 +233,80 @@ void RequestItem::prepareForNetwork(VSTVersion vstVersion) {
     _request->header.database = "_system";
   }
 
-  // Create the message header
-  _msgHdr = createVstRequestHeader(_request->header);
-  assert(!_msgHdr.empty());
+  // Create the message header and store it into the metadata buffer
+  _requestMetadata = message::requestHeader(_request->header);
+  assert(!_requestMetadata.empty());
+  // message header has to go into the first chunk
+  boost::asio::const_buffer header(_requestMetadata.data(),
+                                   _requestMetadata.byteSize());
 
   // Split message into chunks
-  std::vector<VPackSlice> slices(_request->slices());
-  // Add message header slice to the front
-  slices.insert(slices.begin(), VPackSlice(_msgHdr.data()));
-  std::vector<ChunkHeader> chunks;
-  buildChunks(_messageID, defaultMaxChunkSize, slices, chunks);
+  boost::asio::const_buffer payload = _request->payload();
+  size_t msgLength = payload.size() + _requestMetadata.size();
+  assert(msgLength > 0);
+  
+  // builds a list of chunks that are ready to be send to the server.
+  // The resulting set of chunks are added to the given result vector.
 
-  // Prepare request (write) buffers
+  // calculate intended number of chunks
+  const size_t numChunks =  (msgLength + defaultMaxChunkSize - 1) / defaultMaxChunkSize;
+  const size_t maxDataLength = defaultMaxChunkSize - maxChunkHeaderSize;
+  assert(maxDataLength > 0);
+  assert(header.size() < maxDataLength);
+
   // Reserve  so we don't have to re-allocate memory
-  _requestChunkBuffer.reserve(chunks.size() * maxChunkHeaderSize);
-  for (auto it = std::begin(chunks); it != std::end(chunks); ++it) {
-    auto chunkOffset = _requestChunkBuffer.byteSize();
+  _requestMetadata.reserve(numChunks * maxChunkHeaderSize);
+  
+  uint32_t chunkIndex = 0;
+  char const* begin = reinterpret_cast<const char*>(payload.data());
+#ifndef NDEBUG
+  char const* end = reinterpret_cast<const char*>(payload.data()) + payload.size();
+#endif
+
+  size_t remaining = msgLength;
+  while (remaining > 0) {
+    
+    // begin writing a new chunk
+    ChunkHeader chunk;
+    chunk._chunkX = (chunkIndex == 0) ? ((numChunks << 1) | 1) : (chunkIndex << 1);
+    chunk._messageID = _messageID;
+    chunk._messageLength = msgLength;
+    
+    // put data into the chunk
+    size_t chunkDataLen = std::min(maxDataLength, remaining);
+    remaining -= chunkDataLen;
+    
     size_t chunkHdrLen = 0;
+    size_t chunkOffset = _requestMetadata.byteSize();
     switch (vstVersion) {
       case VST1_0:
-        chunkHdrLen = it->writeHeaderToVST1_0(_requestChunkBuffer);
+        chunkHdrLen = chunk.writeHeaderToVST1_0(chunkDataLen, _requestMetadata);
         break;
       case VST1_1:
-        chunkHdrLen = it->writeHeaderToVST1_1(_requestChunkBuffer);
+        chunkHdrLen = chunk.writeHeaderToVST1_1(chunkDataLen, _requestMetadata);
         break;
       default:
         throw std::logic_error("Unknown VST version");
     }
     assert(chunkHdrLen > 0 && chunkHdrLen <= maxChunkHeaderSize);
+    
     // Add chunk buffer
-    _requestBuffers.push_back(boost::asio::const_buffer(
-        _requestChunkBuffer.data() + chunkOffset, chunkHdrLen));
-    // Add chunk data buffer
-    _requestBuffers.push_back(it->_data);
+    _requestBuffers.emplace_back(_requestMetadata.data() + chunkOffset, chunkHdrLen);
+    if (chunkIndex == 0) { // stuff in message header
+      assert(header.size() <= chunkDataLen);
+      _requestBuffers.emplace_back(header);
+      chunkDataLen -= header.size();
+    }
+    if (chunkDataLen > 0) {
+      assert(begin < end);
+      // Add chunk data buffer
+      _requestBuffers.emplace_back(begin, chunkDataLen);
+      begin += chunkDataLen;
+    }
+    chunkIndex++;
+    assert(chunkIndex <= numChunks);
   }
-}
-  
-VPackBuffer<uint8_t> authMessageJWT(std::string const& token) {
-  VPackBuffer<uint8_t> buffer;
-  VPackBuilder builder(buffer);
-  builder.openArray();
-  builder.add(VPackValue(1)); // version
-  builder.add(VPackValue(static_cast<int>(MessageType::Authentication)));  // type
-  builder.add(VPackValue("jwt")); // encryption
-  builder.add(VPackValue(token)); // token
-  builder.close();
-  return buffer;
-}
-  
-VPackBuffer<uint8_t> authMessageBasic(std::string const& username,
-                                      std::string const& password) {
-  VPackBuffer<uint8_t> buffer;
-  VPackBuilder builder(buffer);
-  builder.openArray();
-  builder.add(VPackValue(1)); // version
-  builder.add(VPackValue(static_cast<int>(MessageType::Authentication))); // type
-  builder.add(VPackValue("plain")); // encryption
-  builder.add(VPackValue(username)); // user
-  builder.add(VPackValue(password)); // password
-  builder.close();
-  return buffer;
+  assert(chunkIndex == numChunks);
 }
 
 namespace parser {
@@ -388,8 +374,7 @@ ChunkHeader readChunkHeaderVST1_1(uint8_t const* const bufferBegin) {
       basics::uintFromPersistentLittleEndian<uint32_t>(hdr + 0);
   header._chunkX = basics::uintFromPersistentLittleEndian<uint32_t>(hdr + 4);
   header._messageID = basics::uintFromPersistentLittleEndian<uint64_t>(hdr + 8);
-  header._messageLength =
-      basics::uintFromPersistentLittleEndian<uint64_t>(hdr + 16);
+  header._messageLength = basics::uintFromPersistentLittleEndian<uint64_t>(hdr + 16);
   size_t contentLength = header._chunkLength - maxChunkHeaderSize;
   header._data = boost::asio::const_buffer(hdr + maxChunkHeaderSize, contentLength);
   FUERTE_LOG_VSTCHUNKTRACE << "readChunkHeaderVST1_1: got " << contentLength
@@ -546,7 +531,7 @@ void RequestItem::addChunk(ChunkHeader& chunk) {
                            << std::endl;
   chunk._responseChunkContentOffset = _responseChunkContent.byteSize();
   _responseChunkContent.append(contentStart, chunk._responseContentLength);
-  // Release _data in chunk
+  // Release _data ptr in chunk
   chunk._data = boost::asio::const_buffer();
   // Add chunk to list
   _responseChunks.push_back(chunk);

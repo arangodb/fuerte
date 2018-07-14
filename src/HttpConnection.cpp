@@ -407,5 +407,29 @@ void HttpConnection::asyncReadCallback(::boost::system::error_code const& ec,
     asyncReadSome();  // keep reading from socket
   }
 }
+  
+/// Set timeout accordingly
+void HttpConnection::setTimeout(std::chrono::milliseconds millis) {
+  if (millis.count() == 0) {
+    _timeout.cancel();
+    return; // do
+  }
+  assert(millis.count() > 0);
+  auto self = shared_from_this();
+  _timeout.expires_from_now(millis);
+  _timeout.async_wait(std::bind(&HttpConnection::timeoutExpired,
+                                std::static_pointer_cast<HttpConnection>(self),
+                                std::placeholders::_1));
+}
+
+// called when the timeout expired
+void HttpConnection::timeoutExpired(boost::system::error_code const& e) {
+  if (!e) {  // expired
+    FUERTE_LOG_DEBUG << "HTTP-Request timeout";
+    restartConnection(ErrorCondition::Timeout);
+  }
+}
+
+
 
 }}}}  // namespace arangodb::fuerte::v1::http

@@ -137,7 +137,7 @@ void VstConnection::finishInitialization() {
 
 // Send out the authentication message on this connection
 void VstConnection::sendAuthenticationRequest() {
-  assert(_configuration._authenticationType != AuthenticationType::None);
+  /*assert(_configuration._authenticationType != AuthenticationType::None);
   
   // Part 1: Build ArangoDB VST auth message (1000)
   auto item = std::make_shared<RequestItem>();
@@ -145,29 +145,32 @@ void VstConnection::sendAuthenticationRequest() {
   item->_messageID = vstMessageId.fetch_add(1, std::memory_order_relaxed);
   
   if (_configuration._authenticationType == AuthenticationType::Basic) {
-    item->_msgHdr = authMessageBasic(_configuration._user, _configuration._password);
+    item->_requestMetadata = vst::message::authBasic(_configuration._user, _configuration._password);
   } else if (_configuration._authenticationType == AuthenticationType::Jwt) {
-    item->_msgHdr = authMessageJWT(_configuration._jwtToken);
+    item->_requestMetadata = vst::message::authJWT(_configuration._jwtToken);
   }
-  assert(item->_msgHdr.size() < defaultMaxChunkSize);
+  assert(item->_requestMetadata.size() < defaultMaxChunkSize);
+  size_t msgLength = item->_requestMetadata.size();
+  boost::asio::const_buffer header(item->_requestMetadata.data(),
+                                   item->_requestMetadata.byteSize());
 
   // Part 2: Build a single chunk
   ChunkHeader chunk;
   chunk._chunkX = 3;  // ((1 << 1)| 1)
   chunk._messageID = item->_messageID;
-  chunk._messageLength = item->_msgHdr.size();
+  chunk._messageLength = messageLength;
   chunk._data = boost::asio::const_buffer(item->_msgHdr.data(),
                                           item->_msgHdr.byteSize());
   
   // write chunk header into the chunk header buffer
-  item->_requestChunkBuffer.reserve(maxChunkHeaderSize);
+  item->_requestMetadata.reserve(maxChunkHeaderSize);
   size_t chunkHdrLen;
   switch (_vstVersion) {
     case VST1_0:
-      chunkHdrLen = chunk.writeHeaderToVST1_0(item->_requestChunkBuffer);
+      chunkHdrLen = chunk.writeHeaderToVST1_0(messageLength, item->_requestChunkBuffer);
       break;
     case VST1_1:
-      chunkHdrLen = chunk.writeHeaderToVST1_1(item->_requestChunkBuffer);
+      chunkHdrLen = chunk.writeHeaderToVST1_1(messageLength, item->_requestChunkBuffer);
       break;
     default:
       throw std::logic_error("Unknown VST version");
@@ -200,7 +203,7 @@ void VstConnection::sendAuthenticationRequest() {
     } else {
       boost::asio::async_write(*_socket, item->_requestBuffers, cb);
     }
-  });
+  });*/
 }
 
 // ------------------------------------

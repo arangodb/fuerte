@@ -255,6 +255,7 @@ void AsioConnection<T>::startSSLHandshake() {
   }
   // https://www.boost.org/doc/libs/1_67_0/doc/html/boost_asio/overview/ssl.html
   // Perform SSL handshake and verify the remote host's certificate.
+  _sslSocket->lowest_layer().set_option(boost::asio::ip::tcp::no_delay(true));
   _sslSocket->set_verify_mode(boost::asio::ssl::verify_peer);
   _sslSocket->set_verify_callback(
       boost::asio::ssl::rfc2818_verification(_configuration._host));
@@ -389,30 +390,6 @@ void AsioConnection<T>::asyncReadSome() {
   FUERTE_LOG_TRACE << "asyncReadSome: done" << std::endl;
 }
 
-/// Set timeout accordingly
-template<typename T>
-void AsioConnection<T>::setTimeout(std::chrono::milliseconds millis) {
-  if (millis.count() == 0) {
-    _timeout.cancel();
-    return; // do
-  }
-  assert(millis.count() > 0);
-  auto self = shared_from_this();
-  _timeout.expires_from_now(millis);
-  _timeout.async_wait(std::bind(&AsioConnection<T>::timeoutExpired,
-                                std::static_pointer_cast<AsioConnection<T>>(self), std::placeholders::_1));
-}
-
-// called when the timeout expired
-template<typename T>
-void AsioConnection<T>::timeoutExpired(boost::system::error_code const& e) {
-  if (!e) {  // expired
-    FUERTE_LOG_DEBUG << "Request timeout";
-    restartConnection(ErrorCondition::Timeout);
-  }
-}
-
-  
 template class arangodb::fuerte::v1::AsioConnection<
     arangodb::fuerte::v1::vst::RequestItem>;
 template class arangodb::fuerte::v1::AsioConnection<

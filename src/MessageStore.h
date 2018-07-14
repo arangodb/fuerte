@@ -95,9 +95,8 @@ class MessageStore {
   // store.
   std::chrono::milliseconds minimumTimeout(bool unlocked = false) {
     if (unlocked) {
-      std::chrono::milliseconds min(
-          2 * 60 *
-          1000);  // If there is no message, use a timeout of 2 minutes.
+      // If there is no message, use a timeout of 2 minutes.
+      std::chrono::milliseconds min(2 * 60 * 1000);
       for (auto& item : _map) {
         auto reqTimeout = std::chrono::duration_cast<std::chrono::milliseconds>(
             item.second->_request->timeout());

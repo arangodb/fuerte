@@ -204,6 +204,9 @@ class Request final : public Message {
   ///////////////////////////////////////////////
   // get payload
   ///////////////////////////////////////////////
+  
+  /// @brief get velocypack slices contained in request
+  /// only valid iff the data was added via addVPack
   std::vector<velocypack::Slice> const& slices() override;
   boost::asio::const_buffer payload() const override;
   size_t payloadSize() const override;
@@ -218,6 +221,7 @@ class Request final : public Message {
   bool _sealed;
   bool _modified;
   ::boost::optional<bool> _isVpack;
+  /// used to by addVPack to build a requst buffer
   std::shared_ptr<velocypack::Builder> _builder;
   std::vector<velocypack::Slice> _slices;
   std::size_t _payloadLength;  // because VPackBuffer has quirks we need

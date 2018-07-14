@@ -53,12 +53,14 @@ static const char* vstHeader1_1 = "VST/1.1\r\n\r\n";
 
 // Velocystream Chunk Header
 struct ChunkHeader {
+  
   // data used in the specification
   uint32_t _chunkLength;    // length of this chunk includig chunkHeader
   uint32_t _chunkX;         // number of chunks or chunk number
   uint64_t _messageID;      // messageid
   uint64_t _messageLength;  // length of total payload
-  /// Reference to request data that this header belongs to
+  
+  /// Temporary Reference to response data that this header belongs to
   boost::asio::const_buffer _data;
   
   // Used when receiving the response:
@@ -91,18 +93,12 @@ struct ChunkHeader {
 
   // writeHeaderToVST1_0 write the chunk to the given buffer in VST 1.0 format.
   // The length of the buffer is returned.
-  size_t writeHeaderToVST1_0(velocypack::Buffer<uint8_t>& buffer) const;
+  size_t writeHeaderToVST1_0(size_t chunkDataLen, velocypack::Buffer<uint8_t>&) const;
 
   // writeHeaderToVST1_1 write the chunk to the given buffer in VST 1.1 format.
   // The length of the buffer is returned.
-  size_t writeHeaderToVST1_1(velocypack::Buffer<uint8_t>& buffer) const;
+  size_t writeHeaderToVST1_1(size_t chunkDataLen, velocypack::Buffer<uint8_t>& buffer) const;
 };
-
-// buildChunks builds a list of chunks that are ready to be send to the server.
-// The resulting set of chunks are added to the given result vector.
-void buildChunks(uint64_t messageID, uint32_t maxChunkSize,
-                 std::vector<velocypack::Slice> const& messageParts,
-                 std::vector<ChunkHeader>& result);
 
 // chunkHeaderLength returns the length of a VST chunk header for given
 // arguments.
@@ -132,10 +128,8 @@ struct RequestItem {
   
   // ======= Request variables =======
   
-  /// VST message header
-  velocypack::Buffer<uint8_t> _msgHdr;
-  /// Buffer used to hold chunk headers
-  velocypack::Buffer<uint8_t> _requestChunkBuffer;
+  /// Buffer used to hold chunk headers and message header
+  velocypack::Buffer<uint8_t> _requestMetadata;
   
   /// Buffers the will be send to the socket.
   std::vector<boost::asio::const_buffer> _requestBuffers;
@@ -168,15 +162,23 @@ struct RequestItem {
 
   // Flush all memory needed for sending this request.
   inline void resetSendData() {
-    _msgHdr.clear();
-    _requestChunkBuffer.clear();
+    _requestMetadata.clear();
     _requestBuffers.clear();
   }
 };
   
-velocypack::Buffer<uint8_t> authMessageJWT(std::string const& token);
-velocypack::Buffer<uint8_t> authMessageBasic(std::string const& username,
+namespace message {
+  
+/// @brief creates a slice containing a VST request header.
+velocypack::Buffer<uint8_t> requestHeader(RequestHeader const&);
+/// @brief creates a slice containing a VST request header.
+velocypack::Buffer<uint8_t> responseHeader(ResponseHeader const&);
+/// @brief creates a slice containing a VST auth message with JWT encryption
+velocypack::Buffer<uint8_t> authJWT(std::string const& token);
+/// @brief creates a slice containing a VST auth message with plain enctyption
+velocypack::Buffer<uint8_t> authBasic(std::string const& username,
                                              std::string const& password);
+}
 
 /////////////////////////////////////////////////////////////////////////////////////
 // parse vst

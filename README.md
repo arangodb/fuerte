@@ -22,7 +22,7 @@ The following development packages need to be installed
 
 - C++ 11 compiler
 - cmake 3.0
-- cURL: https://github.com/curl/curl (needs to be found by FindCURL.cmake)
+- Boost Libraries
 
 ## nodejs: a low-level node.js driver
 
@@ -43,14 +43,10 @@ Things that are missing:
 - tests - without tests we never know the exact status (below is a list of missing featues)
 - hanging with 100k requests (needs to be found)
 - c++/node: incomplete handling of broken connections - need to find out what is missing (worse in node)
-- c++: missing handling of endianess
-- http/vst: no authentication
 - http/vst: content type handling needs testing
 - http: only first slice is added as payload
-- vst: sending only single chunk messages
 - vst: only the first slice is available via slices()
 - vst: no compression
-- vst: not handling all versions - velocystream version unknown (it works with the server)
 - node: no good node integration (libuv)
 - node: no real asynchronous work because of the above
 - node: not building on different systems (locating of headers)
