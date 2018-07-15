@@ -23,10 +23,9 @@
 #ifndef ARANGO_CXX_DRIVER_ARANGOC
 #define ARANGO_CXX_DRIVER_ARANGOC
 
-#include "collection.h"
 #include "connection.h"
-#include "database.h"
 #include "helper.h"
+#include "loop.h"
 #include "requests.h"
 #include "waitgroup.h"
 

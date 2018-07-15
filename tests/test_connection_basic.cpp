@@ -19,10 +19,10 @@
 ///
 /// @author Jan Christoph Uhde
 /// @author Ewout Prangsma
+/// @author Simon Grätzer
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <fuerte/fuerte.h>
-#include <fuerte/loop.h>
 #include <fuerte/helper.h>
 #include <velocypack/Builder.h>
 #include <velocypack/velocypack-aliases.h>

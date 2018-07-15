@@ -32,8 +32,6 @@
 #include <fuerte/loop.h>
 #include <fuerte/types.h>
 
-#include "jwt.h"
-
 namespace {
 using namespace arangodb::fuerte::v1;
 using namespace arangodb::fuerte::v1::http;
@@ -109,13 +107,7 @@ HttpConnection::HttpConnection(std::shared_ptr<asio_io_context>& ctx,
       throw std::logic_error("JWT token is not set");
     }
     _authHeader.append("Authorization: bearer ");
-    if (_configuration._user.empty()) {
-      _authHeader.append(
-      jwt::generateInternalToken(_configuration._jwtToken, "fuerte"));
-    } else {
-      _authHeader.append(jwt::generateUserToken(_configuration._jwtToken,
-                                                _configuration._user));
-    }
+    _authHeader.append(_configuration._jwtToken);
     _authHeader.append("\r\n");
   }
 }

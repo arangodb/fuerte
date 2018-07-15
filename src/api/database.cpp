@@ -19,12 +19,26 @@
 ///
 /// @author Jan Christoph Uhde
 ////////////////////////////////////////////////////////////////////////////////
-#include <fuerte/collection.h>
-#include <fuerte/database.h>
+
+#include <fuerte/connection.h>
+#include <fuerte/message.h>
+
+#include <fuerte/api/database.h>
+#include <fuerte/api/collection.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 using namespace arangodb::fuerte::detail;
 
-Collection::Collection(std::shared_ptr<Database> db, std::string name)
-    : _db(db), _name(name) {}
+Database::Database(std::shared_ptr<Connection> conn, std::string const& name)
+    : _conn(conn), _name(name) {}
+
+std::shared_ptr<Collection> Database::getCollection(std::string const& name) {
+  return std::shared_ptr<Collection>(new Collection(shared_from_this(), name));
+}
+
+std::shared_ptr<Collection> Database::createCollection(
+    std::string const& name) {
+  return std::shared_ptr<Collection>(new Collection(shared_from_this(), name));
+}
+bool Database::deleteCollection(std::string const& name) { return false; }
 }}}  // namespace arangodb::fuerte::v1

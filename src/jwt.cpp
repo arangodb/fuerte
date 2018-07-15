@@ -20,15 +20,15 @@
 /// @author Simon Grätzer
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "jwt.h"
-
+#include <chrono>
 #include <fuerte/helper.h>
+#include <fuerte/jwt.h>
+
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/md5.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
-#include <chrono>
 
 #include <velocypack/Builder.h>
 #include <velocypack/velocypack-aliases.h>

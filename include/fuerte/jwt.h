@@ -42,6 +42,10 @@ std::string generateUserToken(std::string const& secret,
 
 std::string generateRawJwt(std::string const& secret,
                            arangodb::velocypack::Slice const& body);
+  
+//////////////////////////////////////////////////////////////////////////
+/// @brief Internals
+//////////////////////////////////////////////////////////////////////////
 
 enum Algorithm {
   ALGORITHM_SHA256 = 0,

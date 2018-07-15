@@ -121,9 +121,10 @@ endif ()
 
 ## fuerte
 add_library(fuerte STATIC
+#    src/api/collection.cpp
+#    src/api/database.cpp
     src/connection.cpp
     src/ConnectionBuilder.cpp
-#    src/database.cpp
     src/helper.cpp
     src/http.cpp
     src/HttpConnection.cpp
@@ -135,7 +136,6 @@ add_library(fuerte STATIC
     src/vst.cpp
     src/VstConnection.cpp
     src/AsioConnection.cpp
-#    src/collection.cpp
     src/connection.cpp
     src/http_parser/http_parser.c
 )

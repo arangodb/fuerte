@@ -25,7 +25,7 @@
 
 #include <memory>
 #include <string>
-#include "types.h"
+#include <fuerte/types.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 class Database;
@@ -43,7 +43,7 @@ class Collection : public std::enable_shared_from_this<Collection> {
   void find(Document) {}
 
  private:
-  Collection(std::shared_ptr<Database>, std::string name);
+  Collection(std::shared_ptr<Database> const&, std::string const& name);
   std::shared_ptr<Database> _db;
   std::string _name;
 };
