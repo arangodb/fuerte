@@ -99,6 +99,7 @@ struct ChunkHeader {
   // The length of the buffer is returned.
   size_t writeHeaderToVST1_1(size_t chunkDataLen, velocypack::Buffer<uint8_t>& buffer) const;
 };
+  
 
 // chunkHeaderLength returns the length of a VST chunk header for given
 // arguments.
@@ -150,9 +151,14 @@ struct RequestItem {
     _callback.invoke(e, std::move(req), std::move(res));
   }
 
-  // prepareForNetwork prepares the internal structures for writing the request
-  // to the network.
+  /// prepareForNetwork prepares the internal structures for
+  /// writing the request to the network.
   void prepareForNetwork(VSTVersion);
+  
+  // prepare structures with a given message header and payload
+  void prepareForNetwork(VSTVersion,
+                         boost::asio::const_buffer header,
+                         boost::asio::const_buffer payload);
 
   // add the given chunk to the list of response chunks.
   void addChunk(ChunkHeader&);
@@ -177,7 +183,7 @@ velocypack::Buffer<uint8_t> responseHeader(ResponseHeader const&);
 velocypack::Buffer<uint8_t> authJWT(std::string const& token);
 /// @brief creates a slice containing a VST auth message with plain enctyption
 velocypack::Buffer<uint8_t> authBasic(std::string const& username,
-                                             std::string const& password);
+                                      std::string const& password);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////

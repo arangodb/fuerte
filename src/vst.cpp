@@ -224,8 +224,8 @@ VPackBuffer<uint8_t> message::authBasic(std::string const& username,
 
 // ################################################################################
 
-// prepareForNetwork prepares the internal structures for writing the request
-// to the network.
+// prepareForNetwork prepares the internal structures for
+// writing the request to the network.
 void RequestItem::prepareForNetwork(VSTVersion vstVersion) {
   // setting defaults
   _request->header.setVersion(1); // always set to 1
@@ -233,27 +233,35 @@ void RequestItem::prepareForNetwork(VSTVersion vstVersion) {
     _request->header.database = "_system";
   }
 
-  // Create the message header and store it into the metadata buffer
+  // Create the message header and store it in the metadata buffer
   _requestMetadata = message::requestHeader(_request->header);
   assert(!_requestMetadata.empty());
   // message header has to go into the first chunk
   boost::asio::const_buffer header(_requestMetadata.data(),
                                    _requestMetadata.byteSize());
-
-  // Split message into chunks
   boost::asio::const_buffer payload = _request->payload();
+  
+  prepareForNetwork(vstVersion, header, payload);
+}
+  
+// prepare structures with a given message header
+void RequestItem::prepareForNetwork(VSTVersion vstVersion,
+                                    boost::asio::const_buffer header,
+                                    boost::asio::const_buffer payload) {
+  // Split message into chunks
+  
   size_t msgLength = payload.size() + _requestMetadata.size();
   assert(msgLength > 0);
   
   // builds a list of chunks that are ready to be send to the server.
   // The resulting set of chunks are added to the given result vector.
-
+  
   // calculate intended number of chunks
   const size_t numChunks =  (msgLength + defaultMaxChunkSize - 1) / defaultMaxChunkSize;
   const size_t maxDataLength = defaultMaxChunkSize - maxChunkHeaderSize;
   assert(maxDataLength > 0);
   assert(header.size() < maxDataLength);
-
+  
   // Reserve  so we don't have to re-allocate memory
   _requestMetadata.reserve(numChunks * maxChunkHeaderSize);
   
@@ -262,7 +270,7 @@ void RequestItem::prepareForNetwork(VSTVersion vstVersion) {
 #ifndef NDEBUG
   char const* end = reinterpret_cast<const char*>(payload.data()) + payload.size();
 #endif
-
+  
   size_t remaining = msgLength;
   while (remaining > 0) {
     

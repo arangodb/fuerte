@@ -137,7 +137,7 @@ void VstConnection::finishInitialization() {
 
 // Send out the authentication message on this connection
 void VstConnection::sendAuthenticationRequest() {
-  /*assert(_configuration._authenticationType != AuthenticationType::None);
+  assert(_configuration._authenticationType != AuthenticationType::None);
   
   // Part 1: Build ArangoDB VST auth message (1000)
   auto item = std::make_shared<RequestItem>();
@@ -150,36 +150,11 @@ void VstConnection::sendAuthenticationRequest() {
     item->_requestMetadata = vst::message::authJWT(_configuration._jwtToken);
   }
   assert(item->_requestMetadata.size() < defaultMaxChunkSize);
-  size_t msgLength = item->_requestMetadata.size();
   boost::asio::const_buffer header(item->_requestMetadata.data(),
                                    item->_requestMetadata.byteSize());
 
-  // Part 2: Build a single chunk
-  ChunkHeader chunk;
-  chunk._chunkX = 3;  // ((1 << 1)| 1)
-  chunk._messageID = item->_messageID;
-  chunk._messageLength = messageLength;
-  chunk._data = boost::asio::const_buffer(item->_msgHdr.data(),
-                                          item->_msgHdr.byteSize());
-  
-  // write chunk header into the chunk header buffer
-  item->_requestMetadata.reserve(maxChunkHeaderSize);
-  size_t chunkHdrLen;
-  switch (_vstVersion) {
-    case VST1_0:
-      chunkHdrLen = chunk.writeHeaderToVST1_0(messageLength, item->_requestChunkBuffer);
-      break;
-    case VST1_1:
-      chunkHdrLen = chunk.writeHeaderToVST1_1(messageLength, item->_requestChunkBuffer);
-      break;
-    default:
-      throw std::logic_error("Unknown VST version");
-  }
-  
-  // Chunk Header + Auth Message
-  item->_requestBuffers.emplace_back(item->_requestChunkBuffer.data(),
-                                     item->_requestChunkBuffer.byteSize());
-  item->_requestBuffers.emplace_back(item->_msgHdr.data(), item->_msgHdr.byteSize());
+  item->prepareForNetwork(_vstVersion, header, boost::asio::const_buffer(0,0));
+
   auto self = shared_from_this();
   item->_callback = [this, self](Error error, std::unique_ptr<Request>,
                                  std::unique_ptr<Response> resp) {
@@ -203,7 +178,7 @@ void VstConnection::sendAuthenticationRequest() {
     } else {
       boost::asio::async_write(*_socket, item->_requestBuffers, cb);
     }
-  });*/
+  });
 }
 
 // ------------------------------------
@@ -502,9 +477,6 @@ std::unique_ptr<fu::Response> VstConnection::createResponse(
   }
   
   ResponseHeader header = parser::responseHeaderFromSlice(VPackSlice(itemCursor));
-  /*
-  MessageHeader messageHeader = parser::validateAndExtractMessageHeader(
-      _vstVersion, itemCursor, itemLength, messageHeaderLength);*/
   auto response = std::unique_ptr<Response>(new Response(std::move(header)));
   response->setPayload(std::move(*responseBuffer), /*offset*/headerLength);
 
