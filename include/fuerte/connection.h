@@ -105,6 +105,13 @@ class ConnectionBuilder {
 
   // Create an connection and start opening it.
   std::shared_ptr<Connection> connect(EventLoopService& eventLoopService);
+  
+  inline std::chrono::milliseconds timeout() const { return _conf._connectionTimeout;}
+  /// @brief set the connection timeout (60s default)
+  ConnectionBuilder& timeout(std::chrono::milliseconds t) {
+    _conf._connectionTimeout = t;
+    return *this;
+  }
 
   // Set the authentication type of the connection
   inline AuthenticationType authenticationType() const {

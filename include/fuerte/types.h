@@ -25,6 +25,7 @@
 #ifndef ARANGO_CXX_DRIVER_TYPES
 #define ARANGO_CXX_DRIVER_TYPES
 
+#include <chrono>
 #include <map>
 #include <string>
 #include <vector>
@@ -162,23 +163,26 @@ namespace detail {
 struct ConnectionConfiguration {
   ConnectionConfiguration()
       : _connType(TransportType::Vst),
-        _ssl(true),
+        _vstVersion(vst::VST1_1),
+        _ssl(false),
         _host("localhost"),
+        _connectionTimeout(60000),
         _authenticationType(AuthenticationType::None),
         _user(""),
         _password(""),
-        _jwtToken(""),
-        _vstVersion(vst::VST1_1) {}
+        _jwtToken("") {}
 
   TransportType _connType;  // vst or http
+  vst::VSTVersion _vstVersion;
+
   bool _ssl;
   std::string _host;
   std::string _port;
+  std::chrono::milliseconds _connectionTimeout;
   AuthenticationType _authenticationType;
   std::string _user;
   std::string _password;
   std::string _jwtToken;
-  vst::VSTVersion _vstVersion;
   ConnectionFailureCallback _onFailure;
 };
 }  // namespace detail

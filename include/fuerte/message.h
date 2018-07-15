@@ -19,12 +19,12 @@
 ///
 /// @author Jan Christoph Uhde
 /// @author Ewout Prangsma
+/// @author Simon Grätzer
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #ifndef ARANGO_CXX_DRIVER_MESSAGE
 #define ARANGO_CXX_DRIVER_MESSAGE
 
-#include <chrono>
 #include <map>
 #include <string>
 #include <vector>

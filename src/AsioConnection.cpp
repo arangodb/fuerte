@@ -151,11 +151,11 @@ void AsioConnection<T>::shutdownConnection(const ErrorCondition ec) {
   
   _connected.store(false, std::memory_order_release);
   
-  // Stop the read & write loop
-  stopIOLoops();
-  
   // Close socket
   shutdownSocket();
+  
+  // Stop the read & write loop
+  stopIOLoops();
   
   // Cancel all items and remove them from the message store.
   _messageStore.cancelAll(ec);
@@ -208,12 +208,16 @@ void AsioConnection<T>::startConnect(bt::resolver::iterator endpointItr) {
     FUERTE_LOG_CALLBACKS << "trying to connect to: " << endpointItr->endpoint()
                          << "..." << std::endl;
 
+    auto self = shared_from_this();
     // Set a deadline for the connect operation.
-    //_deadline.expires_from_now(boost::posix_time::seconds(60));
-    // TODO wait for connect timeout
+    _timeout.expires_from_now(_configuration._connectionTimeout);
+    _timeout.async_wait([this, self] (boost::system::error_code const ec) {
+      if (!ec) { // timeout
+        shutdownConnection(ErrorCondition::CouldNotConnect);
+      }
+    });
 
     // Start the asynchronous connect operation.
-    auto self = shared_from_this();
     boost::asio::async_connect(
         *_socket, endpointItr,
         std::bind(&AsioConnection<T>::asyncConnectCallback,
@@ -226,6 +230,8 @@ void AsioConnection<T>::startConnect(bt::resolver::iterator endpointItr) {
 template <typename T>
 void AsioConnection<T>::asyncConnectCallback(
     BoostEC const& error, bt::resolver::iterator endpointItr) {
+  _timeout.cancel();
+  
   if (error) {
     // Connection failed
     FUERTE_LOG_ERROR << error.message() << std::endl;

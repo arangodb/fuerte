@@ -28,12 +28,11 @@
 
 namespace fu = ::arangodb::fuerte;
 
-
-TEST(RequestTimeout, HTTP) {
+static void performRequests(std::string const& host) {
   fu::EventLoopService loop;
   // Set connection parameters
   fu::ConnectionBuilder cbuilder;
-  cbuilder.host("http://127.0.0.1:8529");
+  cbuilder.host(host);
   setupAuthenticationFromEnv(cbuilder);
   
   // make connection
@@ -79,8 +78,12 @@ TEST(RequestTimeout, HTTP) {
   wg.wait();
 }
 
+
+TEST(RequestTimeout, HTTP) {
+  performRequests("http://127.0.0.1:8529");
+}
+
 TEST(Timeouts, VelocyStream){
   ASSERT_TRUE(true); //TODO -- DELETE
-  
-  
+  //performRequests("vst://127.0.0.1:8529");
 }

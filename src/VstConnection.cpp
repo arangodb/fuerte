@@ -205,7 +205,7 @@ void VstConnection::startWriting() {
                                          std::memory_order_seq_cst)) {
       FUERTE_LOG_TRACE << "startWriting (vst): starting write\n";
       // auto self = shared_from_this();
-      //_io_context->post([this, self] {
+      //boost::asio::post(*_io_context, [this, self] {
       asyncWrite();
       //});
       return;
@@ -302,7 +302,7 @@ void VstConnection::startReading() {
     if (_loopState.compare_exchange_weak(state, state | READ_LOOP_ACTIVE,
                                          std::memory_order_seq_cst)) {
       // auto self = shared_from_this();
-      //_io_context->post([this, self] {
+      //_boost::asio::post(*_io_context, [this, self] {
       asyncReadSome();
       //});
       return;
