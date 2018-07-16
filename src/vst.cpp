@@ -267,9 +267,9 @@ void RequestItem::prepareForNetwork(VSTVersion vstVersion,
   _requestMetadata.reserve(numChunks * maxChunkHeaderSize);
   
   uint32_t chunkIndex = 0;
-  char const* begin = reinterpret_cast<const char*>(payload.data());
+  uint8_t const* begin = reinterpret_cast<uint8_t const*>(payload.data());
 #ifndef NDEBUG
-  char const* end = reinterpret_cast<const char*>(payload.data()) + payload.size();
+  uint8_t const* end = reinterpret_cast<uint8_t const*>(payload.data()) + payload.size();
 #endif
   
   size_t remaining = msgLength;
@@ -533,7 +533,7 @@ std::size_t validateAndCount(uint8_t const* const vpStart, std::size_t length) {
 // add the given chunk to the list of response chunks.
 void RequestItem::addChunk(ChunkHeader& chunk) {
   // Copy _data to response buffer
-  auto contentStart = boost::asio::buffer_cast<const uint8_t*>(chunk._data);
+  auto contentStart = reinterpret_cast<uint8_t const*>(chunk._data.data());
   chunk._responseContentLength = boost::asio::buffer_size(chunk._data);
   FUERTE_LOG_VSTCHUNKTRACE << "RequestItem::addChunk: adding "
                            << chunk._responseContentLength << " bytes to buffer"

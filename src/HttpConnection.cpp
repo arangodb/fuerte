@@ -225,8 +225,7 @@ void HttpConnection::shutdownConnection(const ErrorCondition ec) {
   if (_inFlight) {
     // Item has failed, remove from message store
     _messageStore.removeByID(_inFlight->_messageID);
-    _inFlight->invokeOnError(errorToInt(ec), std::move(_inFlight->_request),
-                             {nullptr});
+    _inFlight->invokeOnError(errorToInt(ec));
     _inFlight.reset();
   }
   AsioConnection::shutdownConnection(ec);

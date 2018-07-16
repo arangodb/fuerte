@@ -68,8 +68,7 @@ class MessageStore {
       const ErrorCondition error = ErrorCondition::CanceledDuringReset) {
     std::lock_guard<std::mutex> lockMap(_mutex);
     for (auto& item : _map) {
-      item.second->invokeOnError(errorToInt(error),
-                                 std::move(item.second->_request), nullptr);
+      item.second->invokeOnError(errorToInt(error));
     }
     _map.clear();
   }

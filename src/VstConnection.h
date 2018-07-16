@@ -26,7 +26,6 @@
 #define ARANGO_CXX_DRIVER_VST_CONNECTION_H 1
 
 #include "AsioConnection.h"
-#include "MessageStore.h"
 #include "vst.h"
 
 // naming in this file will be closer to asio for internal functions and types

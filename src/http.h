@@ -55,9 +55,8 @@ struct RequestItem {
   std::string lastHeaderValue;
 
   inline MessageID messageID() { return _messageID; }
-  inline void invokeOnError(Error e, std::unique_ptr<Request> req,
-                            std::unique_ptr<Response> res) {
-    _callback.invoke(e, std::move(req), std::move(res));
+  inline void invokeOnError(Error e) {
+    _callback.invoke(e, std::move(_request), nullptr);
   }
 };
 

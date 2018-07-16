@@ -161,7 +161,7 @@ void AsioConnection<T>::shutdownConnection(const ErrorCondition ec) {
   _messageStore.cancelAll(ec);
   
   // clear buffer of received messages
-  /*_receiveBuffer.consume(_receiveBuffer.size());*/
+  _receiveBuffer.consume(_receiveBuffer.size());
 }
 
 template <typename T>
@@ -190,7 +190,7 @@ void AsioConnection<T>::stopIOLoops() {
   while (state & LOOP_FLAGS) {
     if (_loopState.compare_exchange_weak(state, state & ~LOOP_FLAGS,
                                          std::memory_order_seq_cst)) {
-      FUERTE_LOG_TRACE << "stopIOLoops: loops stopped" << std::endl;
+      FUERTE_LOG_TRACE << "stopIOLoops: stopped" << std::endl;
       return;  // we turned flag off while nothin was queued
     }
     cpu_relax();
