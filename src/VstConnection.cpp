@@ -41,9 +41,7 @@ namespace fu = arangodb::fuerte::v1;
 using namespace arangodb::fuerte::v1::vst;
 
 using bt = ::boost::asio::ip::tcp;
-using be = ::boost::asio::ip::tcp::endpoint;
 using BoostEC = ::boost::system::error_code;
-using RequestItemSP = std::shared_ptr<RequestItem>;
 
 VstConnection::VstConnection(
     std::shared_ptr<boost::asio::io_context> const& ctx,
@@ -204,10 +202,10 @@ void VstConnection::startWriting() {
     if (_loopState.compare_exchange_weak(state, state | WRITE_LOOP_ACTIVE,
                                          std::memory_order_seq_cst)) {
       FUERTE_LOG_TRACE << "startWriting (vst): starting write\n";
-      // auto self = shared_from_this();
-      //boost::asio::post(*_io_context, [this, self] {
-      asyncWrite();
-      //});
+      auto self = shared_from_this(); // only one thread can get here per connection
+      boost::asio::post(*_io_context, [this, self] {
+        asyncWrite();
+      });
       return;
     }
     cpu_relax();
@@ -301,10 +299,10 @@ void VstConnection::startReading() {
   while (!(state & READ_LOOP_ACTIVE)) {
     if (_loopState.compare_exchange_weak(state, state | READ_LOOP_ACTIVE,
                                          std::memory_order_seq_cst)) {
-      // auto self = shared_from_this();
-      //_boost::asio::post(*_io_context, [this, self] {
-      asyncReadSome();
-      //});
+      auto self = shared_from_this(); // only one thread can get here per connection
+      boost::asio::post(*_io_context, [this, self] {
+        asyncReadSome();
+      });
       return;
     }
     cpu_relax();

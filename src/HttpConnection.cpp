@@ -192,7 +192,8 @@ std::unique_ptr<RequestItem> HttpConnection::createRequestItem(
     header.append(_authHeader);
   }
 
-  if (request->header.restVerb != RestVerb::Get) {
+  if (request->header.restVerb != RestVerb::Get &&
+      request->header.restVerb != RestVerb::Head) {
     header.append("Content-Length: ");
     header.append(std::to_string(request->payloadSize()));
     header.append("\r\n\r\n");
@@ -237,10 +238,15 @@ std::vector<boost::asio::const_buffer> HttpConnection::fetchBuffers(
   _messageStore.add(item);
   // set the timer when we start sending
   setTimeout(item->_request->timeout());
-  
+  // GET and HEAD have no payload
+  if (item->_request->header.restVerb == RestVerb::Get ||
+      item->_request->header.restVerb == RestVerb::Head) {
+    return {boost::asio::buffer(item->_requestHeader.data(),
+                                item->_requestHeader.size())};
+  }
   return {boost::asio::buffer(item->_requestHeader.data(),
                               item->_requestHeader.size()),
-          item->_request->payload()};
+    item->_request->payload()};
 }
 
 // Thread-Safe: activate the combined write-read loop
@@ -254,7 +260,10 @@ void HttpConnection::startWriting() {
     if (_loopState.compare_exchange_weak(state, state | LOOP_FLAGS,
                                          std::memory_order_seq_cst)) {
       FUERTE_LOG_HTTPTRACE << "startWriting (http: starting write\n";
-      asyncWrite();  // only one thread can get here
+      auto self = shared_from_this(); // only one thread can get here per connection
+      boost::asio::post(*_io_context, [this, self] {
+        asyncWrite();
+      });
     }
     cpu_relax();
   }
