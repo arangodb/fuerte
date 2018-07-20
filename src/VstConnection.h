@@ -60,7 +60,7 @@ class VstConnection final
   void finishInitialization() override;
 
   // fetch the buffers for the write-loop (called from IO thread)
-  std::vector<boost::asio::const_buffer> fetchBuffers(
+  std::vector<boost::asio::const_buffer> prepareRequest(
       std::shared_ptr<RequestItem> const&) override;
 
   // Thread-Safe: activate the writer loop (if off and items are queud)
@@ -86,16 +86,18 @@ class VstConnection final
   void sendAuthenticationRequest();
 
   // Process the given incoming chunk.
-  void processChunk(ChunkHeader& chunk);
+  void processChunk(ChunkHeader&& chunk, boost::asio::const_buffer const&);
   // Create a response object for given RequestItem & received response buffer.
   std::unique_ptr<Response> createResponse(RequestItem& item,
                                            std::unique_ptr<velocypack::Buffer<uint8_t>>&);
-
-  // called when the timeout expired
-  void timeoutExpired(boost::system::error_code const& e);
+      
+  // adjust the timeouts (only call from IO-Thread)
+  void setTimeout();
 
  private:
   const VSTVersion _vstVersion;
+  /// @brief timer to handle connection timeouts
+  boost::asio::steady_timer _requestTimeout;
 };
 
 }}}}  // namespace arangodb::fuerte::v1::vst

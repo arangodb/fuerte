@@ -89,10 +89,29 @@ class MessageStore {
       return _map.empty();
     }
   }
+  
+  /// invoke functor on all entries
+  template<typename F>
+  inline size_t invokeOnAll(F func, bool unlocked = false) {
+    if (unlocked) {
+      auto it = _map.begin();
+      while (it != _map.end()) {
+        if (!func(it->second.get())) {
+          it = _map.erase(it);
+        } else {
+          it++;
+        }
+      }
+    } else {
+      std::lock_guard<std::mutex> lockMap(_mutex);
+      return invokeOnAll(func, true);
+    }
+    return _map.size();
+  }
 
   // minimumTimeout returns the lowest timeout value of all messages in this
   // store.
-  std::chrono::milliseconds minimumTimeout(bool unlocked = false) {
+  /*std::chrono::milliseconds minimumTimeout(bool unlocked = false) {
     if (unlocked) {
       // If there is no message, use a timeout of 2 minutes.
       std::chrono::milliseconds min(2 * 60 * 1000);
@@ -108,7 +127,7 @@ class MessageStore {
       std::lock_guard<std::mutex> lockMap(_mutex);
       return minimumTimeout(true);
     }
-  }
+  }*/
 
   // mutex provides low level access to the mutex, used for shared locking.
   //std::mutex& mutex() { return _mutex; }

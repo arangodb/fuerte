@@ -24,7 +24,7 @@
 #ifndef ARANGO_CXX_DRIVER_VST
 #define ARANGO_CXX_DRIVER_VST
 
-#include <memory>
+#include <chrono>
 #include <string>
 #include <unordered_map>
 
@@ -60,9 +60,6 @@ struct ChunkHeader {
   uint32_t _chunkX;         // number of chunks or chunk number
   uint64_t _messageID;      // messageid
   uint64_t _messageLength;  // length of total payload
-  
-  /// Temporary Reference to response data that this header belongs to
-  boost::asio::const_buffer _data;
   
   // Used when receiving the response:
   // Offset of start of content of this chunk in
@@ -127,18 +124,19 @@ struct RequestItem {
   impl::CallOnceRequestCallback _callback;
   /// ID of this message
   MessageID _messageID;
+  std::chrono::steady_clock::time_point _expires;
   
   // ======= Request variables =======
   
   /// Buffer used to hold chunk headers and message header
   velocypack::Buffer<uint8_t> _requestMetadata;
   
-  /// Buffers the will be send to the socket.
+  /// Temporary list of buffers goin to be send by the socket.
   std::vector<boost::asio::const_buffer> _requestBuffers;
   
   // ======= Response variables =======
   
-  /// List of chunks that have been received.
+  /// @brief List of chunks that have been received.
   std::vector<ChunkHeader> _responseChunks;
   /// Buffer containing content of received chunks.
   /// Not necessarily in a sorted order!
@@ -161,7 +159,8 @@ struct RequestItem {
                          boost::asio::const_buffer payload);
 
   // add the given chunk to the list of response chunks.
-  void addChunk(ChunkHeader&);
+  void addChunk(ChunkHeader&& chunk,
+                boost::asio::const_buffer const& data);
   // try to assembly the received chunks into a response.
   // returns NULL if not all chunks are available.
   std::unique_ptr<velocypack::Buffer<uint8_t>> assemble();
@@ -200,10 +199,10 @@ std::size_t isChunkComplete(uint8_t const* const begin,
                             std::size_t const length);
 
 // readChunkHeaderVST1_0 reads a chunk header in VST1.0 format.
-ChunkHeader readChunkHeaderVST1_0(uint8_t const* const bufferBegin);
+std::pair<ChunkHeader, boost::asio::const_buffer> readChunkHeaderVST1_0(uint8_t const*);
 
 // readChunkHeaderVST1_1 reads a chunk header in VST1.1 format.
-ChunkHeader readChunkHeaderVST1_1(uint8_t const* const bufferBegin);
+std::pair<ChunkHeader, boost::asio::const_buffer> readChunkHeaderVST1_1(uint8_t const*);
   
 /// @brief verifies header input and checks correct length
 /// @return message type or MessageType::Undefined on an error

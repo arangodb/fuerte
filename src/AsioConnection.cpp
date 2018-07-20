@@ -151,6 +151,9 @@ void AsioConnection<T>::shutdownConnection(const ErrorCondition ec) {
   
   _connected.store(false, std::memory_order_release);
   
+  // cancel timeouts
+  _timeout.cancel();
+  
   // Close socket
   shutdownSocket();
   
@@ -210,7 +213,7 @@ void AsioConnection<T>::startConnect(bt::resolver::iterator endpointItr) {
 
     auto self = shared_from_this();
     // Set a deadline for the connect operation.
-    _timeout.expires_from_now(_configuration._connectionTimeout);
+    _timeout.expires_after(_configuration._connectionTimeout);
     _timeout.async_wait([this, self] (boost::system::error_code const ec) {
       if (!ec) { // timeout
         shutdownConnection(ErrorCondition::CouldNotConnect);
@@ -303,7 +306,7 @@ uint32_t AsioConnection<T>::queueRequest(std::unique_ptr<T> item) {
 
 // writes data from task queue to network using boost::asio::async_write
 template <typename T>
-void AsioConnection<T>::asyncWrite() {
+void AsioConnection<T>::asyncWriteNextRequest() {
   FUERTE_LOG_TRACE << "asyncWrite: preparing to send next" << std::endl;
   if (_permanent_failure || !_connected) {
     FUERTE_LOG_TRACE << "asyncReadSome: permanent failure\n";
@@ -325,7 +328,7 @@ void AsioConnection<T>::asyncWrite() {
   auto cb = [this, self, item](BoostEC const& ec, std::size_t transferred) {
     asyncWriteCallback(ec, transferred, std::move(item));
   };
-  auto buffers = this->fetchBuffers(item);
+  auto buffers = this->prepareRequest(item);
   if (_configuration._ssl) {
     boost::asio::async_write(*_sslSocket, buffers, cb);
     /*boost::asio::async_write(
@@ -371,11 +374,6 @@ void AsioConnection<T>::asyncReadSome() {
 #if ENABLE_FUERTE_LOG_CALLBACKS > 0
   std::cout << "_messageMap = " << _messageStore.keys() << std::endl;
 #endif
-
-  // Set timeout
-  /*auto self = shared_from_this();
-  _deadline.expires_from_now(boost::posix_time::milliseconds(timeout.count()));
-  _deadline.async_wait(boost::bind(&ReadLoop::deadlineHandler, self, _1));*/
 
   assert(_socket);
   auto self = shared_from_this();

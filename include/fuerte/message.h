@@ -155,9 +155,9 @@ class Message {
 
 // Request contains the message send to a server in a request.
 class Request final : public Message {
-  static std::chrono::milliseconds _defaultTimeout;
-
  public:
+  static constexpr std::chrono::milliseconds defaultTimeout = std::chrono::milliseconds(30 * 1000);
+
   Request(RequestHeader&& messageHeader = RequestHeader())
       : header(std::move(messageHeader)),
         _sealed(false),
@@ -165,8 +165,7 @@ class Request final : public Message {
         _isVpack(boost::none),
         _builder(nullptr),
         _payloadLength(0),
-        _timeout(std::chrono::duration_cast<std::chrono::milliseconds>(
-            _defaultTimeout)) {}
+        _timeout(defaultTimeout) {}
   
   Request(RequestHeader const& messageHeader)
       : header(messageHeader),
@@ -175,8 +174,7 @@ class Request final : public Message {
         _isVpack(boost::none),
         _builder(nullptr),
         _payloadLength(0),
-        _timeout(std::chrono::duration_cast<std::chrono::milliseconds>(
-            _defaultTimeout)) {}
+        _timeout(defaultTimeout) {}
   
   /// @brief request header
   RequestHeader header;
@@ -211,7 +209,7 @@ class Request final : public Message {
   boost::asio::const_buffer payload() const override;
   size_t payloadSize() const override;
 
-  // get timeout
+  // get timeout, 0 means no timeout
   inline std::chrono::milliseconds timeout() const { return _timeout; }
   // set timeout
   void timeout(std::chrono::milliseconds timeout) { _timeout = timeout; }

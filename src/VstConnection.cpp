@@ -47,7 +47,8 @@ VstConnection::VstConnection(
     std::shared_ptr<boost::asio::io_context> const& ctx,
     fu::detail::ConnectionConfiguration const& configuration)
     : AsioConnection(ctx, configuration),
-      _vstVersion(configuration._vstVersion) {}
+      _vstVersion(configuration._vstVersion),
+      _requestTimeout(*ctx) {}
 
 // Deconstruct.
 VstConnection::~VstConnection() {}
@@ -63,6 +64,7 @@ MessageID VstConnection::sendRequest(std::unique_ptr<Request> request,
   // Create RequestItem from parameters
   std::unique_ptr<RequestItem> item(new RequestItem());
   item->_messageID = mid;
+  item->_expires = std::chrono::steady_clock::time_point::max();
   item->_callback = cb;
   item->_request = std::move(request);
   item->prepareForNetwork(_vstVersion);
@@ -141,6 +143,7 @@ void VstConnection::sendAuthenticationRequest() {
   auto item = std::make_shared<RequestItem>();
   item->_request = nullptr; // should not break anything
   item->_messageID = vstMessageId.fetch_add(1, std::memory_order_relaxed);
+  item->_expires = std::chrono::steady_clock::now() + Request::defaultTimeout;
   
   if (_configuration._authenticationType == AuthenticationType::Basic) {
     item->_requestMetadata = vst::message::authBasic(_configuration._user, _configuration._password);
@@ -161,8 +164,9 @@ void VstConnection::sendAuthenticationRequest() {
       onFailure(error, "authentication failed");
     }
   };
-  // add message to store
-  _messageStore.add(item);
+  
+  _messageStore.add(item); // add message to store
+  setTimeout();            // set request timeout
   
   // actually send auth request
   boost::asio::post(*_io_context, [this, self, item] {
@@ -184,10 +188,18 @@ void VstConnection::sendAuthenticationRequest() {
 // ------------------------------------
 
 // fetch the buffers for the write-loop (called from IO thread)
-std::vector<boost::asio::const_buffer> VstConnection::fetchBuffers(
+std::vector<boost::asio::const_buffer> VstConnection::prepareRequest(
     std::shared_ptr<RequestItem> const& next) {
+  // set the point-in-time when this request expires
+  if (next->_request && next->_request->timeout().count() > 0) {
+    next->_expires = std::chrono::steady_clock::now() +
+                     next->_request->timeout();
+  }
+  
   _messageStore.add(next);  // Add item to message store
   startReading();           // Make sure we're listening for a response
+  setTimeout();             // prepare request / connection timeouts
+  
   return next->_requestBuffers;
 }
 
@@ -204,25 +216,26 @@ void VstConnection::startWriting() {
       FUERTE_LOG_TRACE << "startWriting (vst): starting write\n";
       auto self = shared_from_this(); // only one thread can get here per connection
       boost::asio::post(*_io_context, [this, self] {
-        asyncWrite();
+        asyncWriteNextRequest();
       });
       return;
     }
     cpu_relax();
   }
-  if ((state & WRITE_LOOP_QUEUE_MASK) == 0) {
+  /*if ((state & WRITE_LOOP_QUEUE_MASK) == 0) {
     FUERTE_LOG_TRACE << "startWriting (vst): nothing is queued\n";
-  }
+  }*/
 }
 
 // callback of async_write function that is called in sendNextRequest.
 void VstConnection::asyncWriteCallback(::boost::system::error_code const& error,
                                        std::size_t transferred,
                                        std::shared_ptr<RequestItem> item) {
-  _timeout.cancel();
 
   // auto pendingAsyncCalls = --_connection->_async_calls;
   if (error) {
+    _timeout.cancel(); // leave timeout running in non-error case
+    
     // Send failed
     FUERTE_LOG_CALLBACKS << "asyncWriteCallback (vst): error "
                          << error.message() << std::endl;
@@ -271,20 +284,10 @@ void VstConnection::asyncWriteCallback(::boost::system::error_code const& error,
         << "asyncWriteCallback (vst): send next request (if any)" << std::endl;
 
     if (state & WRITE_LOOP_ACTIVE) {
-      asyncWrite();  // continue writing
+      asyncWriteNextRequest();  // continue writing
     }
   }
 }
-
-// handler for deadline timer
-/*void VstConnection::WriteLoop::deadlineHandler(const
- boost::system::error_code& error) {
- if (!error) {
- // Stop current connection and try to restart a new one.
- // This will reset the current write loop.
- _connection->restartConnection(this, ErrorCondition::Timeout);
- }
- }*/
 
 // ------------------------------------
 // Reading data
@@ -327,7 +330,7 @@ void VstConnection::stopReading() {
 // asyncReadCallback is called when asyncReadSome is resulting in some data.
 void VstConnection::asyncReadCallback(const boost::system::error_code& e,
                                       std::size_t transferred) {
-  _timeout.cancel();
+  _timeout.cancel(); // timer is retuned later
 
   // auto pendingAsyncCalls = --_connection->_async_calls;
   if (e) {
@@ -344,12 +347,6 @@ void VstConnection::asyncReadCallback(const boost::system::error_code& e,
         << " bytes\n";  // async-calls=" << pendingAsyncCalls << std::endl;
 
     // Inspect the data we've received so far.
-    /*auto buffers = _receiveBuffer.data(); // no copy
-    for (auto const& buffer : buffers) {
-      buffer.data()
-    }*/
-
-    // Inspect the data we've received so far.
     auto recvBuffs = _receiveBuffer.data();  // no copy
     auto cursor = boost::asio::buffer_cast<const uint8_t*>(recvBuffs);
     auto available = boost::asio::buffer_size(recvBuffs);
@@ -359,23 +356,24 @@ void VstConnection::asyncReadCallback(const boost::system::error_code& e,
     while (vst::parser::isChunkComplete(cursor, available)) {
       // Read chunk
       ChunkHeader chunk;
+      boost::asio::const_buffer buffer;
       switch (_vstVersion) {
         case VST1_0:
-          chunk = vst::parser::readChunkHeaderVST1_0(cursor);
+          std::tie(chunk, buffer) = vst::parser::readChunkHeaderVST1_0(cursor);
           break;
         case VST1_1:
-          chunk = vst::parser::readChunkHeaderVST1_1(cursor);
+          std::tie(chunk, buffer) = vst::parser::readChunkHeaderVST1_1(cursor);
           break;
         default:
           throw std::logic_error("Unknown VST version");
       }
-
-      // Process chunk
-      processChunk(chunk);
-
+      // move cursors
       cursor += chunk.chunkLength();
       available -= chunk.chunkLength();
       parsedBytes += chunk.chunkLength();
+
+      // Process chunk
+      processChunk(std::move(chunk), buffer);
     }
     
     // Remove consumed data from receive buffer.
@@ -390,15 +388,7 @@ void VstConnection::asyncReadCallback(const boost::system::error_code& e,
       return;  // write-loop restarts read-loop if necessary
     }
 
-// Set timeout
-/*std::chrono::milliseconds timeout = _messageStore.minimumTimeout(true);
-assert(timeout.count() > 0);
-auto self = shared_from_this();
-_timeout.expires_from_now(timeout);
-_timeout.async_wait(std::bind(&VstConnection::timeoutExpired,
-std::static_pointer_cast<VstConnection>(self), std::placeholders::_1));*/
-#warning fix
-
+    setTimeout();     // readjust timeout
     asyncReadSome();  // Continue read loop
   }
 }
@@ -414,7 +404,8 @@ error) {
 }*/
 
 // Process the given incoming chunk.
-void VstConnection::processChunk(ChunkHeader& chunk) {
+void VstConnection::processChunk(ChunkHeader&& chunk,
+                                 boost::asio::const_buffer const& data) {
   auto msgID = chunk.messageID();
   FUERTE_LOG_VSTTRACE << "processChunk: messageID=" << msgID << std::endl;
 
@@ -427,7 +418,7 @@ void VstConnection::processChunk(ChunkHeader& chunk) {
   }
 
   // We've found the matching RequestItem.
-  item->addChunk(chunk);
+  item->addChunk(std::move(chunk), data);
 
   // Try to assembly chunks in RequestItem to complete response.
   auto completeBuffer = item->assemble();
@@ -481,8 +472,46 @@ std::unique_ptr<fu::Response> VstConnection::createResponse(
   return response;
 }
 
-// called when the timeout expired
-void VstConnection::timeoutExpired(boost::system::error_code const& e) {
-  if (!e) {  // expired
+// called when the connection expired
+void VstConnection::setTimeout() {
+  // set to smallest point in time
+  auto expires = std::chrono::steady_clock::time_point::max();
+  size_t waiting =
+  _messageStore.invokeOnAll([&](RequestItem* item) {
+    if (expires > item->_expires) {
+      expires = item->_expires;
+    }
+    return true;
+  });
+  if (waiting == 0) {
+    _timeout.cancel();
+    return;
+  } else if (expires == std::chrono::steady_clock::time_point::max()) {
+    // use default connection
+    expires = std::chrono::steady_clock::now() + Request::defaultTimeout;
   }
+  
+  _timeout.expires_at(expires);  
+  auto self = shared_from_this();
+  _timeout.async_wait([this, self] (boost::system::error_code const& e) {
+    if (e) {  // was canceled
+      return;
+    }
+
+    // cancel expired requests
+    auto now = std::chrono::steady_clock::now();
+    size_t waiting =
+    _messageStore.invokeOnAll([&](RequestItem* item) {
+      if (item->_expires < now) {
+        FUERTE_LOG_DEBUG << "VST-Request timeout";
+        item->invokeOnError(errorToInt(ErrorCondition::Timeout));
+        return false;
+      }
+      return true;
+    });
+    if (waiting == 0) { // no more messages to wait on
+      FUERTE_LOG_DEBUG << "VST-Connection timeout";
+      restartConnection(ErrorCondition::Timeout);
+    }
+  });
 }

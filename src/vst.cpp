@@ -348,7 +348,7 @@ std::size_t isChunkComplete(uint8_t const* const begin,
 }
 
 // readChunkHeaderVST1_0 reads a chunk header in VST1.0 format.
-ChunkHeader readChunkHeaderVST1_0(uint8_t const* const bufferBegin) {
+std::pair<ChunkHeader, boost::asio::const_buffer> readChunkHeaderVST1_0(uint8_t const* bufferBegin) {
   ChunkHeader header;
 
   auto hdr = bufferBegin;
@@ -366,16 +366,14 @@ ChunkHeader readChunkHeaderVST1_0(uint8_t const* const bufferBegin) {
   }
 
   size_t contentLength = header._chunkLength - hdrLen;
-  header._data = boost::asio::const_buffer(hdr + hdrLen, contentLength);
   FUERTE_LOG_VSTCHUNKTRACE << "readChunkHeaderVST1_0: got " << contentLength
-                           << " data bytes after " << hdrLen << " header bytes"
-                           << std::endl;
-
-  return header;
+                           << " data bytes after " << hdrLen << " header bytes\n";
+  return std::make_pair(std::move(header),
+                        boost::asio::const_buffer(hdr + hdrLen, contentLength));
 }
 
 // readChunkHeaderVST1_1 reads a chunk header in VST1.1 format.
-ChunkHeader readChunkHeaderVST1_1(uint8_t const* const bufferBegin) {
+std::pair<ChunkHeader, boost::asio::const_buffer> readChunkHeaderVST1_1(uint8_t const* bufferBegin) {
   ChunkHeader header;
 
   auto hdr = bufferBegin;
@@ -385,11 +383,10 @@ ChunkHeader readChunkHeaderVST1_1(uint8_t const* const bufferBegin) {
   header._messageID = basics::uintFromPersistentLittleEndian<uint64_t>(hdr + 8);
   header._messageLength = basics::uintFromPersistentLittleEndian<uint64_t>(hdr + 16);
   size_t contentLength = header._chunkLength - maxChunkHeaderSize;
-  header._data = boost::asio::const_buffer(hdr + maxChunkHeaderSize, contentLength);
   FUERTE_LOG_VSTCHUNKTRACE << "readChunkHeaderVST1_1: got " << contentLength
-                           << " data bytes after " << std::endl;
-
-  return header;
+                           << " data bytes after " << maxChunkHeaderSize << " bytes\n";
+  return std::make_pair(std::move(header),
+                        boost::asio::const_buffer(hdr + maxChunkHeaderSize, contentLength));
 }
   
 /// @brief verifies header input and checks correct length
@@ -531,25 +528,25 @@ std::size_t validateAndCount(uint8_t const* const vpStart, std::size_t length) {
 }  // namespace parser
 
 // add the given chunk to the list of response chunks.
-void RequestItem::addChunk(ChunkHeader& chunk) {
+void RequestItem::addChunk(ChunkHeader&& chunk,
+                           boost::asio::const_buffer const& buff) {
   // Copy _data to response buffer
-  auto contentStart = reinterpret_cast<uint8_t const*>(chunk._data.data());
-  chunk._responseContentLength = boost::asio::buffer_size(chunk._data);
+  auto contentStart = reinterpret_cast<uint8_t const*>(buff.data());
+  chunk._responseContentLength = boost::asio::buffer_size(buff);
   FUERTE_LOG_VSTCHUNKTRACE << "RequestItem::addChunk: adding "
                            << chunk._responseContentLength << " bytes to buffer"
                            << std::endl;
   chunk._responseChunkContentOffset = _responseChunkContent.byteSize();
   _responseChunkContent.append(contentStart, chunk._responseContentLength);
-  // Release _data ptr in chunk
-  chunk._data = boost::asio::const_buffer();
-  // Add chunk to list
-  _responseChunks.push_back(chunk);
+
   // Gather number of chunk info
   if (chunk.isFirst()) {
     _responseNumberOfChunks = chunk.numberOfChunks();
     FUERTE_LOG_VSTCHUNKTRACE << "RequestItem::addChunk: set #chunks to "
-                             << _responseNumberOfChunks << std::endl;
+    << _responseNumberOfChunks << std::endl;
   }
+  // Add chunk to list
+  _responseChunks.emplace_back(std::move(chunk));
 }
 
 static bool chunkByIndex(const ChunkHeader& a, const ChunkHeader& b) {

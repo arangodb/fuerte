@@ -67,7 +67,7 @@ class HttpConnection
   void shutdownConnection(const ErrorCondition) override;
 
   // fetch the buffers for the write-loop (called from IO thread)
-  std::vector<boost::asio::const_buffer> fetchBuffers(
+  std::vector<boost::asio::const_buffer> prepareRequest(
       std::shared_ptr<RequestItem> const&) override;
 
   // called by the async_read handler (called from IO thread)
@@ -98,9 +98,6 @@ class HttpConnection
   
   /// set the timer accordingly
   void setTimeout(std::chrono::milliseconds);
-  
-  // called when the timeout expired
-  void timeoutExpired(boost::system::error_code const& e);
   
  private:
   /// cached authentication header

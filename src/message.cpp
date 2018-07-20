@@ -106,15 +106,14 @@ ContentType Message::contentType() const { return  messageHeader().contentType()
 // class Request
 ///////////////////////////////////////////////
   
+constexpr std::chrono::milliseconds Request::defaultTimeout;
+  
 // accept header accessors
 std::string Request::acceptTypeString() const {
   return header.acceptTypeString();
 }
 
 ContentType Request::acceptType() const { return header.acceptType(); }
-
-std::chrono::milliseconds Request::_defaultTimeout =
-    std::chrono::milliseconds(30 * 1000);
 
 //// add payload
 // add VelocyPackData

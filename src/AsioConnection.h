@@ -101,8 +101,8 @@ class AsioConnection : public Connection {
   // Thread-Safe: queue a new request. Returns loop state
   uint32_t queueRequest(std::unique_ptr<T>);
 
-  ///  Call on IO-Thread: writes out one queue request
-  void asyncWrite();
+  ///  Call on IO-Thread: writes out one queued request
+  void asyncWriteNextRequest();
 
   // Thread-Safe: activate the receiver loop (if needed)
   // void startReading();
@@ -121,7 +121,7 @@ class AsioConnection : public Connection {
       const ErrorCondition = ErrorCondition::CanceledDuringReset);
 
   // fetch the buffers for the write-loop (called from IO thread)
-  virtual std::vector<boost::asio::const_buffer> fetchBuffers(
+  virtual std::vector<boost::asio::const_buffer> prepareRequest(
       std::shared_ptr<T> const&) = 0;
 
   // called by the async_write handler (called from IO thread)
@@ -143,7 +143,7 @@ class AsioConnection : public Connection {
   std::mutex _socket_mutex;
   /// socket to use
   std::shared_ptr<boost::asio::ip::tcp::socket> _socket;
-  /// timer to handle request timeouts
+  /// @brief timer to handle connection / request timeouts
   boost::asio::steady_timer _timeout;
 
   /// SSL context, may be null

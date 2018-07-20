@@ -233,11 +233,12 @@ void HttpConnection::shutdownConnection(const ErrorCondition ec) {
 }
 
 // fetch the buffers for the write-loop (called from IO thread)
-std::vector<boost::asio::const_buffer> HttpConnection::fetchBuffers(
+std::vector<boost::asio::const_buffer> HttpConnection::prepareRequest(
     std::shared_ptr<RequestItem> const& item) {
   _messageStore.add(item);
   // set the timer when we start sending
   setTimeout(item->_request->timeout());
+  
   // GET and HEAD have no payload
   if (item->_request->header.restVerb == RestVerb::Get ||
       item->_request->header.restVerb == RestVerb::Head) {
@@ -262,7 +263,7 @@ void HttpConnection::startWriting() {
       FUERTE_LOG_HTTPTRACE << "startWriting (http: starting write\n";
       auto self = shared_from_this(); // only one thread can get here per connection
       boost::asio::post(*_io_context, [this, self] {
-        asyncWrite();
+        asyncWriteNextRequest();
       });
     }
     cpu_relax();
@@ -394,7 +395,7 @@ void HttpConnection::asyncReadCallback(::boost::system::error_code const& ec,
         
         assert(state & LOOP_FLAGS);
         assert((state & WRITE_LOOP_QUEUE_MASK) > 0);
-        asyncWrite();  // send next request
+        asyncWriteNextRequest();  // send next request
         return;
       }
     }
@@ -416,20 +417,13 @@ void HttpConnection::setTimeout(std::chrono::milliseconds millis) {
   }
   assert(millis.count() > 0);
   auto self = shared_from_this();
-  _timeout.expires_from_now(millis);
-  _timeout.async_wait(std::bind(&HttpConnection::timeoutExpired,
-                                std::static_pointer_cast<HttpConnection>(self),
-                                std::placeholders::_1));
+  _timeout.expires_after(millis);
+  _timeout.async_wait([this, self] (boost::system::error_code const& e) {
+    if (!e) {  // expired
+      FUERTE_LOG_DEBUG << "HTTP-Request timeout";
+      restartConnection(ErrorCondition::Timeout);
+    }
+  });
 }
-
-// called when the timeout expired
-void HttpConnection::timeoutExpired(boost::system::error_code const& e) {
-  if (!e) {  // expired
-    FUERTE_LOG_DEBUG << "HTTP-Request timeout";
-    restartConnection(ErrorCondition::Timeout);
-  }
-}
-
-
 
 }}}}  // namespace arangodb::fuerte::v1::http
