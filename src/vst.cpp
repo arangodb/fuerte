@@ -238,17 +238,17 @@ void RequestItem::prepareForNetwork(VSTVersion vstVersion) {
   _requestMetadata = message::requestHeader(_request->header);
   assert(!_requestMetadata.empty());
   // message header has to go into the first chunk
-  boost::asio::const_buffer header(_requestMetadata.data(),
+  asio_ns::const_buffer header(_requestMetadata.data(),
                                    _requestMetadata.byteSize());
-  boost::asio::const_buffer payload = _request->payload();
+  asio_ns::const_buffer payload = _request->payload();
   
   prepareForNetwork(vstVersion, header, payload);
 }
   
 // prepare structures with a given message header
 void RequestItem::prepareForNetwork(VSTVersion vstVersion,
-                                    boost::asio::const_buffer header,
-                                    boost::asio::const_buffer payload) {
+                                    asio_ns::const_buffer header,
+                                    asio_ns::const_buffer payload) {
   // Split message into chunks
   
   size_t msgLength = payload.size() + _requestMetadata.size();
@@ -348,7 +348,7 @@ std::size_t isChunkComplete(uint8_t const* const begin,
 }
 
 // readChunkHeaderVST1_0 reads a chunk header in VST1.0 format.
-std::pair<ChunkHeader, boost::asio::const_buffer> readChunkHeaderVST1_0(uint8_t const* bufferBegin) {
+std::pair<ChunkHeader, asio_ns::const_buffer> readChunkHeaderVST1_0(uint8_t const* bufferBegin) {
   ChunkHeader header;
 
   auto hdr = bufferBegin;
@@ -369,11 +369,11 @@ std::pair<ChunkHeader, boost::asio::const_buffer> readChunkHeaderVST1_0(uint8_t 
   FUERTE_LOG_VSTCHUNKTRACE << "readChunkHeaderVST1_0: got " << contentLength
                            << " data bytes after " << hdrLen << " header bytes\n";
   return std::make_pair(std::move(header),
-                        boost::asio::const_buffer(hdr + hdrLen, contentLength));
+                        asio_ns::const_buffer(hdr + hdrLen, contentLength));
 }
 
 // readChunkHeaderVST1_1 reads a chunk header in VST1.1 format.
-std::pair<ChunkHeader, boost::asio::const_buffer> readChunkHeaderVST1_1(uint8_t const* bufferBegin) {
+std::pair<ChunkHeader, asio_ns::const_buffer> readChunkHeaderVST1_1(uint8_t const* bufferBegin) {
   ChunkHeader header;
 
   auto hdr = bufferBegin;
@@ -386,7 +386,7 @@ std::pair<ChunkHeader, boost::asio::const_buffer> readChunkHeaderVST1_1(uint8_t 
   FUERTE_LOG_VSTCHUNKTRACE << "readChunkHeaderVST1_1: got " << contentLength
                            << " data bytes after " << maxChunkHeaderSize << " bytes\n";
   return std::make_pair(std::move(header),
-                        boost::asio::const_buffer(hdr + maxChunkHeaderSize, contentLength));
+                        asio_ns::const_buffer(hdr + maxChunkHeaderSize, contentLength));
 }
   
 /// @brief verifies header input and checks correct length
@@ -529,10 +529,10 @@ std::size_t validateAndCount(uint8_t const* const vpStart, std::size_t length) {
 
 // add the given chunk to the list of response chunks.
 void RequestItem::addChunk(ChunkHeader&& chunk,
-                           boost::asio::const_buffer const& buff) {
+                           asio_ns::const_buffer const& buff) {
   // Copy _data to response buffer
   auto contentStart = reinterpret_cast<uint8_t const*>(buff.data());
-  chunk._responseContentLength = boost::asio::buffer_size(buff);
+  chunk._responseContentLength = asio_ns::buffer_size(buff);
   FUERTE_LOG_VSTCHUNKTRACE << "RequestItem::addChunk: adding "
                            << chunk._responseContentLength << " bytes to buffer"
                            << std::endl;

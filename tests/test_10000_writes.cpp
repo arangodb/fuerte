@@ -144,7 +144,7 @@ TEST_F(Connection100kWritesF, Writes100k){
 	boost::thread_group     threads;
 	boost::barrier          barrier(numThreads);
 	auto asioLoop = fu::getProvider().getAsioLoop();
-	auto work = std::make_shared<boost::asio::io_service::work>(*asioLoop->getIoService());
+	auto work = std::make_shared<asio_ns::io_service::work>(*asioLoop->getIoService());
 
   if (use_threads) {
 		for( unsigned int i = 0; i < numThreads; ++i ){

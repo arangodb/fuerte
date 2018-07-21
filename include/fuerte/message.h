@@ -29,15 +29,13 @@
 #include <string>
 #include <vector>
 
-#include <boost/asio/buffer.hpp>
+#include <fuerte/asio_ns.h>
+#include <fuerte/types.h>
 #include <boost/optional.hpp>
 
 #include <velocypack/Buffer.h>
 #include <velocypack/Builder.h>
 #include <velocypack/Slice.h>
-
-#include "types.h"
-
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 const std::string fu_content_type_key("content-type");
@@ -140,12 +138,12 @@ class Message {
   // get payload
   ///////////////////////////////////////////////
   virtual std::vector<velocypack::Slice> const& slices() = 0;
-  virtual boost::asio::const_buffer payload() const = 0;
+  virtual asio_ns::const_buffer payload() const = 0;
   virtual size_t payloadSize() const = 0;
   std::string payloadAsString() const {
     auto p = payload();
-    return std::string(boost::asio::buffer_cast<char const*>(p),
-                       boost::asio::buffer_size(p));
+    return std::string(asio_ns::buffer_cast<char const*>(p),
+                       asio_ns::buffer_size(p));
   }
 
   // content-type header accessors
@@ -206,7 +204,7 @@ class Request final : public Message {
   /// @brief get velocypack slices contained in request
   /// only valid iff the data was added via addVPack
   std::vector<velocypack::Slice> const& slices() override;
-  boost::asio::const_buffer payload() const override;
+  asio_ns::const_buffer payload() const override;
   size_t payloadSize() const override;
 
   // get timeout, 0 means no timeout
@@ -270,7 +268,7 @@ class Response final : public Message {
   bool isContentTypeHtml() const;
   bool isContentTypeText() const;
   std::vector<velocypack::Slice> const& slices() override;
-  boost::asio::const_buffer payload() const override;
+  asio_ns::const_buffer payload() const override;
   size_t payloadSize() const override;
 
   void setPayload(velocypack::Buffer<uint8_t>&& buffer, size_t payloadOffset);

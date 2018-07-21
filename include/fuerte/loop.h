@@ -25,13 +25,10 @@
 #ifndef ARANGO_CXX_DRIVER_SERVER
 #define ARANGO_CXX_DRIVER_SERVER
 
-#include <iostream>
-#include <memory>
 #include <thread>
 #include <utility>
 
-#include <boost/asio/executor_work_guard.hpp>
-#include <boost/asio/io_context.hpp>
+#include <fuerte/asio_ns.h>
 
 // run / runWithWork / poll for Loop mapping to ioservice
 // free function run with threads / with thread group barrier and work
@@ -44,8 +41,8 @@ class VpackInit;
 
 // need partial rewrite so it can be better integrated in client applications
 
-typedef boost::asio::io_context asio_io_context;
-typedef boost::asio::executor_work_guard<boost::asio::io_context::executor_type>
+typedef asio_ns::io_context asio_io_context;
+typedef asio_ns::executor_work_guard<asio_ns::io_context::executor_type>
     asio_work_guard;
 
 // GlobalService is intended to be instantiated once for the entire
@@ -90,11 +87,6 @@ class EventLoopService {
   EventLoopService& operator=(EventLoopService const& other) = delete;
 
  protected:
-  // handleRunException is called when an exception is thrown in run.
-  virtual void handleRunException(std::exception const& ex) {
-    std::cerr << "exception: " << ex.what() << std::endl;
-    exit(EXIT_FAILURE);
-  }
 
   // io_service returns a reference to the boost io_service.
   std::shared_ptr<asio_io_context>& io_context() { return _ioContexts[0]; }

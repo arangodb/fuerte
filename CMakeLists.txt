@@ -12,6 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Configuration
 option(FUERTE_TESTS    "Build Tests" OFF)
 option(FUERTE_EXAMPLES "Build EXAMPLES" OFF)
+option(FUERTE_STANDALONE_ASIO "Use standalone ASIO" OFF)
 
 #########################################################################################
 # Dependencies
@@ -119,6 +120,7 @@ endif ()
 #set_target_properties(fuerte-old velocypack curlpp PROPERTIES POSITION_INDEPENDENT_CODE ON)
 #DVELOCYPACK_XXHASH=1
 
+
 ## fuerte
 add_library(fuerte STATIC
 #    src/api/collection.cpp
@@ -156,6 +158,14 @@ target_include_directories(fuerte PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${Boost_INCLUDE_DIRS}
 )
+
+# use standalone boost asio
+if(FUERTE_STANDALONE_ASIO)
+    add_definitions("-DFUERTE_STANDALONE_ASIO=1")
+    target_include_directories(fuerte PUBLIC
+        ${ASIO_SOURCE_DIR}
+    )
+endif()
 
 add_executable(fuerte-get
     tools/fuerte-get.cpp

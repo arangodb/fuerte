@@ -236,8 +236,8 @@ std::vector<VPackSlice> const& Request::slices() {
 }
 
 // get payload as binary
-boost::asio::const_buffer Request::payload() const {
-  return boost::asio::const_buffer(_payload.data(), _payloadLength);
+asio_ns::const_buffer Request::payload() const {
+  return asio_ns::const_buffer(_payload.data(), _payloadLength);
 }
 
 size_t Request::payloadSize() const { return _payloadLength; }
@@ -279,8 +279,8 @@ std::vector<VPackSlice> const& Response::slices() {
   return _slices;
 }
 
-boost::asio::const_buffer Response::payload() const {
-  return boost::asio::const_buffer(_payload.data() + _payloadOffset,
+asio_ns::const_buffer Response::payload() const {
+  return asio_ns::const_buffer(_payload.data() + _payloadOffset,
                                    _payload.byteSize());
 }
 

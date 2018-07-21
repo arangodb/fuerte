@@ -11,8 +11,12 @@ content type and payload. In case the payload is velocypack you can access the
 slices with slices() when using the c++ driver. The node driver will always
 provide the payload as it is. 
 
-Fuerte itself is designed to be thread-safe, connections can handle multiple
-producer threads concurrently sending requests. Of course it depends on the underlying
+Fuerte itself is designed to be mostly thread-safe. Creating and 
+destroying the fuerte _Connection_ objects must be externally synchronized, 
+otherwise the `fuerte::Connection` methods are thread-safe. 
+
+Connections can handle multiple "producer" threads concurrently
+sending requests. Of course it depends on the underlying
 protocol implementation how "concurrent" requests really are. The velocystream 
 protocol allows for full duplex communication, the HTTP only for half duplex
 communication.
@@ -83,7 +87,6 @@ Things that are missing:
 - tests - without tests we never know the exact status (below is a list of missing featues)
 - hanging with 100k requests (needs to be found)
 - http/vst: content type handling needs testing
-- http: only first slice is added as payload
 - vst: no compression
 - node: no good node integration (libuv)
 - node: no real asynchronous work because of the above

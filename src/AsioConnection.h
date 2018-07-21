@@ -26,10 +26,7 @@
 #include <atomic>
 #include <mutex>
 
-#include <boost/asio/basic_waitable_timer.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/ssl.hpp>
-#include <boost/asio/streambuf.hpp>
+#include <fuerte/asio_ns.h>
 #include <boost/lockfree/queue.hpp>
 
 #include <fuerte/connection.h>
@@ -52,7 +49,7 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
 template <typename T>
 class AsioConnection : public Connection {
  public:
-  AsioConnection(std::shared_ptr<boost::asio::io_context> const&,
+  AsioConnection(std::shared_ptr<asio_ns::io_context> const&,
                  detail::ConnectionConfiguration const&);
 
   virtual ~AsioConnection();
@@ -79,9 +76,9 @@ class AsioConnection : public Connection {
   void startResolveHost();
 
   // establishes connection and initiates handshake
-  void startConnect(boost::asio::ip::tcp::resolver::iterator);
-  void asyncConnectCallback(boost::system::error_code const& ec,
-                            boost::asio::ip::tcp::resolver::iterator);
+  void startConnect(asio_ns::ip::tcp::resolver::iterator);
+  void asyncConnectCallback(asio_ns::error_code const& ec,
+                            asio_ns::ip::tcp::resolver::iterator);
 
   // start intiating an SSL connection (on top of an established TCP socket)
   void startSSLHandshake();
@@ -121,35 +118,35 @@ class AsioConnection : public Connection {
       const ErrorCondition = ErrorCondition::CanceledDuringReset);
 
   // fetch the buffers for the write-loop (called from IO thread)
-  virtual std::vector<boost::asio::const_buffer> prepareRequest(
+  virtual std::vector<asio_ns::const_buffer> prepareRequest(
       std::shared_ptr<T> const&) = 0;
 
   // called by the async_write handler (called from IO thread)
-  virtual void asyncWriteCallback(::boost::system::error_code const& error,
+  virtual void asyncWriteCallback(asio_ns::error_code const& error,
                                   size_t transferred, std::shared_ptr<T>) = 0;
   // called by the async_read handler (called from IO thread)
-  virtual void asyncReadCallback(::boost::system::error_code const&,
+  virtual void asyncReadCallback(asio_ns::error_code const&,
                                  size_t transferred) = 0;
 
  protected:
   /// io context to use
-  std::shared_ptr<boost::asio::io_context> _io_context;
+  std::shared_ptr<asio_ns::io_context> _io_context;
   // host resolver
-  boost::asio::ip::tcp::resolver _resolver;
+  asio_ns::ip::tcp::resolver _resolver;
   /// endpoints to use
-  boost::asio::ip::tcp::resolver::iterator _endpoints;
+  asio_ns::ip::tcp::resolver::iterator _endpoints;
 
   /// mutex to make socket setup and shutdown exclusive
   std::mutex _socket_mutex;
   /// socket to use
-  std::shared_ptr<boost::asio::ip::tcp::socket> _socket;
+  std::shared_ptr<asio_ns::ip::tcp::socket> _socket;
   /// @brief timer to handle connection / request timeouts
-  boost::asio::steady_timer _timeout;
+  asio_ns::steady_timer _timeout;
 
   /// SSL context, may be null
-  std::shared_ptr<boost::asio::ssl::context> _sslContext;
+  std::shared_ptr<asio_ns::ssl::context> _sslContext;
   /// SSL steam socket, may be null
-  std::shared_ptr<boost::asio::ssl::stream<::boost::asio::ip::tcp::socket&>>
+  std::shared_ptr<asio_ns::ssl::stream<::asio_ns::ip::tcp::socket&>>
       _sslSocket;
 
   /// @brief is the connection established (set by subclass)
@@ -163,7 +160,7 @@ class AsioConnection : public Connection {
 
   /// default max chunksize is 30kb in arangodb
   static constexpr size_t READ_BLOCK_SIZE = 1024 * 32;
-  ::boost::asio::streambuf _receiveBuffer;
+  ::asio_ns::streambuf _receiveBuffer;
 
   /// highest two bits mean read or write loops are active
   /// low 30 bit contain number of queued request items

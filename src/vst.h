@@ -28,8 +28,7 @@
 #include <string>
 #include <unordered_map>
 
-#include <boost/asio/buffer.hpp>
-
+#include <fuerte/asio_ns.h>
 #include <fuerte/message.h>
 #include <fuerte/types.h>
 
@@ -132,7 +131,7 @@ struct RequestItem {
   velocypack::Buffer<uint8_t> _requestMetadata;
   
   /// Temporary list of buffers goin to be send by the socket.
-  std::vector<boost::asio::const_buffer> _requestBuffers;
+  std::vector<asio_ns::const_buffer> _requestBuffers;
   
   // ======= Response variables =======
   
@@ -155,12 +154,12 @@ struct RequestItem {
   
   // prepare structures with a given message header and payload
   void prepareForNetwork(VSTVersion,
-                         boost::asio::const_buffer header,
-                         boost::asio::const_buffer payload);
+                         asio_ns::const_buffer header,
+                         asio_ns::const_buffer payload);
 
   // add the given chunk to the list of response chunks.
   void addChunk(ChunkHeader&& chunk,
-                boost::asio::const_buffer const& data);
+                asio_ns::const_buffer const& data);
   // try to assembly the received chunks into a response.
   // returns NULL if not all chunks are available.
   std::unique_ptr<velocypack::Buffer<uint8_t>> assemble();
@@ -199,10 +198,10 @@ std::size_t isChunkComplete(uint8_t const* const begin,
                             std::size_t const length);
 
 // readChunkHeaderVST1_0 reads a chunk header in VST1.0 format.
-std::pair<ChunkHeader, boost::asio::const_buffer> readChunkHeaderVST1_0(uint8_t const*);
+std::pair<ChunkHeader, asio_ns::const_buffer> readChunkHeaderVST1_0(uint8_t const*);
 
 // readChunkHeaderVST1_1 reads a chunk header in VST1.1 format.
-std::pair<ChunkHeader, boost::asio::const_buffer> readChunkHeaderVST1_1(uint8_t const*);
+std::pair<ChunkHeader, asio_ns::const_buffer> readChunkHeaderVST1_1(uint8_t const*);
   
 /// @brief verifies header input and checks correct length
 /// @return message type or MessageType::Undefined on an error

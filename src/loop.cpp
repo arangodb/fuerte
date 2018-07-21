@@ -43,8 +43,8 @@ GlobalService::~GlobalService() {
 EventLoopService::EventLoopService(unsigned int threadCount)
     : global_service_(GlobalService::get()), _lastUsed(0) {
   for (unsigned i = 0; i < threadCount; i++) {
-    _ioContexts.emplace_back(new boost::asio::io_context(1));
-    _guards.emplace_back(boost::asio::make_work_guard(*_ioContexts.back()));
+    _ioContexts.emplace_back(new asio_ns::io_context(1));
+    _guards.emplace_back(asio_ns::make_work_guard(*_ioContexts.back()));
     _threads.emplace_back([this, i]() { _ioContexts[i]->run(); });
   }
 }

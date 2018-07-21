@@ -43,7 +43,7 @@ TEST(VelocyStream_11, ChunkHeader) {
   ASSERT_EQ(chunkLength, 28);
   
   fu::vst::ChunkHeader header;
-  boost::asio::const_buffer buffer;
+  asio_ns::const_buffer buffer;
   std::tie(header, buffer) = fu::vst::parser::readChunkHeaderVST1_1(ptr);
   ASSERT_EQ(header.chunkLength(), 28);
   ASSERT_EQ(header.messageID(), 1);
@@ -83,7 +83,7 @@ TEST(VelocyStream_11, MultiChunk){
   ASSERT_EQ(chunk2.size(), 28);
   
   fu::vst::ChunkHeader header;
-  boost::asio::const_buffer buffer;
+  asio_ns::const_buffer buffer;
   
   // chunk 0
   uint8_t const* ptr = reinterpret_cast<uint8_t const*>(chunk0.c_str());

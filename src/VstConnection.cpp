@@ -40,11 +40,8 @@
 namespace fu = arangodb::fuerte::v1;
 using namespace arangodb::fuerte::v1::vst;
 
-using bt = ::boost::asio::ip::tcp;
-using BoostEC = ::boost::system::error_code;
-
 VstConnection::VstConnection(
-    std::shared_ptr<boost::asio::io_context> const& ctx,
+    std::shared_ptr<asio_ns::io_context> const& ctx,
     fu::detail::ConnectionConfiguration const& configuration)
     : AsioConnection(ctx, configuration),
       _vstVersion(configuration._vstVersion),
@@ -110,16 +107,16 @@ void VstConnection::finishInitialization() {
   }
 
   auto self = shared_from_this();
-  boost::asio::async_write(
-      *_socket, boost::asio::buffer(vstHeader, strlen(vstHeader)),
-      [this, self](BoostEC const& error, std::size_t transferred) {
-        if (error) {
-          FUERTE_LOG_ERROR << error.message() << std::endl;
+  asio_ns::async_write(
+      *_socket, asio_ns::buffer(vstHeader, strlen(vstHeader)),
+      [this, self](asio_ns::error_code const& ec, std::size_t transferred) {
+        if (ec) {
+          FUERTE_LOG_ERROR << ec.message() << std::endl;
           _connected.store(false, std::memory_order_release);
           shutdownConnection(ErrorCondition::WriteError);
           onFailure(
               errorToInt(ErrorCondition::CouldNotConnect),
-              "unable to initialize connection: error=" + error.message());
+              "unable to initialize connection: error=" + ec.message());
         } else {
           FUERTE_LOG_CALLBACKS
               << "VST connection established; starting send/read loop"
@@ -151,10 +148,10 @@ void VstConnection::sendAuthenticationRequest() {
     item->_requestMetadata = vst::message::authJWT(_configuration._jwtToken);
   }
   assert(item->_requestMetadata.size() < defaultMaxChunkSize);
-  boost::asio::const_buffer header(item->_requestMetadata.data(),
+  asio_ns::const_buffer header(item->_requestMetadata.data(),
                                    item->_requestMetadata.byteSize());
 
-  item->prepareForNetwork(_vstVersion, header, boost::asio::const_buffer(0,0));
+  item->prepareForNetwork(_vstVersion, header, asio_ns::const_buffer(0,0));
 
   auto self = shared_from_this();
   item->_callback = [this, self](Error error, std::unique_ptr<Request>,
@@ -169,16 +166,17 @@ void VstConnection::sendAuthenticationRequest() {
   setTimeout();            // set request timeout
   
   // actually send auth request
-  boost::asio::post(*_io_context, [this, self, item] {
-    auto cb = [this, self, item](BoostEC const& e, std::size_t transferred) {
+  asio_ns::post(*_io_context, [this, self, item] {
+    auto cb = [this, self, item](asio_ns::error_code const& ec,
+                                 std::size_t transferred) {
       _connected.store(true, std::memory_order_release);
-      asyncWriteCallback(e, transferred, std::move(item)); // calls startReading()
+      asyncWriteCallback(ec, transferred, std::move(item)); // calls startReading()
       startWriting(); // start writing if something was queued
     };
     if (_configuration._ssl) {
-      boost::asio::async_write(*_sslSocket, item->_requestBuffers, cb);
+      asio_ns::async_write(*_sslSocket, item->_requestBuffers, std::move(cb));
     } else {
-      boost::asio::async_write(*_socket, item->_requestBuffers, cb);
+      asio_ns::async_write(*_socket, item->_requestBuffers, std::move(cb));
     }
   });
 }
@@ -188,7 +186,7 @@ void VstConnection::sendAuthenticationRequest() {
 // ------------------------------------
 
 // fetch the buffers for the write-loop (called from IO thread)
-std::vector<boost::asio::const_buffer> VstConnection::prepareRequest(
+std::vector<asio_ns::const_buffer> VstConnection::prepareRequest(
     std::shared_ptr<RequestItem> const& next) {
   // set the point-in-time when this request expires
   if (next->_request && next->_request->timeout().count() > 0) {
@@ -215,7 +213,7 @@ void VstConnection::startWriting() {
                                          std::memory_order_seq_cst)) {
       FUERTE_LOG_TRACE << "startWriting (vst): starting write\n";
       auto self = shared_from_this(); // only one thread can get here per connection
-      boost::asio::post(*_io_context, [this, self] {
+      asio_ns::post(*_io_context, [this, self] {
         asyncWriteNextRequest();
       });
       return;
@@ -228,7 +226,7 @@ void VstConnection::startWriting() {
 }
 
 // callback of async_write function that is called in sendNextRequest.
-void VstConnection::asyncWriteCallback(::boost::system::error_code const& error,
+void VstConnection::asyncWriteCallback(asio_ns::error_code const& error,
                                        std::size_t transferred,
                                        std::shared_ptr<RequestItem> item) {
 
@@ -303,7 +301,7 @@ void VstConnection::startReading() {
     if (_loopState.compare_exchange_weak(state, state | READ_LOOP_ACTIVE,
                                          std::memory_order_seq_cst)) {
       auto self = shared_from_this(); // only one thread can get here per connection
-      boost::asio::post(*_io_context, [this, self] {
+      asio_ns::post(*_io_context, [this, self] {
         asyncReadSome();
       });
       return;
@@ -328,7 +326,7 @@ void VstConnection::stopReading() {
 }
 
 // asyncReadCallback is called when asyncReadSome is resulting in some data.
-void VstConnection::asyncReadCallback(const boost::system::error_code& e,
+void VstConnection::asyncReadCallback(asio_ns::error_code const& e,
                                       std::size_t transferred) {
   _timeout.cancel(); // timer is retuned later
 
@@ -348,15 +346,15 @@ void VstConnection::asyncReadCallback(const boost::system::error_code& e,
 
     // Inspect the data we've received so far.
     auto recvBuffs = _receiveBuffer.data();  // no copy
-    auto cursor = boost::asio::buffer_cast<const uint8_t*>(recvBuffs);
-    auto available = boost::asio::buffer_size(recvBuffs);
+    auto cursor = asio_ns::buffer_cast<const uint8_t*>(recvBuffs);
+    auto available = asio_ns::buffer_size(recvBuffs);
     // TODO technically buffer_cast is deprecated
     
     size_t parsedBytes = 0;
     while (vst::parser::isChunkComplete(cursor, available)) {
       // Read chunk
       ChunkHeader chunk;
-      boost::asio::const_buffer buffer;
+      asio_ns::const_buffer buffer;
       switch (_vstVersion) {
         case VST1_0:
           std::tie(chunk, buffer) = vst::parser::readChunkHeaderVST1_0(cursor);
@@ -393,19 +391,9 @@ void VstConnection::asyncReadCallback(const boost::system::error_code& e,
   }
 }
 
-// handler for deadline timer
-/*void VstConnection::ReadLoop::deadlineHandler(const boost::system::error_code&
-error) {
-  if (!error) {
-    // Stop current connection and try to restart a new one.
-    // This will reset the current write loop.
-    _connection->restartConnection(this, ErrorCondition::Timeout);
-  }
-}*/
-
 // Process the given incoming chunk.
 void VstConnection::processChunk(ChunkHeader&& chunk,
-                                 boost::asio::const_buffer const& data) {
+                                 asio_ns::const_buffer const& data) {
   auto msgID = chunk.messageID();
   FUERTE_LOG_VSTTRACE << "processChunk: messageID=" << msgID << std::endl;
 
@@ -493,7 +481,7 @@ void VstConnection::setTimeout() {
   
   _timeout.expires_at(expires);  
   auto self = shared_from_this();
-  _timeout.async_wait([this, self] (boost::system::error_code const& e) {
+  _timeout.async_wait([this, self] (asio_ns::error_code const& e) {
     if (e) {  // was canceled
       return;
     }

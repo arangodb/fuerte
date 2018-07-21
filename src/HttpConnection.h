@@ -67,11 +67,11 @@ class HttpConnection
   void shutdownConnection(const ErrorCondition) override;
 
   // fetch the buffers for the write-loop (called from IO thread)
-  std::vector<boost::asio::const_buffer> prepareRequest(
+  std::vector<asio_ns::const_buffer> prepareRequest(
       std::shared_ptr<RequestItem> const&) override;
 
   // called by the async_read handler (called from IO thread)
-  void asyncReadCallback(::boost::system::error_code const&,
+  void asyncReadCallback(asio_ns::error_code const&,
                          size_t transferred) override;
 
   /// Thread-Safe: activate the writer if needed
@@ -81,7 +81,7 @@ class HttpConnection
   uint32_t tryStopWriting();
 
   // called by the async_write handler (called from IO thread)
-  void asyncWriteCallback(::boost::system::error_code const& error,
+  void asyncWriteCallback(asio_ns::error_code const& error,
                           size_t transferred,
                           std::shared_ptr<RequestItem>) override;
 

@@ -233,7 +233,7 @@ void HttpConnection::shutdownConnection(const ErrorCondition ec) {
 }
 
 // fetch the buffers for the write-loop (called from IO thread)
-std::vector<boost::asio::const_buffer> HttpConnection::prepareRequest(
+std::vector<asio_ns::const_buffer> HttpConnection::prepareRequest(
     std::shared_ptr<RequestItem> const& item) {
   _messageStore.add(item);
   // set the timer when we start sending
@@ -242,10 +242,10 @@ std::vector<boost::asio::const_buffer> HttpConnection::prepareRequest(
   // GET and HEAD have no payload
   if (item->_request->header.restVerb == RestVerb::Get ||
       item->_request->header.restVerb == RestVerb::Head) {
-    return {boost::asio::buffer(item->_requestHeader.data(),
+    return {asio_ns::buffer(item->_requestHeader.data(),
                                 item->_requestHeader.size())};
   }
-  return {boost::asio::buffer(item->_requestHeader.data(),
+  return {asio_ns::buffer(item->_requestHeader.data(),
                               item->_requestHeader.size()),
     item->_request->payload()};
 }
@@ -262,7 +262,7 @@ void HttpConnection::startWriting() {
                                          std::memory_order_seq_cst)) {
       FUERTE_LOG_HTTPTRACE << "startWriting (http: starting write\n";
       auto self = shared_from_this(); // only one thread can get here per connection
-      boost::asio::post(*_io_context, [this, self] {
+      asio_ns::post(*_io_context, [this, self] {
         asyncWriteNextRequest();
       });
     }
@@ -275,7 +275,7 @@ void HttpConnection::startWriting() {
 
 // called by the async_write handler (called from IO thread)
 void HttpConnection::asyncWriteCallback(
-    ::boost::system::error_code const& error, size_t transferred,
+    asio_ns::error_code const& error, size_t transferred,
     std::shared_ptr<RequestItem> item) {
 
   if (error) {
@@ -322,7 +322,7 @@ void HttpConnection::asyncWriteCallback(
 }
 
 // called by the async_read handler (called from IO thread)
-void HttpConnection::asyncReadCallback(::boost::system::error_code const& ec,
+void HttpConnection::asyncReadCallback(asio_ns::error_code const& ec,
                                        size_t transferred) {
   
   if (ec) {
@@ -418,7 +418,7 @@ void HttpConnection::setTimeout(std::chrono::milliseconds millis) {
   assert(millis.count() > 0);
   auto self = shared_from_this();
   _timeout.expires_after(millis);
-  _timeout.async_wait([this, self] (boost::system::error_code const& e) {
+  _timeout.async_wait([this, self] (asio_ns::error_code const& e) {
     if (!e) {  // expired
       FUERTE_LOG_DEBUG << "HTTP-Request timeout";
       restartConnection(ErrorCondition::Timeout);

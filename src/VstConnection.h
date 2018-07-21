@@ -37,7 +37,7 @@ namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 class VstConnection final
     : public AsioConnection<arangodb::fuerte::v1::vst::RequestItem> {
  public:
-  explicit VstConnection(std::shared_ptr<boost::asio::io_context> const&,
+  explicit VstConnection(std::shared_ptr<asio_ns::io_context> const&,
                          detail::ConnectionConfiguration const&);
   virtual ~VstConnection();
 
@@ -60,14 +60,14 @@ class VstConnection final
   void finishInitialization() override;
 
   // fetch the buffers for the write-loop (called from IO thread)
-  std::vector<boost::asio::const_buffer> prepareRequest(
+  std::vector<asio_ns::const_buffer> prepareRequest(
       std::shared_ptr<RequestItem> const&) override;
 
   // Thread-Safe: activate the writer loop (if off and items are queud)
   void startWriting();
 
   // called by the async_write handler (called from IO thread)
-  void asyncWriteCallback(::boost::system::error_code const& error,
+  void asyncWriteCallback(asio_ns::error_code const& error,
                           size_t transferred,
                           std::shared_ptr<RequestItem>) override;
 
@@ -78,7 +78,7 @@ class VstConnection final
   void stopReading();
 
   // called by the async_read handler (called from IO thread)
-  void asyncReadCallback(::boost::system::error_code const&,
+  void asyncReadCallback(asio_ns::error_code const&,
                          size_t transferred) override;
 
  private:
@@ -86,7 +86,7 @@ class VstConnection final
   void sendAuthenticationRequest();
 
   // Process the given incoming chunk.
-  void processChunk(ChunkHeader&& chunk, boost::asio::const_buffer const&);
+  void processChunk(ChunkHeader&& chunk, asio_ns::const_buffer const&);
   // Create a response object for given RequestItem & received response buffer.
   std::unique_ptr<Response> createResponse(RequestItem& item,
                                            std::unique_ptr<velocypack::Buffer<uint8_t>>&);
@@ -97,7 +97,7 @@ class VstConnection final
  private:
   const VSTVersion _vstVersion;
   /// @brief timer to handle connection timeouts
-  boost::asio::steady_timer _requestTimeout;
+  asio_ns::steady_timer _requestTimeout;
 };
 
 }}}}  // namespace arangodb::fuerte::v1::vst

@@ -32,13 +32,12 @@
 #include "vst.h"
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
-using bt = ::boost::asio::ip::tcp;
-using be = ::boost::asio::ip::tcp::endpoint;
-using BoostEC = ::boost::system::error_code;
+using bt = ::asio_ns::ip::tcp;
+using be = ::asio_ns::ip::tcp::endpoint;
 
 template <typename T>
 AsioConnection<T>::AsioConnection(
-    std::shared_ptr<boost::asio::io_context> const& ctx,
+    std::shared_ptr<asio_ns::io_context> const& ctx,
     detail::ConnectionConfiguration const& config)
     : Connection(config),
       _io_context(ctx),
@@ -113,11 +112,11 @@ void AsioConnection<T>::initSocket() {
   FUERTE_LOG_CALLBACKS << "begin init" << std::endl;
   _socket.reset(new bt::socket(*_io_context));
   if (_configuration._ssl) {
-    _sslContext.reset(new boost::asio::ssl::context(
-        boost::asio::ssl::context::method::sslv23));
+    _sslContext.reset(new asio_ns::ssl::context(
+        asio_ns::ssl::context::method::sslv23));
     _sslContext->set_default_verify_paths();
     _sslSocket.reset(
-        new boost::asio::ssl::stream<bt::socket&>(*_socket, *_sslContext));
+        new asio_ns::ssl::stream<bt::socket&>(*_socket, *_sslContext));
   }
 
   auto endpoints = _endpoints;  // copy as connect modifies iterator
@@ -207,7 +206,7 @@ void AsioConnection<T>::stopIOLoops() {
 // try to open the socket connection to the first endpoint.
 template <typename T>
 void AsioConnection<T>::startConnect(bt::resolver::iterator endpointItr) {
-  if (endpointItr != boost::asio::ip::tcp::resolver::iterator()) {
+  if (endpointItr != asio_ns::ip::tcp::resolver::iterator()) {
     FUERTE_LOG_CALLBACKS << "trying to connect to: " << endpointItr->endpoint()
                          << "..." << std::endl;
 
@@ -221,7 +220,7 @@ void AsioConnection<T>::startConnect(bt::resolver::iterator endpointItr) {
     });
 
     // Start the asynchronous connect operation.
-    boost::asio::async_connect(
+    asio_ns::async_connect(
         *_socket, endpointItr,
         std::bind(&AsioConnection<T>::asyncConnectCallback,
                   std::static_pointer_cast<AsioConnection>(self),
@@ -232,7 +231,7 @@ void AsioConnection<T>::startConnect(bt::resolver::iterator endpointItr) {
 // callback handler for async_callback (called in startConnect).
 template <typename T>
 void AsioConnection<T>::asyncConnectCallback(
-    BoostEC const& error, bt::resolver::iterator endpointItr) {
+   asio_ns::error_code const& error, bt::resolver::iterator endpointItr) {
   _timeout.cancel();
   
   if (error) {
@@ -264,16 +263,16 @@ void AsioConnection<T>::startSSLHandshake() {
   }
   // https://www.boost.org/doc/libs/1_67_0/doc/html/boost_asio/overview/ssl.html
   // Perform SSL handshake and verify the remote host's certificate.
-  _sslSocket->lowest_layer().set_option(boost::asio::ip::tcp::no_delay(true));
-  _sslSocket->set_verify_mode(boost::asio::ssl::verify_peer);
+  _sslSocket->lowest_layer().set_option(asio_ns::ip::tcp::no_delay(true));
+  _sslSocket->set_verify_mode(asio_ns::ssl::verify_peer);
   _sslSocket->set_verify_callback(
-      boost::asio::ssl::rfc2818_verification(_configuration._host));
+      asio_ns::ssl::rfc2818_verification(_configuration._host));
 
   FUERTE_LOG_CALLBACKS << "starting ssl handshake " << std::endl;
   auto self = shared_from_this();
   _sslSocket->async_handshake(
-      boost::asio::ssl::stream_base::client,
-      [this, self](BoostEC const& error) {
+      asio_ns::ssl::stream_base::client,
+      [this, self](asio_ns::error_code const& error) {
         if (error) {
           FUERTE_LOG_ERROR << error.message() << std::endl;
           shutdownSocket();
@@ -304,7 +303,7 @@ uint32_t AsioConnection<T>::queueRequest(std::unique_ptr<T> item) {
   return _loopState.fetch_add(WRITE_LOOP_QUEUE_INC, std::memory_order_seq_cst);
 }
 
-// writes data from task queue to network using boost::asio::async_write
+// writes data from task queue to network using asio_ns::async_write
 template <typename T>
 void AsioConnection<T>::asyncWriteNextRequest() {
   FUERTE_LOG_TRACE << "asyncWrite: preparing to send next" << std::endl;
@@ -325,21 +324,21 @@ void AsioConnection<T>::asyncWriteNextRequest() {
 
   // we stop the write-loop if we stopped it ourselves.
   auto self = shared_from_this();
-  auto cb = [this, self, item](BoostEC const& ec, std::size_t transferred) {
+  auto cb = [this, self, item](asio_ns::error_code const& ec, std::size_t transferred) {
     asyncWriteCallback(ec, transferred, std::move(item));
   };
   auto buffers = this->prepareRequest(item);
   if (_configuration._ssl) {
-    boost::asio::async_write(*_sslSocket, buffers, cb);
-    /*boost::asio::async_write(
+    asio_ns::async_write(*_sslSocket, buffers, cb);
+    /*asio_ns::async_write(
         *_sslSocket, buffers,
         std::bind(&AsioConnection<T>::asyncWriteCallback,
                   std::static_pointer_cast<AsioConnection<T>>(self),
                   std::placeholders::_1, std::placeholders::_2,
                   std::move(item)));*/
   } else {
-    boost::asio::async_write(*_socket, buffers, cb);
-    /*boost::asio::async_write(
+    asio_ns::async_write(*_socket, buffers, cb);
+    /*asio_ns::async_write(
         *_socket, buffers,
         std::bind(&AsioConnection<T>::asyncWriteCallback,
                   std::static_pointer_cast<AsioConnection<T>>(self),
@@ -377,7 +376,7 @@ void AsioConnection<T>::asyncReadSome() {
 
   assert(_socket);
   auto self = shared_from_this();
-  auto cb = [this, self](BoostEC ec, size_t transferred) {
+  auto cb = [this, self](asio_ns::error_code const& ec, size_t transferred) {
     // received data is "committed" from output sequence to input sequence
     _receiveBuffer.commit(transferred);
     asyncReadCallback(ec, transferred);
@@ -386,9 +385,9 @@ void AsioConnection<T>::asyncReadSome() {
   // reserve 32kB in output buffer
   auto mutableBuff = _receiveBuffer.prepare(READ_BLOCK_SIZE);
   if (_configuration._ssl) {
-    _sslSocket->async_read_some(mutableBuff, cb);
+    _sslSocket->async_read_some(mutableBuff, std::move(cb));
   } else {
-    _socket->async_read_some(mutableBuff, cb);
+    _socket->async_read_some(mutableBuff, std::move(cb));
   }
 
   FUERTE_LOG_TRACE << "asyncReadSome: done" << std::endl;
