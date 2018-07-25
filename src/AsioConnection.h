@@ -62,6 +62,11 @@ class AsioConnection : public Connection {
   virtual size_t requestsLeft() const override {
     return _loopState.load(std::memory_order_acquire) & WRITE_LOOP_QUEUE_MASK;
   }
+  
+  /// @brief returns true if requests can be handled
+  bool connected() const override final {
+    return _connected.load(std::memory_order_acquire);
+  }
 
   bool hasCapacity() const {
     return (_loopState.load() & WRITE_LOOP_QUEUE_MASK) < 1024;
