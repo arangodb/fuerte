@@ -175,14 +175,6 @@ target_link_libraries(fuerte-get PRIVATE
     fuerte
 )
 
-#add_executable(vst-echo-server
-#    tools/vst-echo-server.cpp
-#)
-#
-#target_link_libraries(vst-echo-server PRIVATE
-#    fuerte
-#)
-
 #########################################################################################
 # Tests
 if(FUERTE_TESTS)
