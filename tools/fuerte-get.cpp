@@ -48,7 +48,7 @@ namespace fu = ::arangodb::fuerte;
 
 static void usage(char const* name) {
   // clang-format off
-  std::cout << "Usage: " << name << " [OPTIONS] server-url" << "\n\n"
+  std::cout << "Usage: " << name << " [OPTIONS]" << "\n\n"
             << "OPTIONS:\n"
             << "  --host tcp://127.0.0.1:8529\n"
             << "  --path /_api/version\n"

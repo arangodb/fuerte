@@ -89,9 +89,6 @@ class EventLoopService {
  protected:
 
   // io_service returns a reference to the boost io_service.
-  std::shared_ptr<asio_io_context>& io_context() { return _ioContexts[0]; }
-
-  // io_service returns a reference to the boost io_service.
   std::shared_ptr<asio_io_context>& nextIOContext() {
     return _ioContexts[_lastUsed.fetch_add(1, std::memory_order_relaxed) % _ioContexts.size()];
   }
