@@ -29,6 +29,7 @@
 #define ASIO_HAS_MOVE 1
 
 #include <asio/buffer.hpp>
+#include <asio/connect.hpp>
 #include <asio/error.hpp>
 #include <asio/io_context.hpp>
 #include <asio/io_context_strand.hpp>
@@ -38,6 +39,8 @@
 #include <asio/ssl.hpp>
 #include <asio/steady_timer.hpp>
 #include <asio/streambuf.hpp>
+#include <asio/read.hpp>
+#include <asio/write.hpp>
 
 namespace asio_ns = asio;
 

@@ -430,8 +430,10 @@ MessageType validateAndExtractMessageType(uint8_t const* const vpStart,
 RequestHeader requestHeaderFromSlice(VPackSlice const& headerSlice) {
   assert(headerSlice.isArray());
   RequestHeader header;
+#ifndef NDEBUG
   header.byteSize = headerSlice.byteSize();  // for debugging
-
+#endif
+  
   /*if (version == vst::VSTVersion::VST1_1) {
     header.contentType(ContentType::VPack);
   } else {
@@ -460,7 +462,9 @@ RequestHeader requestHeaderFromSlice(VPackSlice const& headerSlice) {
 ResponseHeader responseHeaderFromSlice(VPackSlice const& headerSlice) {
   assert(headerSlice.isArray());
   ResponseHeader header;
+#ifndef NDEBUG
   header.byteSize = headerSlice.byteSize();  // for debugging
+#endif
   
   /*if (version == vst::VSTVersion::VST1_1) {
    header.contentType(ContentType::VPack);

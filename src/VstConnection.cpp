@@ -27,9 +27,6 @@
 #include "Basics/cpu-relax.h"
 #include "vst.h"
 
-#include <boost/asio/read.hpp>
-#include <boost/asio/write.hpp>
-
 #include <fuerte/FuerteLogger.h>
 #include <fuerte/helper.h>
 #include <fuerte/loop.h>

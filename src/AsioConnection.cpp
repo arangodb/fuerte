@@ -23,9 +23,6 @@
 #include "AsioConnection.h"
 
 #include <fuerte/FuerteLogger.h>
-#include <boost/asio/connect.hpp>
-#include <boost/asio/read.hpp>
-#include <boost/asio/write.hpp>
 
 #include "Basics/cpu-relax.h"
 #include "http.h"
@@ -80,7 +77,7 @@ void AsioConnection<T>::startResolveHost() {
   auto self = shared_from_this();
   _resolver.async_resolve(
       {_configuration._host, _configuration._port},
-      [this, self](const boost::system::error_code& error,
+      [this, self](const asio_ns::error_code& error,
                    bt::resolver::iterator iterator) {
         if (error) {
           FUERTE_LOG_ERROR << "resolve failed: error=" << error << std::endl;
@@ -130,7 +127,7 @@ void AsioConnection<T>::shutdownSocket() {
 
   FUERTE_LOG_CALLBACKS << "begin shutdown socket\n";
 
-  ::boost::system::error_code error;
+  asio_ns::error_code error;
   if (_sslSocket.get() != nullptr) {
     _sslSocket->shutdown(error);
   }
@@ -213,7 +210,7 @@ void AsioConnection<T>::startConnect(bt::resolver::iterator endpointItr) {
     auto self = shared_from_this();
     // Set a deadline for the connect operation.
     _timeout.expires_after(_configuration._connectionTimeout);
-    _timeout.async_wait([this, self] (boost::system::error_code const ec) {
+    _timeout.async_wait([this, self] (asio_ns::error_code const ec) {
       if (!ec) { // timeout
         shutdownConnection(ErrorCondition::CouldNotConnect);
       }
