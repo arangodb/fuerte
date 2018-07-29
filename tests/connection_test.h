@@ -57,7 +57,7 @@ class ConnectionTestF : public ::testing::TestWithParam<ConnectionTestParams> {
     try {
       // Set connection parameters
       fu::ConnectionBuilder cbuilder;
-      cbuilder.host(GetParam()._url);
+      cbuilder.endpoint(GetParam()._url);
       setupAuthenticationFromEnv(cbuilder);
 
       // make connection

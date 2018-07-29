@@ -24,13 +24,14 @@
 
 #include "Basics/cpu-relax.h"
 
-#include <velocypack/Parser.h>
 #include <atomic>
+#include <boost/algorithm/string.hpp>
 #include <cassert>
-
 #include <fuerte/helper.h>
 #include <fuerte/loop.h>
 #include <fuerte/types.h>
+#include <velocypack/Parser.h>
+
 
 namespace {
 using namespace arangodb::fuerte::v1;
@@ -41,6 +42,7 @@ int on_status(http_parser* parser, const char* at, size_t len) { return 0; }
 int on_header_field(http_parser* parser, const char* at, size_t len) {
   RequestItem* data = static_cast<RequestItem*>(parser->data);
   if (data->last_header_was_a_value) {
+    boost::algorithm::to_lower(data->lastHeaderField); // in-place
     data->_response->header.meta.emplace(std::move(data->lastHeaderField),
                                          std::move(data->lastHeaderValue));
     data->lastHeaderField.assign(at, len);
@@ -65,8 +67,14 @@ static int on_header_complete(http_parser* parser) {
   data->_response->header.responseCode =
       static_cast<StatusCode>(parser->status_code);
   if (!data->lastHeaderField.empty()) {
+    boost::algorithm::to_lower(data->lastHeaderField); // in-place
     data->_response->header.meta.emplace(std::move(data->lastHeaderField),
                                          std::move(data->lastHeaderValue));
+  }
+  data->should_keep_alive = http_should_keep_alive(parser);
+  // head has no body, but may have a Content-Length
+  if (data->_request->header.restVerb == RestVerb::Head) {
+    data->message_complete = true;
   }
   return 0;
 }
@@ -112,24 +120,22 @@ HttpConnection::HttpConnection(std::shared_ptr<asio_io_context>& ctx,
   }
 }
 
-MessageID HttpConnection::sendRequest(std::unique_ptr<Request> request,
-                                      RequestCallback callback) {
-  FUERTE_LOG_HTTPTRACE << "queueRequest - start - at address: " << request.get()
-                       << std::endl;
-
+MessageID HttpConnection::sendRequest(std::unique_ptr<Request> req,
+                                      RequestCallback cb) {
   // Prepare a new request
-  auto item = createRequestItem(std::move(request), callback);
+  auto item = createRequestItem(std::move(req), cb);
   uint64_t id = item->_messageID;
-  uint32_t state = queueRequest(std::move(item));
-  if (_connected) {
-    FUERTE_LOG_HTTPTRACE << "sendRequest (http): start sending & reading"
-                         << std::endl;
+  uint32_t loop = queueRequest(std::move(item));
+  Connection::State state = _state.load(std::memory_order_acquire);
+  if (state == Connection::State::Connected) {
+    FUERTE_LOG_HTTPTRACE << "sendRequest (http): start sending & reading\n";
     // HTTP is half-duplex protocol: we only write if there is no reading
-    if (!(state & LOOP_FLAGS)) {
+    if (!(loop & LOOP_FLAGS)) {
       startWriting();
     }
-  } else {
+  } else if (state == State::Disconnected) {
     FUERTE_LOG_HTTPTRACE << "sendRequest (http): not connected" << std::endl;
+    startConnection();
   }
   return id;
 }
@@ -156,22 +162,21 @@ std::unique_ptr<RequestItem> HttpConnection::createRequestItem(
     header.append("/_db/");
     header.append(http::urlEncode(request->header.database));
   }
+  // must start with /, also turns /_db/abc into /_db/abc/
+  if (request->header.path.empty() || request->header.path[0] != '/') {
+    header.push_back('/');
+  }
 
-  // TODO these should throw an exception somewhere else
-  assert(!request->header.path.empty());
-  assert(request->header.path[0] == '/');
-
-  auto const& parameters = request->header.parameters;
-  if (parameters.empty()) {
+  if (request->header.parameters.empty()) {
     header.append(request->header.path);
   } else {
-    std::string path = request->header.path;
-    path.push_back('?');
-    for (auto p : parameters) {
-      if (path.back() != '?') {
-        path.push_back('&');
+    header.append(request->header.path);
+    header.push_back('?');
+    for (auto p : request->header.parameters) {
+      if (header.back() != '?') {
+        header.push_back('&');
       }
-      path += http::urlEncode(p.first) + "=" + http::urlEncode(p.second);
+      header.append(http::urlEncode(p.first) + "=" + http::urlEncode(p.second));
     }
   }
   header.append(" HTTP/1.1\r\n");
@@ -203,8 +208,7 @@ std::unique_ptr<RequestItem> HttpConnection::createRequestItem(
   // body will be appended seperately
 
   // construct RequestItem
-  std::unique_ptr<RequestItem> requestItem(
-      new RequestItem());  // std::make_shared<RequestItem>(, callback);
+  std::unique_ptr<RequestItem> requestItem(new RequestItem());
   requestItem->_request = std::move(request);
   requestItem->_callback = std::move(callback);
   // requestItem->_response later
@@ -215,21 +219,18 @@ std::unique_ptr<RequestItem> HttpConnection::createRequestItem(
 
 // socket connection is up (with optional SSL)
 void HttpConnection::finishInitialization() {
-  _connected = true;
+  _state.store(State::Connected, std::memory_order_release);
   startWriting();  // starts writing queue if non-empty
 }
 
 // called on shutdown, always call superclass
 void HttpConnection::shutdownConnection(const ErrorCondition ec) {
+  AsioConnection::shutdownConnection(ec);
   // simon: thread-safe, only called from IO-Thread
   // (which holds shared_ptr) and destructors
-  if (_inFlight) {
-    // Item has failed, remove from message store
-    _messageStore.removeByID(_inFlight->_messageID);
-    _inFlight->invokeOnError(errorToInt(ec));
+  if (_inFlight) { // superclass calls cb with error
     _inFlight.reset();
   }
-  AsioConnection::shutdownConnection(ec);
 }
 
 // fetch the buffers for the write-loop (called from IO thread)
@@ -252,7 +253,7 @@ std::vector<asio_ns::const_buffer> HttpConnection::prepareRequest(
 
 // Thread-Safe: activate the combined write-read loop
 void HttpConnection::startWriting() {
-  assert(_connected);
+  assert(_state.load(std::memory_order_acquire) == State::Connected);
   FUERTE_LOG_HTTPTRACE << "startWriting (http): this=" << this << std::endl;
 
   // we want to turn on both flags at once
@@ -331,16 +332,18 @@ void HttpConnection::asyncReadCallback(asio_ns::error_code const& ec,
     FUERTE_LOG_ERROR << ec.message() << std::endl;
 
     // Restart connection, this will trigger a release of the readloop.
-    restartConnection(
-        ErrorCondition::ConnectionError);  // will invoke _inFlight cb
+    restartConnection(ErrorCondition::ReadError);  // will invoke _inFlight cb
 
   } else {
     FUERTE_LOG_CALLBACKS
         << "asyncReadCallback: received " << transferred
         << " bytes\n";  // async-calls=" << pendingAsyncCalls << std::endl;
 
-
-    assert(_inFlight);
+    if (!_inFlight) { // should not happen
+      assert(false);
+      shutdownConnection(ErrorCondition::InternalError);
+    }
+    
     // Inspect the data we've received so far.
     size_t parsedBytes = 0;
     auto buffers = _receiveBuffer.data(); // no copy
@@ -376,6 +379,10 @@ void HttpConnection::asyncReadCallback(asio_ns::error_code const& ec,
         _inFlight->_response->setPayload(std::move(_inFlight->_responseBuffer), 0);
         _inFlight->_callback.invoke(0, std::move(_inFlight->_request),
                                     std::move(_inFlight->_response));
+        if (!_inFlight->should_keep_alive) {
+          shutdownConnection(ErrorCondition::CloseRequested);
+          return;
+        }
         _inFlight.reset();
         
         FUERTE_LOG_HTTPTRACE

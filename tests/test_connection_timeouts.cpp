@@ -32,7 +32,7 @@ static void performRequests(std::string const& host) {
   fu::EventLoopService loop;
   // Set connection parameters
   fu::ConnectionBuilder cbuilder;
-  cbuilder.host(host);
+  cbuilder.endpoint(host);
   setupAuthenticationFromEnv(cbuilder);
   
   // make connection

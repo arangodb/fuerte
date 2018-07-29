@@ -134,7 +134,7 @@ int main(int argc, char* argv[]) {
   ConnectionBuilder builder;
 
   try {
-    builder.host(host);
+    builder.endpoint(host);
   } catch (std::exception const& ex) {
     std::cerr << "cannot understand server-url: " << ex.what() << std::endl;
     exit(EXIT_FAILURE);

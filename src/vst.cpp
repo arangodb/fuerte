@@ -24,10 +24,10 @@
 #include "vst.h"
 #include "Basics/Format.h"
 
+#include <boost/algorithm/string.hpp>
 #include <fuerte/helper.h>
 #include <fuerte/types.h>
 #include <fuerte/FuerteLogger.h>
-
 #include <velocypack/HexDump.h>
 #include <velocypack/Iterator.h>
 #include <velocypack/Validator.h>
@@ -129,7 +129,11 @@ VPackBuffer<uint8_t> message::requestHeader(RequestHeader const& header) {
 
   // 4 - path
   // if(!header.path){ throw std::runtime_error("path" + message); }
-  builder.add(VPackValue(header.path));
+  if (header.path.empty() || header.path[0] != '/') {
+    builder.add(VPackValue("/" + header.path));
+  } else {
+    builder.add(VPackValue(header.path));
+  }
   FUERTE_LOG_DEBUG << "MessageHeader.path=" << header.path << std::endl;
 
   // 5 - parameters - not optional in current server
@@ -394,19 +398,18 @@ std::pair<ChunkHeader, asio_ns::const_buffer> readChunkHeaderVST1_1(uint8_t cons
 MessageType validateAndExtractMessageType(uint8_t const* const vpStart,
                                           std::size_t length, size_t& hLength) {
   // there must be at least one velocypack for the header
-  VPackValidator validator;
-  bool isSubPart = true;
+  VPackOptions validationOptions = VPackOptions::Defaults;
+  validationOptions.validateUtf8Strings = true;
+  VPackValidator validator(&validationOptions);
   
   try {
     // isSubPart allows the slice to be shorter than the checked buffer.
-    validator.validate(vpStart, length, isSubPart);
-    FUERTE_LOG_VSTTRACE << "validation done" << std::endl;
+    validator.validate(vpStart, length, /*isSubPart*/ true);
+    FUERTE_LOG_VSTTRACE << "validation done\n";
   } catch (std::exception const& e) {
     FUERTE_LOG_VSTTRACE << "len: " << length
-    << std::string(reinterpret_cast<char const*>(vpStart),
-                   length);
-    throw std::runtime_error(
-                             std::string("error during validation of incoming VPack (HEADER): ") +
+    << std::string(reinterpret_cast<char const*>(vpStart), length);
+    throw std::runtime_error(std::string("error during validation of incoming VPack (HEADER): ") +
                              e.what());
   }
   VPackSlice slice = VPackSlice(vpStart);
@@ -459,7 +462,8 @@ RequestHeader requestHeaderFromSlice(VPackSlice const& headerSlice) {
 };
   
   
-ResponseHeader responseHeaderFromSlice(VPackSlice const& headerSlice) {
+ResponseHeader responseHeaderFromSlice(
+                                       VPackSlice const& headerSlice) {
   assert(headerSlice.isArray());
   ResponseHeader header;
 #ifndef NDEBUG
@@ -467,11 +471,10 @@ ResponseHeader responseHeaderFromSlice(VPackSlice const& headerSlice) {
 #endif
   
   /*if (version == vst::VSTVersion::VST1_1) {
-   header.contentType(ContentType::VPack);
-   } else {
-   // found in params
-   header.contentType(ContentType::Unset);
-   }*/
+    header.contentType(ContentType::VPack);
+  } else { // found in params
+    header.contentType(ContentType::Unset);
+  }*/
   
   header.setVersion(headerSlice.at(0).getNumber<short>()); // version
   assert(headerSlice.at(1).getNumber<int>() == static_cast<int>(MessageType::Response));
@@ -482,9 +485,14 @@ ResponseHeader responseHeaderFromSlice(VPackSlice const& headerSlice) {
     assert(meta.isObject());
     if (meta.isObject()) {
       for (auto it : VPackObjectIterator(meta)) {
-        header.meta.emplace(it.key.copyString(), it.value.copyString());
+        std::string key = it.key.copyString();
+        boost::algorithm::to_lower(key); // in-place
+        header.meta.emplace(std::move(key), it.value.copyString());
       }
     }
+  }
+  if (header.contentType() == ContentType::Unset) {
+    header.contentType(ContentType::VPack);
   }
   return header;
 };

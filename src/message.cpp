@@ -88,7 +88,52 @@ void RequestHeader::addParameter(std::string const& key,
                                  std::string const& value) {
   parameters.emplace(key, value);
 }
-
+  
+/// @brief analyze path and split into components
+/// strips /_db/<name> prefix, sets db name and fills parameters
+void RequestHeader::parseArangoPath(std::string const& p) {
+  size_t pos = p.rfind('?');
+  if (pos != std::string::npos) {
+    this->path = p.substr(0, pos);
+    
+    while (pos != std::string::npos && pos + 1 < p.length()) {
+      size_t pos2 = p.find('=', pos + 1);
+      if (pos2 == std::string::npos) {
+        break;
+      }
+      std::string key = p.substr(pos + 1, pos2 - pos -1);
+      pos = p.find('&', pos2 + 1); // points to next '&' or string::npos
+      std::string value = pos == std::string::npos ? p.substr(pos2 + 1) :
+                                                     p.substr(pos2 + 1, pos - pos2 - 1);
+      this->parameters.emplace(std::move(key), std::move(value));
+    }
+  } else {
+    this->path = p;
+  }
+  
+  // extract database prefix /_db/<name>/
+  const char* q = this->path.c_str();
+  if (this->path.size() >= 4 && q[0] == '/' && q[1] == '_' &&
+      q[2] == 'd' && q[3] == 'b' && q[4] == '/') {
+    // request contains database name
+    q += 5;
+    const char* pathBegin = q;
+    // read until end of database name
+    while (*q != '\0') {
+      if (*q == '/' || *q == '?' || *q == ' ' || *q == '\n' ||
+          *q == '\r') {
+        break;
+      }
+      ++q;
+    }
+    this->database = std::string(pathBegin, q - pathBegin);
+    if (*q == '\0') {
+      this->path = "/";
+    } else {
+      this->path = std::string(q, this->path.c_str() + this->path.size());
+    }
+  }
+}
 
 ///////////////////////////////////////////////
 // class Message
@@ -264,9 +309,15 @@ bool Response::isContentTypeText() const {
 
 std::vector<VPackSlice> const& Response::slices() {
   if (_slices.empty()) {
+    assert(isContentTypeVPack());
+    VPackValidator validator;
+    
     auto length = _payload.byteSize() - _payloadOffset;
     auto cursor = _payload.data() + _payloadOffset;
     while (length) {
+      // will throw on an error
+      validator.validate(cursor, length, true);
+        
       _slices.emplace_back(cursor);
       auto sliceSize = _slices.back().byteSize();
       if (length < sliceSize) {
@@ -281,7 +332,7 @@ std::vector<VPackSlice> const& Response::slices() {
 
 asio_ns::const_buffer Response::payload() const {
   return asio_ns::const_buffer(_payload.data() + _payloadOffset,
-                                   _payload.byteSize());
+                               _payload.byteSize() - _payloadOffset);
 }
 
 size_t Response::payloadSize() const {

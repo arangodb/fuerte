@@ -21,9 +21,8 @@
 /// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
-
-#ifndef ARANGO_CXX_DRIVER_TYPES
-#define ARANGO_CXX_DRIVER_TYPES
+#ifndef ARANGO_CXX_DRIVER_FUERTE_TYPES
+#define ARANGO_CXX_DRIVER_FUERTE_TYPES
 
 #include <chrono>
 #include <map>
@@ -73,16 +72,18 @@ enum class ErrorCondition : Error {
   NoError = 0,
   ErrorCastError = 1,
 
-  ConnectionError = 1000,
-  CouldNotConnect = 1001,
+  CouldNotConnect = 1000,
+  CloseRequested = 1001,
   Timeout = 1002,
   QueueCapacityExceeded = 1003,
-  VstReadError = 1102,
+  
+  ReadError = 1102,
   WriteError = 1103,
-  CanceledDuringReset = 1104,
+  Canceled = 1104,
   MalformedURL = 1105,
 
   ProtocolError = 3000,
+  InternalError = 4000
 };
 
 inline Error errorToInt(ErrorCondition cond) {
@@ -123,13 +124,21 @@ enum class MessageType : int {
 MessageType intToMessageType(int integral);
 
 std::string to_string(MessageType type);
+  
+  
+// -----------------------------------------------------------------------------
+// --SECTION--                                                     SocketType
+// -----------------------------------------------------------------------------
+
+enum class SocketType { Undefined = 0, Tcp = 1, Ssl = 2, Unix = 3 };
+std::string to_string(SocketType type);
 
 // -----------------------------------------------------------------------------
-// --SECTION--                                                     TransportType
+// --SECTION--                                                     ProtocolType
 // -----------------------------------------------------------------------------
 
-enum class TransportType { Undefined = 0, Http = 1, Vst = 2 };
-std::string to_string(TransportType type);
+enum class ProtocolType { Undefined = 0, Http = 1, Vst = 2 };
+std::string to_string(ProtocolType type);
 
 // -----------------------------------------------------------------------------
 // --SECTION--                                                       ContentType
@@ -162,9 +171,9 @@ enum VSTVersion : char { VST1_0 = 0, VST1_1 = 1 };
 namespace detail {
 struct ConnectionConfiguration {
   ConnectionConfiguration()
-      : _connType(TransportType::Vst),
+      : _socketType(SocketType::Tcp),
+        _protocolType(ProtocolType::Vst),
         _vstVersion(vst::VST1_1),
-        _ssl(false),
         _host("localhost"),
         _connectionTimeout(60000),
         _authenticationType(AuthenticationType::None),
@@ -172,10 +181,10 @@ struct ConnectionConfiguration {
         _password(""),
         _jwtToken("") {}
 
-  TransportType _connType;  // vst or http
+  SocketType _socketType;  // tcp, ssl or unix
+  ProtocolType _protocolType;  // vst or http
   vst::VSTVersion _vstVersion;
 
-  bool _ssl;
   std::string _host;
   std::string _port;
   std::chrono::milliseconds _connectionTimeout;

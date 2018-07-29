@@ -25,7 +25,6 @@
 #ifndef ARANGO_CXX_DRIVER_MESSAGE
 #define ARANGO_CXX_DRIVER_MESSAGE
 
-#include <map>
 #include <string>
 #include <vector>
 
@@ -45,7 +44,6 @@ struct MessageHeader {
   /// arangodb message format version
   short version() const { return _version; }
   void setVersion(short v) { _version = v; }
-
   
   /// Header meta data (equivalent to HTTP headers)
   StringMap meta;
@@ -73,13 +71,13 @@ protected:
   
 struct RequestHeader final : public MessageHeader {
   
-  /// Database that is the target of the request
-  std::string database;
-  
   /// HTTP method
   RestVerb restVerb = RestVerb::Illegal;
   
-  /// Local path of the request
+  /// Database that is the target of the request
+  std::string database;
+  
+  /// Local path of the request (without "/_db/" prefix)
   std::string path;
   
   /// Query parameters
@@ -95,6 +93,10 @@ public:
   
   // query parameter helpers
   void addParameter(std::string const& key, std::string const& value);
+  
+  /// @brief analyze path and split into components
+  /// strips /_db/<name> prefix, sets db name and fills parameters
+  void parseArangoPath(std::string const&);
 };
   
 struct ResponseHeader final : public MessageHeader {
@@ -267,6 +269,7 @@ class Response final : public Message {
   bool isContentTypeVPack() const;
   bool isContentTypeHtml() const;
   bool isContentTypeText() const;
+  /// @brief validates and returns VPack response. Only valid for velocypack
   std::vector<velocypack::Slice> const& slices() override;
   asio_ns::const_buffer payload() const override;
   size_t payloadSize() const override;

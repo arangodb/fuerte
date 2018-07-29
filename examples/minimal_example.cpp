@@ -3,7 +3,7 @@
 int main(){
     using namespace arangodb::fuerte;
     EventLoopService eventLoopService;
-    auto conn = ConnectionBuilder().host("http://localhost:8529")
+    auto conn = ConnectionBuilder().endpoint("http://localhost:8529")
                                    .user("hund")
                                    .password("arfarf")
                                    .connect(eventLoopService);

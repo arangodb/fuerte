@@ -64,8 +64,7 @@ class MessageStore {
 
   // Notify all items that their being cancelled (by calling their onError)
   // and remove all items from the store.
-  void cancelAll(
-      const ErrorCondition error = ErrorCondition::CanceledDuringReset) {
+  void cancelAll(const ErrorCondition error = ErrorCondition::Canceled) {
     std::lock_guard<std::mutex> lockMap(_mutex);
     for (auto& item : _map) {
       item.second->invokeOnError(errorToInt(error));
@@ -102,11 +101,11 @@ class MessageStore {
           it++;
         }
       }
+      return _map.size();
     } else {
       std::lock_guard<std::mutex> lockMap(_mutex);
       return invokeOnAll(func, true);
     }
-    return _map.size();
   }
 
   // minimumTimeout returns the lowest timeout value of all messages in this
