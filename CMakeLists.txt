@@ -137,7 +137,6 @@ add_library(fuerte STATIC
     src/types.cpp
     src/vst.cpp
     src/VstConnection.cpp
-    src/AsioConnection.cpp
     src/connection.cpp
     src/http_parser/http_parser.c
 )

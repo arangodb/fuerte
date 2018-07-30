@@ -78,11 +78,10 @@ static void performRequests(std::string const& host) {
   wg.wait();
 }
 
-TEST(RequestTimeout, HTTP) {
-  performRequests("http://127.0.0.1:8529");
+TEST(Timeouts, VelocyStream){
+  performRequests("vst://127.0.0.1:8529");
 }
 
-TEST(Timeouts, VelocyStream){
-  ASSERT_TRUE(true); //TODO -- DELETE
-  performRequests("vst://127.0.0.1:8529");
+TEST(RequestTimeout, HTTP) {
+  performRequests("http://127.0.0.1:8529");
 }
