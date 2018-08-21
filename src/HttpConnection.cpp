@@ -192,11 +192,9 @@ template <SocketType ST>
 void HttpConnection<ST>::startConnection() {
   // start connecting only if state is disconnected
   Connection::State exp = Connection::State::Disconnected;
-  if (!_state.compare_exchange_strong(exp, Connection::State::Connecting)) {
-    FUERTE_LOG_ERROR << "already resolving endpoint\n";
-    return;
+  if (_state.compare_exchange_strong(exp, Connection::State::Connecting)) {
+    tryConnect(_config._maxConnectRetries);
   }
-  tryConnect(_config._maxConnectRetries);
 }
   
 // Connect with a given number of retries
@@ -206,7 +204,6 @@ void HttpConnection<ST>::tryConnect(unsigned retries) {
   
   auto self = shared_from_this();
   _protocol.connect(_config, [self, this, retries](asio_ns::error_code const& ec) {
-    _timeout.cancel();
     if (!ec) {
       _state.store(Connection::State::Connected, std::memory_order_release);
       startWriting();  // starts writing queue if non-empty
