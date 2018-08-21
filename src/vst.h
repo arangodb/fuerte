@@ -43,9 +43,6 @@ static size_t const minChunkHeaderSize = 16;
 static size_t const maxChunkHeaderSize = 24;
 static size_t const defaultMaxChunkSize = 30000;
 
-static const char* vstHeader1_0 = "VST/1.0\r\n\r\n";
-static const char* vstHeader1_1 = "VST/1.1\r\n\r\n";
-
 /////////////////////////////////////////////////////////////////////////////////////
 // DataStructures
 /////////////////////////////////////////////////////////////////////////////////////
@@ -116,12 +113,13 @@ isSingle) {
 
 // Item that represents a Request in flight
 struct RequestItem {
+  /// ID of this message
+  MessageID _messageID;
   /// Reference to the request we're processing
   std::unique_ptr<Request> _request;
   /// Callback for when request is done (in error or succeeded)
   impl::CallOnceRequestCallback _callback;
-  /// ID of this message
-  MessageID _messageID;
+  /// point in time when the message expires
   std::chrono::steady_clock::time_point _expires;
   
   // ======= Request variables =======

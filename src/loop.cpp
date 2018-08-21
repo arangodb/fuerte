@@ -28,11 +28,13 @@
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
-EventLoopService::EventLoopService(unsigned int threadCount) : _lastUsed(0) {
+EventLoopService::EventLoopService(unsigned int threadCount)
+  : _lastUsed(0), _sslContext(nullptr) {
   for (unsigned i = 0; i < threadCount; i++) {
     _ioContexts.emplace_back(new asio_ns::io_context(1));
     _guards.emplace_back(asio_ns::make_work_guard(*_ioContexts.back()));
-    _threads.emplace_back([this, i]() { _ioContexts[i]->run(); });
+    asio_ns::io_context* ctx = _ioContexts.back().get();
+    _threads.emplace_back([ctx]() { ctx->run(); });
   }
 }
 
@@ -47,4 +49,33 @@ EventLoopService::~EventLoopService() {
     ctx->stop();
   }
 }
+  
+/// forcebly stop all io contexts. service is unusable after
+void EventLoopService::forceStop() {
+  for (auto& guard : _guards) {
+    guard.reset();  // allow run() to exit
+  }
+  for (auto& ctx : _ioContexts) {
+    ctx->stop();
+  }
+  for (std::thread& thread : _threads) {
+    thread.join();
+  }
+  _guards.clear();
+  _threads.clear();
+  _ioContexts.clear();
+}
+  
+asio_ns::ssl::context& EventLoopService::sslContext() {
+  std::lock_guard<std::mutex> guard(_sslContextMutex);
+  if (!_sslContext) {
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
+    _sslContext.reset(new asio_ns::ssl::context(asio_ns::ssl::context::tls));
+#else
+    _sslContext.reset(new asio_ns::ssl::context(asio_ns::ssl::context::sslv23));
+#endif
+    _sslContext->set_default_verify_paths();
+  }
+  return *_sslContext; }
+  
 }}}  // namespace arangodb::fuerte::v1

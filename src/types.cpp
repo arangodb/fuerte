@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2016 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2016-2018 ArangoDB GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
@@ -18,48 +18,13 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author Jan Christoph Uhde
+/// @author Simon Grätzer
 ////////////////////////////////////////////////////////////////////////////////
 #include <fuerte/types.h>
 
+#include <algorithm>
+
 namespace arangodb { namespace fuerte { inline namespace v1 {
-RestVerb to_RestVerb(std::string const& value) {
-  std::string lowercase;
-  lowercase.reserve(value.size());
-  std::transform(value.begin(), value.end(), std::back_inserter(lowercase),
-                 ::tolower);
-
-  auto p = lowercase.c_str();
-
-  if (strcasecmp(p, "delete") == 0) {
-    return RestVerb::Delete;
-  }
-
-  if (strcasecmp(p, "get") == 0) {
-    return RestVerb::Get;
-  }
-
-  if (strcasecmp(p, "post") == 0) {
-    return RestVerb::Post;
-  }
-
-  if (strcasecmp(p, "put") == 0) {
-    return RestVerb::Put;
-  }
-
-  if (strcasecmp(p, "head") == 0) {
-    return RestVerb::Head;
-  }
-
-  if (strcasecmp(p, "patch") == 0) {
-    return RestVerb::Patch;
-  }
-
-  if (strcasecmp(p, "options") == 0) {
-    return RestVerb::Options;
-  }
-
-  return RestVerb::Illegal;
-}
 
 std::string to_string(RestVerb type) {
   switch (type) {
@@ -168,32 +133,20 @@ const std::string fu_content_type_text("text/plain");
 const std::string fu_content_type_dump("application/x-arango-dump");
 
 ContentType to_ContentType(std::string const& val) {
-  auto p = val.c_str();
 
-  if (strcasecmp(p, "") == 0) {
+  if (val.empty()) {
     return ContentType::Unset;
-  }
-  if (val.find(fu_content_type_unset) != std::string::npos) {
+  } else if (val.find(fu_content_type_unset) != std::string::npos) {
     return ContentType::Unset;
-  }
-
-  if (val.find(fu_content_type_vpack) != std::string::npos) {
+  } else if (val.find(fu_content_type_vpack) != std::string::npos) {
     return ContentType::VPack;
-  }
-
-  if (val.find(fu_content_type_json) != std::string::npos) {
+  } else if (val.find(fu_content_type_json) != std::string::npos) {
     return ContentType::Json;
-  }
-
-  if (val.find(fu_content_type_html) != std::string::npos) {
+  } else if (val.find(fu_content_type_html) != std::string::npos) {
     return ContentType::Html;
-  }
-
-  if (val.find(fu_content_type_text) != std::string::npos) {
+  } else if (val.find(fu_content_type_text) != std::string::npos) {
     return ContentType::Text;
-  }
-
-  if (val.find(fu_content_type_dump) != std::string::npos) {
+  } else if (val.find(fu_content_type_dump) != std::string::npos) {
     return ContentType::Dump;
   }
 
@@ -288,7 +241,7 @@ std::string to_string(ErrorCondition error) {
     case ErrorCondition::WriteError:
       return "Error while writing ";
     case ErrorCondition::Canceled:
-      return "Eonnection was locally canceled";
+      return "Connection was locally canceled";
     case ErrorCondition::MalformedURL:
       return "Error malformed URL";
 

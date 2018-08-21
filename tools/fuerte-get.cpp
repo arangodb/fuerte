@@ -26,15 +26,14 @@
 #define ENABLE_FUERTE_LOG_DEBUG 1
 #define ENABLE_FUERTE_LOG_TRACE 1
 
+#include <boost/algorithm/string.hpp>
 #include <chrono>
-
 #include <fuerte/connection.h>
-#include <iostream>
 #include <fuerte/message.h>
 #include <fuerte/loop.h>
 #include <fuerte/requests.h>
 #include <fuerte/helper.h>
-
+#include <iostream>
 #include <velocypack/velocypack-aliases.h>
 
 using ConnectionBuilder = arangodb::fuerte::ConnectionBuilder;
@@ -76,7 +75,24 @@ static std::string parseString(int argc, char* argv[], int& i) {
 }
 
 static RestVerb parseMethod(int argc, char* argv[], int& i) {
-  return arangodb::fuerte::to_RestVerb(parseString(argc, argv, i));
+  std::string verb = parseString(argc, argv, i);
+  boost::algorithm::to_lower(verb); // in-place
+  if (verb == "delete") {
+    return RestVerb::Delete;
+  } else if (verb == "get") {
+    return RestVerb::Get;
+  } else if (verb == "post") {
+    return RestVerb::Post;
+  } else if (verb == "put") {
+    return RestVerb::Put;
+  } else if (verb == "head") {
+    return RestVerb::Head;
+  } else if (verb == "patch") {
+    return RestVerb::Patch;
+  } else if (verb == "options") {
+    return RestVerb::Options;
+  }
+  return RestVerb::Illegal;
 }
 
 int main(int argc, char* argv[]) {

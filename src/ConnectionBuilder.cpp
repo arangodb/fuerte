@@ -25,6 +25,8 @@
 #include <fuerte/connection.h>
 #include <fuerte/FuerteLogger.h>
 
+#include <boost/algorithm/string.hpp>
+
 #include "HttpConnection.h"
 #include "VstConnection.h"
 #include "http_parser/http_parser.h"
@@ -37,25 +39,31 @@ std::shared_ptr<Connection> ConnectionBuilder::connect(EventLoopService& loop) {
   if (_conf._protocolType == ProtocolType::Vst) {
     FUERTE_LOG_DEBUG << "fuerte - creating velocystream connection\n";
     if (_conf._socketType == SocketType::Tcp) {
-      result = std::make_shared<vst::VstConnection<SocketType::Tcp>>(loop.nextIOContext(), _conf);
+      result = std::make_shared<vst::VstConnection<SocketType::Tcp>>(loop, _conf);
     } else if (_conf._socketType == SocketType::Ssl) {
-      result = std::make_shared<vst::VstConnection<SocketType::Ssl>>(loop.nextIOContext(), _conf);
-    } else if (_conf._socketType == SocketType::Unix) {
-      result = std::make_shared<vst::VstConnection<SocketType::Unix>>(loop.nextIOContext(), _conf);
+      result = std::make_shared<vst::VstConnection<SocketType::Ssl>>(loop, _conf);
     }
+#ifdef ASIO_HAS_LOCAL_SOCKETS
+     else if (_conf._socketType == SocketType::Unix) {
+      result = std::make_shared<vst::VstConnection<SocketType::Unix>>(loop, _conf);
+    }
+#endif
   } else {
     // throw std::logic_error("http in vst test");
     FUERTE_LOG_DEBUG << "fuerte - creating http connection\n";
     if (_conf._socketType == SocketType::Tcp) {
-      result = std::make_shared<http::HttpConnection<SocketType::Tcp>>(loop.nextIOContext(), _conf);
+      result = std::make_shared<http::HttpConnection<SocketType::Tcp>>(loop, _conf);
     } else if (_conf._socketType == SocketType::Ssl) {
-      result = std::make_shared<http::HttpConnection<SocketType::Ssl>>(loop.nextIOContext(), _conf);
-    } else if (_conf._socketType == SocketType::Unix) {
-      result = std::make_shared<http::HttpConnection<SocketType::Unix>>(loop.nextIOContext(), _conf);
+      result = std::make_shared<http::HttpConnection<SocketType::Ssl>>(loop, _conf);
     }
+#ifdef ASIO_HAS_LOCAL_SOCKETS
+     else if (_conf._socketType == SocketType::Unix) {
+      result = std::make_shared<http::HttpConnection<SocketType::Unix>>(loop, _conf);
+    }
+#endif
   }
   if (!result) {
-    throw std::logic_error("unsupported socket type");
+    throw std::logic_error("unsupported socket or protocol type");
   }
   
   // Start the connection implementation
@@ -106,6 +114,9 @@ void parseSchema( std::string const& schema,
     } else if (proto == "https" || proto == "ssl") {
       conf._socketType = SocketType::Ssl;
       conf._protocolType = ProtocolType::Http;
+    } else if (proto == "unix") {
+      conf._socketType = SocketType::Unix;
+      conf._protocolType = ProtocolType::Http;
     } else {
       throw std::runtime_error(std::string("invalid protocol: ") + proto);
     }
@@ -119,6 +130,7 @@ ConnectionBuilder& ConnectionBuilder::endpoint(std::string const& host) {
     throw std::runtime_error(std::string("invalid endpoint spec: ") + host);
   }
   std::string schema = host.substr(0, pos);
+  boost::algorithm::to_lower(schema); // in-place
   parseSchema(schema, _conf);
   
   if (_conf._socketType == SocketType::Unix) {
@@ -136,7 +148,6 @@ ConnectionBuilder& ConnectionBuilder::endpoint(std::string const& host) {
   }
   
   // put hostname, port and path in seperate strings
-  std::string server;
   if (!(parsed.field_set & (1 << UF_HOST))) {
     throw std::runtime_error(std::string("invalid host: ") + host);
   }

@@ -34,7 +34,6 @@
 #include <fuerte/types.h>
 #include <velocypack/Parser.h>
 
-
 namespace {
 using namespace arangodb::fuerte::v1;
 using namespace arangodb::fuerte::v1::http;
@@ -96,18 +95,17 @@ namespace fu = ::arangodb::fuerte::v1;
 using namespace arangodb::fuerte::detail;
 
 template<SocketType ST>
-HttpConnection<ST>::HttpConnection(std::shared_ptr<asio_io_context>& ctx,
-                               ConnectionConfiguration const& config)
+HttpConnection<ST>::HttpConnection(EventLoopService& loop,
+                                   ConnectionConfiguration const& config)
     : Connection(config),
-  _io_context(ctx),
-  _protocol(*ctx),
-  _timeout(*ctx),
+  _io_context(loop.nextIOContext()),
+  _protocol(loop, *_io_context),
+  _timeout(*_io_context),
   _state(Connection::State::Disconnected),
   _numQueued(0),
   _active(false),
-  _queue(1024),
-  _authHeader(""),
-  _inFlight(nullptr) {
+  _queue() {
+  // initialize http parsing code
   _parserSettings.on_message_begin = ::on_message_began;
   _parserSettings.on_status = ::on_status;
   _parserSettings.on_header_field = ::on_header_field;
@@ -134,7 +132,6 @@ HttpConnection<ST>::HttpConnection(std::shared_ptr<asio_io_context>& ctx,
   
 template<SocketType ST>
 HttpConnection<ST>::~HttpConnection() {
-  _protocol.shutdown();
   shutdownConnection(ErrorCondition::Canceled);
 }
   
@@ -142,66 +139,115 @@ HttpConnection<ST>::~HttpConnection() {
 template<SocketType ST>
 MessageID HttpConnection<ST>::sendRequest(std::unique_ptr<Request> req,
                                           RequestCallback cb) {
+  static std::atomic<uint64_t> ticketId(1);
+  
+  Connection::State state = _state.load(std::memory_order_acquire);
+  if (state == Connection::State::Failed) {
+    cb(errorToInt(ErrorCondition::Canceled), std::move(req), nullptr);
+    return 0;
+  }
+  
+  // construct RequestItem
+  std::unique_ptr<RequestItem> item(new RequestItem());
+  // requestItem->_response later
+  item->_messageID = ticketId.fetch_add(1, std::memory_order_relaxed);
+  item->_requestHeader = buildRequestBody(*req);
+  item->_request = std::move(req);
+  item->_callback = std::move(cb);
+  
   // Prepare a new request
-  auto item = createRequestItem(std::move(req), cb);
   uint64_t id = item->_messageID;
   if (!_queue.push(item.get())) {
-    FUERTE_LOG_ERROR << "connection queue capactiy exceeded" << std::endl;
-    throw std::length_error("connection queue capactiy exceeded");
+    FUERTE_LOG_ERROR << "connection queue capacity exceeded\n";
+    throw std::length_error("connection queue capacity exceeded");
   }
   item.release();
   _numQueued.fetch_add(1, std::memory_order_relaxed);
 
-  Connection::State state = _state.load(std::memory_order_acquire);
   if (state == Connection::State::Connected) {
     FUERTE_LOG_HTTPTRACE << "sendRequest (http): start sending & reading\n";
     startWriting();
   } else if (state == State::Disconnected) {
-    FUERTE_LOG_VSTTRACE << "sendRequest (http): not connected" << std::endl;
+    FUERTE_LOG_VSTTRACE << "sendRequest (http): not connected\n";
     startConnection();
   }
   return id;
 }
   
+/// @brief cancel the connection, unusable afterwards
+template <SocketType ST>
+void HttpConnection<ST>::cancel() {
+  std::weak_ptr<Connection> self = shared_from_this();
+  asio_ns::post(*_io_context, [self, this] {
+    auto s = self.lock();
+    if (s) {
+      shutdownConnection(ErrorCondition::Canceled);
+      _state.store(State::Failed);
+    }
+  });
+}
+  
 // Activate this connection.
 template <SocketType ST>
 void HttpConnection<ST>::startConnection() {
-  
   // start connecting only if state is disconnected
   Connection::State exp = Connection::State::Disconnected;
   if (!_state.compare_exchange_strong(exp, Connection::State::Connecting)) {
     FUERTE_LOG_ERROR << "already resolving endpoint\n";
     return;
   }
+  tryConnect(_config._maxConnectRetries);
+}
+  
+// Connect with a given number of retries
+template <SocketType ST>
+void HttpConnection<ST>::tryConnect(unsigned retries) {
+  assert(_state.load(std::memory_order_acquire) == Connection::State::Connecting);
   
   auto self = shared_from_this();
-  _protocol.connect(_config, [self, this](asio_ns::error_code const& ec) {
-    if (ec) {
-      FUERTE_LOG_DEBUG << "connecting failed: " << ec.message() << std::endl;
-      shutdownConnection(ErrorCondition::CouldNotConnect);
-      onFailure(errorToInt(ErrorCondition::CouldNotConnect),
-                           "connecting failed: " + ec.message());
-    } else {
+  _protocol.connect(_config, [self, this, retries](asio_ns::error_code const& ec) {
+    _timeout.cancel();
+    if (!ec) {
       _state.store(Connection::State::Connected, std::memory_order_release);
       startWriting();  // starts writing queue if non-empty
+      return;
+    }
+    FUERTE_LOG_DEBUG << "connecting failed: " << ec.message() << "\n";
+    if (retries > 0) {
+      tryConnect(retries - 1);
+    } else {
+      shutdownConnection(ErrorCondition::CouldNotConnect);
+      onFailure(errorToInt(ErrorCondition::CouldNotConnect),
+                "connecting failed: " + ec.message());
     }
   });
 }
-  
+
 // shutdown the connection and cancel all pending messages.
 template<SocketType ST>
 void HttpConnection<ST>::shutdownConnection(const ErrorCondition ec) {
   FUERTE_LOG_CALLBACKS << "shutdownConnection\n";
   
-  _state.store(State::Disconnected, std::memory_order_release);
-  _timeout.cancel();    // cancel timeouts
-  _protocol.shutdown(); // Close socket
+  if (_state.load() != State::Failed) {
+    _state.store(State::Disconnected);
+  }
+  
+  // cancel timeouts
+  try {
+    _timeout.cancel();   
+  } catch (...) {
+    // cancel() may throw, but we are not allowed to throw here
+    // as we may be called from the dtor
+  }
+
+  // Close socket
+  _protocol.shutdown();
   _active.store(false); // no IO operations running
   
   RequestItem* item = nullptr;
   while (_queue.pop(item)) {
     std::unique_ptr<RequestItem> guard(item);
-    _numQueued.fetch_sub(1, std::memory_order_release);
+    _numQueued.fetch_sub(1, std::memory_order_relaxed);
     guard->invokeOnError(errorToInt(ec));
   }
   
@@ -226,42 +272,38 @@ void HttpConnection<ST>::restartConnection(const ErrorCondition error) {
   // restarting needs to be an exclusive operation
   Connection::State exp = Connection::State::Connected;
   if (_state.compare_exchange_strong(exp, Connection::State::Disconnected)) {
-    FUERTE_LOG_CALLBACKS << "restartConnection" << std::endl;
+    FUERTE_LOG_CALLBACKS << "restartConnection\n";
     shutdownConnection(error); // Terminate connection
     startConnection(); // will check state
   }
 }
 
 template<SocketType ST>
-std::unique_ptr<RequestItem> HttpConnection<ST>::createRequestItem(
-    std::unique_ptr<Request> request, RequestCallback callback) {
-  static std::atomic<uint64_t> ticketId(1);
-
-  assert(request);
+std::string HttpConnection<ST>::buildRequestBody(Request const& req) {
   // build the request header
-  assert(request->header.restVerb != RestVerb::Illegal);
+  assert(req.header.restVerb != RestVerb::Illegal);
 
   std::string header;
-  header.reserve(128);  // TODO is there a meaningful size ?
-  header.append(fu::to_string(request->header.restVerb));
+  header.reserve(230);  // TODO is there a meaningful size ?
+  header.append(fu::to_string(req.header.restVerb));
   header.push_back(' ');
 
   // construct request path ("/_db/<name>/" prefix)
-  if (!request->header.database.empty()) {
+  if (!req.header.database.empty()) {
     header.append("/_db/");
-    header.append(http::urlEncode(request->header.database));
+    header.append(http::urlEncode(req.header.database));
   }
   // must start with /, also turns /_db/abc into /_db/abc/
-  if (request->header.path.empty() || request->header.path[0] != '/') {
+  if (req.header.path.empty() || req.header.path[0] != '/') {
     header.push_back('/');
   }
 
-  if (request->header.parameters.empty()) {
-    header.append(request->header.path);
+  if (req.header.parameters.empty()) {
+    header.append(req.header.path);
   } else {
-    header.append(request->header.path);
+    header.append(req.header.path);
     header.push_back('?');
-    for (auto p : request->header.parameters) {
+    for (auto p : req.header.parameters) {
       if (header.back() != '?') {
         header.push_back('&');
       }
@@ -275,7 +317,7 @@ std::unique_ptr<RequestItem> HttpConnection<ST>::createRequestItem(
   // TODO add option to configuration
   header.append("Connection: Keep-Alive\r\n");
   // header.append("Connection: Close\r\n");
-  for (auto const& pair : request->header.meta) {
+  for (auto const& pair : req.header.meta) {
     header.append(pair.first);
     header.append(": ");
     header.append(pair.second);
@@ -286,31 +328,23 @@ std::unique_ptr<RequestItem> HttpConnection<ST>::createRequestItem(
     header.append(_authHeader);
   }
 
-  if (request->header.restVerb != RestVerb::Get &&
-      request->header.restVerb != RestVerb::Head) {
+  if (req.header.restVerb != RestVerb::Get &&
+      req.header.restVerb != RestVerb::Head) {
     header.append("Content-Length: ");
-    header.append(std::to_string(request->payloadSize()));
+    header.append(std::to_string(req.payloadSize()));
     header.append("\r\n\r\n");
   } else {
     header.append("\r\n");
   }
   // body will be appended seperately
-
-  // construct RequestItem
-  std::unique_ptr<RequestItem> requestItem(new RequestItem());
-  requestItem->_request = std::move(request);
-  requestItem->_callback = std::move(callback);
-  // requestItem->_response later
-  requestItem->_messageID = ticketId.fetch_add(1, std::memory_order_relaxed);
-  requestItem->_requestHeader = std::move(header);
-  return requestItem;
+  return header;
 }
 
 // Thread-Safe: activate the combined write-read loop
 template<SocketType ST>
 void HttpConnection<ST>::startWriting() {
   assert(_state.load(std::memory_order_acquire) == State::Connected);
-  FUERTE_LOG_HTTPTRACE << "startWriting (http): this=" << this << std::endl;
+  FUERTE_LOG_HTTPTRACE << "startWriting (http): this=" << this << "\n";
   
   if (!_active) {
     auto self = shared_from_this();
@@ -325,12 +359,8 @@ void HttpConnection<ST>::startWriting() {
 // writes data from task queue to network using asio_ns::async_write
 template<SocketType ST>
 void HttpConnection<ST>::asyncWriteNextRequest() {
-  FUERTE_LOG_TRACE << "asyncWrite: preparing to send next" << std::endl;
+  FUERTE_LOG_TRACE << "asyncWrite: preparing to send next\n";
   assert(_active.load(std::memory_order_acquire));
-  /*if (!_active.load(std::memory_order_seq_cst)) {
-    FUERTE_LOG_HTTPTRACE << "asyncWrite: deactivated" << std::endl;
-    return;
-  }*/
   
   http::RequestItem* ptr = nullptr;
   if (!_queue.pop(ptr)) {
@@ -339,10 +369,10 @@ void HttpConnection<ST>::asyncWriteNextRequest() {
       return;
     }
     // a request got queued in-between last minute
-    _active.store(true, std::memory_order_release);
+    _active.store(true);
   }
   std::shared_ptr<http::RequestItem> item(ptr);
-  _numQueued.fetch_sub(1, std::memory_order_release);
+  _numQueued.fetch_sub(1, std::memory_order_relaxed);
   
   // we stop the write-loop if we stopped it ourselves.
   auto self = shared_from_this();
@@ -361,7 +391,7 @@ void HttpConnection<ST>::asyncWriteNextRequest() {
     buffers.emplace_back(item->_request->payload());
   }
   asio_ns::async_write(_protocol.socket, buffers, cb);
-  FUERTE_LOG_HTTPTRACE << "asyncWrite: done" << std::endl;
+  FUERTE_LOG_HTTPTRACE << "asyncWrite: done\n";
 }
 
 // called by the async_write handler (called from IO thread)
@@ -372,13 +402,13 @@ void HttpConnection<ST>::asyncWriteCallback(
   if (ec) {
     // Send failed
     FUERTE_LOG_CALLBACKS << "asyncWriteCallback (http): error "
-                         << ec.message() << std::endl;
+                         << ec.message() << "\n";
+    assert(item->_callback);
+    auto err = checkEOFError(ec, ErrorCondition::WriteError);
     // let user know that this request caused the error
-    item->_callback.invoke(errorToInt(ErrorCondition::WriteError),
-                           std::move(item->_request), nullptr);
+    item->_callback(errorToInt(err), std::move(item->_request), nullptr);
     // Stop current connection and try to restart a new one.
-    restartConnection(ec == asio_ns::error::misc_errors::eof ?
-                      ErrorCondition::WriteError : ErrorCondition::ConnectionClosed);
+    restartConnection(err);
     return;
   }
   
@@ -411,7 +441,7 @@ void HttpConnection<ST>::asyncWriteCallback(
 // asyncReadSome reads the next bytes from the server.
 template<SocketType ST>
 void HttpConnection<ST>::asyncReadSome() {
-  FUERTE_LOG_TRACE << "asyncReadSome: this=" << this << std::endl;
+  FUERTE_LOG_TRACE << "asyncReadSome: this=" << this << "\n";
   
   auto self = shared_from_this();
   auto cb = [this, self](asio_ns::error_code const& ec, size_t transferred) {
@@ -424,21 +454,20 @@ void HttpConnection<ST>::asyncReadSome() {
   auto mutableBuff = _receiveBuffer.prepare(READ_BLOCK_SIZE);
   _protocol.socket.async_read_some(mutableBuff, std::move(cb));
   
-  FUERTE_LOG_HTTPTRACE << "asyncReadSome: done" << std::endl;
+  FUERTE_LOG_HTTPTRACE << "asyncReadSome: done\n";
 }
 
 // called by the async_read handler (called from IO thread)
 template<SocketType ST>
 void HttpConnection<ST>::asyncReadCallback(asio_ns::error_code const& ec,
-                                       size_t transferred) {
+                                           size_t transferred) {
   
   if (ec) {
     FUERTE_LOG_CALLBACKS
         << "asyncReadCallback: Error while reading from socket";
-    FUERTE_LOG_ERROR << ec.message() << std::endl;
+    FUERTE_LOG_ERROR << ec.message() << "\n";
     // Restart connection, will invoke _inFlight cb
-    restartConnection(ec == asio_ns::error::misc_errors::eof ?
-                      ErrorCondition::ReadError : ErrorCondition::ConnectionClosed);
+    restartConnection(checkEOFError(ec, ErrorCondition::ReadError));
     return;
   }
   FUERTE_LOG_CALLBACKS
@@ -464,24 +493,25 @@ void HttpConnection<ST>::asyncReadCallback(asio_ns::error_code const& ec,
     
     if (_parser.upgrade) {
       /* handle new protocol */
-      FUERTE_LOG_ERROR << "Upgrading is not supported" << std::endl;
+      FUERTE_LOG_ERROR << "Upgrading is not supported\n";
       shutdownConnection(ErrorCondition::ProtocolError);  // will cleanup _inFlight
       return;
-    } else if (nparsed != transferred) {
+    } else if (nparsed != buffer.size()) {
       /* Handle error. Usually just close the connection. */
-      FUERTE_LOG_ERROR << "Invalid HTTP response in parser" << std::endl;
+      FUERTE_LOG_ERROR << "Invalid HTTP response in parser\n";
       shutdownConnection(ErrorCondition::ProtocolError);  // will cleanup _inFlight
       return;
     } else if (_inFlight->message_complete) {
-      
       _timeout.cancel(); // got response in time
       // Remove consumed data from receive buffer.
       _receiveBuffer.consume(parsedBytes);
       
       // thread-safe access on IO-Thread
-      _inFlight->_response->setPayload(std::move(_inFlight->_responseBuffer), 0);
-      _inFlight->_callback.invoke(0, std::move(_inFlight->_request),
-                                  std::move(_inFlight->_response));
+      if (!_inFlight->_responseBuffer.empty()) {
+        _inFlight->_response->setPayload(std::move(_inFlight->_responseBuffer), 0);
+      }
+      _inFlight->_callback(0, std::move(_inFlight->_request),
+                           std::move(_inFlight->_response));
       if (!_inFlight->should_keep_alive) {
         shutdownConnection(ErrorCondition::CloseRequested);
         return;
@@ -509,22 +539,27 @@ template<SocketType ST>
 void HttpConnection<ST>::setTimeout(std::chrono::milliseconds millis) {
   if (millis.count() == 0) {
     _timeout.cancel();
-    return; // do
+    return;
   }
   assert(millis.count() > 0);
-  auto self = shared_from_this();
   _timeout.expires_after(millis);
-  _timeout.async_wait([this, self] (asio_ns::error_code const& e) {
-    if (!e) {  // expired
-      FUERTE_LOG_DEBUG << "HTTP-Request timeout\n";
-      restartConnection(ErrorCondition::Timeout);
+  
+  std::weak_ptr<Connection> self = shared_from_this();
+  _timeout.async_wait([self, this] (asio_ns::error_code const& ec) {
+    if (!ec) {
+      auto s = self.lock();
+      if (s) {
+        FUERTE_LOG_DEBUG << "HTTP-Request timeout\n";
+        restartConnection(ErrorCondition::Timeout);
+      }
     }
   });
 }
   
-  
 template class arangodb::fuerte::v1::http::HttpConnection<SocketType::Tcp>;
 template class arangodb::fuerte::v1::http::HttpConnection<SocketType::Ssl>;
+#ifdef ASIO_HAS_LOCAL_SOCKETS
 template class arangodb::fuerte::v1::http::HttpConnection<SocketType::Unix>;
+#endif
 
 }}}}  // namespace arangodb::fuerte::v1::http

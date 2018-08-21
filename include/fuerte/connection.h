@@ -41,6 +41,7 @@ class Connection : public std::enable_shared_from_this<Connection> {
  public:
   virtual ~Connection();
   
+  /// Connectin state
   enum class State {
     Disconnected = 0,
     Connecting = 1,
@@ -48,42 +49,49 @@ class Connection : public std::enable_shared_from_this<Connection> {
     Failed = 3 /// broken permanently (i.e. bad authentication)
   };
 
-  // Send a request to the server and wait into a response it received.
+  /// @brief Send a request to the server and wait into a response it received.
   std::unique_ptr<Response> sendRequest(std::unique_ptr<Request> r);
-
-  // Send a request to the server and wait into a response it received.
+  
+  /// @brief Send a request to the server and wait into a response it received.
+  /// @param r request that is copied
   std::unique_ptr<Response> sendRequest(Request const& r) {
     std::unique_ptr<Request> copy(new Request(r));
     return sendRequest(std::move(copy));
   }
 
-  // Send a request to the server and return immediately.
-  // When a response is received or an error occurs, the corresponding callback
-  // is called.
+  /// @brief Send a request to the server and return immediately.
+  /// When a response is received or an error occurs, the corresponding
+  /// callbackis called. The callback is executed on a specific
+  /// IO-Thread for this connection.
   virtual MessageID sendRequest(std::unique_ptr<Request> r,
                                 RequestCallback cb) = 0;
 
-  // Send a request to the server and return immediately.
-  // When a response is received or an error occurs, the corresponding callback
-  // is called.
+  /// @brief Send a request to the server and return immediately.
+  /// When a response is received or an error occurs, the corresponding
+  /// callbackis called. The callback is executed on a specific
+  /// IO-Thread for this connection.
   MessageID sendRequest(Request const& r, RequestCallback cb) {
     std::unique_ptr<Request> copy(new Request(r));
     return sendRequest(std::move(copy), cb);
   }
 
-  // Return the number of requests that have not yet finished.
+  /// @brief Return the number of requests that have not yet finished.
   virtual std::size_t requestsLeft() const = 0;
   
   /// @brief connection state
   virtual State state() const = 0;
-
-  /// @brief Activate the connection.
-  virtual void startConnection() = 0;
-  virtual void shutdownConnection(const ErrorCondition) = 0;
+  
+  /// @brief cancel the connection, unusable afterwards
+  virtual void cancel() = 0;
+  
+  std::string endpoint() const;
 
  protected:
   Connection(detail::ConnectionConfiguration const& conf)
       : _config(conf) {}
+  
+  /// @brief Activate the connection.
+  virtual void startConnection() = 0;
 
   // Invoke the configured ConnectionFailureCallback (if any)
   void onFailure(Error errorCode, const std::string& errorMessage) {
@@ -161,6 +169,14 @@ class ConnectionBuilder {
     _conf._vstVersion = c;
     return *this;
   }
+  
+  /// @brief should we verify the SSL host
+  inline bool verifyHost() const { return _conf._verifyHost; }
+  ConnectionBuilder& verifyHost(bool b) {
+    _conf._verifyHost = b;
+    return *this;
+  }
+  
   // Set a callback for connection failures that are not request specific.
   ConnectionBuilder& onFailure(ConnectionFailureCallback c) {
     _conf._onFailure = c;

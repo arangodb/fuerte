@@ -25,6 +25,7 @@
 #ifndef ARANGO_CXX_DRIVER_SERVER
 #define ARANGO_CXX_DRIVER_SERVER
 
+#include <mutex>
 #include <thread>
 #include <utility>
 
@@ -47,27 +48,34 @@ typedef asio_ns::executor_work_guard<asio_ns::io_context::executor_type>
 /// linux epoll has max 64 instances, so there is a limit on the
 /// number of io_context instances.
 class EventLoopService {
-  friend class ConnectionBuilder;
-
  public:
   // Initialize an EventLoopService with a given number of threads
   //  and a given number of io_context
-  EventLoopService(unsigned int threadCount = 1);
+  explicit EventLoopService(unsigned int threadCount = 1);
   virtual ~EventLoopService();
 
   // Prevent copying
   EventLoopService(EventLoopService const& other) = delete;
   EventLoopService& operator=(EventLoopService const& other) = delete;
-
- protected:
+  
+  /// forcebly stop all io contexts. service is unusable after
+  void forceStop();
 
   // io_service returns a reference to the boost io_service.
   std::shared_ptr<asio_io_context>& nextIOContext() {
     return _ioContexts[_lastUsed.fetch_add(1, std::memory_order_relaxed) % _ioContexts.size()];
   }
+  
+  asio_ns::ssl::context& sslContext();
 
  private:
+  /// number of last used io_context
   std::atomic<uint32_t> _lastUsed;
+  
+  /// protect ssl context creation
+  std::mutex _sslContextMutex;
+  /// global SSL context to use here
+  std::unique_ptr<asio_ns::ssl::context> _sslContext;
 
   /// io contexts
   std::vector<std::shared_ptr<asio_io_context>> _ioContexts;

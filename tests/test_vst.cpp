@@ -54,7 +54,7 @@ TEST(VelocyStream_11, ChunkHeader) {
   ASSERT_EQ(buffer.size(), 4);
   
   ptr = reinterpret_cast<uint8_t const*>(buffer.data());
-  uint32_t val = arangodb::basics::uintFromPersistentLittleEndian<uint32_t>(ptr);
+  uint32_t val = fu::basics::uintFromPersistentLittleEndian<uint32_t>(ptr);
   ASSERT_EQ(val, static_cast<uint32_t>(0x0d0c0b0a));
   
   arangodb::velocypack::Buffer<uint8_t> tmp;
@@ -98,7 +98,7 @@ TEST(VelocyStream_11, MultiChunk){
   ASSERT_EQ(header.numberOfChunks(), 3);
   ASSERT_EQ(buffer.size(), 4);
   ptr = reinterpret_cast<uint8_t const*>(buffer.data());
-  uint32_t val = arangodb::basics::uintFromPersistentLittleEndian<uint32_t>(ptr);
+  uint32_t val = fu::basics::uintFromPersistentLittleEndian<uint32_t>(ptr);
   ASSERT_EQ(val, static_cast<uint32_t>(0x0d0c0b0a));
   
   // chunk 1
@@ -113,7 +113,7 @@ TEST(VelocyStream_11, MultiChunk){
   ASSERT_EQ(header.index(), 1);
   ASSERT_EQ(buffer.size(), 4);
   ptr = reinterpret_cast<uint8_t const*>(buffer.data());
-  val = arangodb::basics::uintFromPersistentLittleEndian<uint32_t>(ptr);
+  val = fu::basics::uintFromPersistentLittleEndian<uint32_t>(ptr);
   ASSERT_EQ(val, static_cast<uint32_t>(0x0d0c0b0a));
   
   // chunk 2
@@ -128,7 +128,7 @@ TEST(VelocyStream_11, MultiChunk){
   ASSERT_EQ(header.index(), 2);
   ASSERT_EQ(buffer.size(), 4);
   ptr = reinterpret_cast<uint8_t const*>(buffer.data());
-  val = arangodb::basics::uintFromPersistentLittleEndian<uint32_t>(ptr);
+  val = fu::basics::uintFromPersistentLittleEndian<uint32_t>(ptr);
   ASSERT_EQ(val, static_cast<uint32_t>(0x0d0c0b0a));
   
   /*arangodb::velocypack::Buffer<uint8_t> buffer;
