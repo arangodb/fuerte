@@ -75,7 +75,7 @@ TEST_P(ConcurrentConnectionF, ApiVersionParallel) {
     joins.emplace_back([&]{
       for (size_t i = 0; i < repeat(); i++) {
         auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
-        while (_connection->requestsLeft() >= 1024) {
+        while (_connection->requestsLeft() >= 1000) {
           std::this_thread::yield();
         }
         _connection->sendRequest(std::move(request), cb);
@@ -123,7 +123,7 @@ TEST_P(ConcurrentConnectionF, CreateDocumentsParallel){
       for (size_t i = 0; i < repeat(); i++) {
         auto request = fu::createRequest(fu::RestVerb::Post, "/_api/document/concurrent");
         request->addVPack(builder.slice());
-        while (_connection->requestsLeft() >= 1024) {
+        while (_connection->requestsLeft() >= 1000) {
           std::this_thread::yield();
         }
         _connection->sendRequest(std::move(request), cb);
