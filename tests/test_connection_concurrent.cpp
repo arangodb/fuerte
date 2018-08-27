@@ -82,7 +82,7 @@ TEST_P(ConcurrentConnectionF, ApiVersionParallel) {
       }
     });
   }
-  ASSERT_TRUE(wg.wait_for(std::chrono::seconds(60))); // wait for all threads to return
+  ASSERT_TRUE(wg.wait_for(std::chrono::seconds(300))); // wait for all threads to return
 
   // wait for all threads to end
   for (std::thread& t : joins) {
