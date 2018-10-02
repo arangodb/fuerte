@@ -40,7 +40,7 @@ Basic functionality of the c++ and node driver are implemented:
 Things that are missing:
 
 - agenda - the task is to get the nosql-tests working - what do those tests require?
-- tests - without tests we never know the exact status (below is a list of missing featues)
+- tests - without tests we never know the exact status (below is a list of missing features)
 - hanging with 100k requests (needs to be found)
 - c++/node: incomplete handling of broken connections - need to find out what is missing (worse in node)
 - c++: missing handling of endianess
