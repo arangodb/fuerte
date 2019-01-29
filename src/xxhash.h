@@ -73,23 +73,23 @@ extern "C" {
 #endif
 
 /* ****************************
-*  Definitions
-******************************/
+ *  Definitions
+ ******************************/
 #include <stddef.h> /* size_t */
 typedef enum { XXH_OK = 0, XXH_ERROR } XXH_errorcode;
 
 /* ****************************
-*  API modifier
-******************************/
+ *  API modifier
+ ******************************/
 /*!XXH_PRIVATE_API
-*  Transforms all publics symbols within `xxhash.c` into private ones.
-*  Methodology :
-*  instead of : #include "xxhash.h"
-*  do :
-*     #define XXH_PRIVATE_API
-*     #include "xxhash.c"   // note the .c , instead of .h
-*  also : don't compile and link xxhash.c separately
-*/
+ *  Transforms all publics symbols within `xxhash.c` into private ones.
+ *  Methodology :
+ *  instead of : #include "xxhash.h"
+ *  do :
+ *     #define XXH_PRIVATE_API
+ *     #include "xxhash.c"   // note the .c , instead of .h
+ *  also : don't compile and link xxhash.c separately
+ */
 #ifdef XXH_PRIVATE_API
 #if defined(__GNUC__)
 #define XXH_PUBLIC_API static __attribute__((unused))
@@ -142,8 +142,8 @@ regular symbol name will be automatically translated by this header.
 #endif
 
 /* *************************************
-*  Version
-***************************************/
+ *  Version
+ ***************************************/
 #define XXH_VERSION_MAJOR 0
 #define XXH_VERSION_MINOR 5
 #define XXH_VERSION_RELEASE 1
@@ -153,8 +153,8 @@ regular symbol name will be automatically translated by this header.
 XXH_PUBLIC_API unsigned XXH_versionNumber(void);
 
 /* ****************************
-*  Simple Hash Functions
-******************************/
+ *  Simple Hash Functions
+ ******************************/
 typedef unsigned int XXH32_hash_t;
 typedef unsigned long long XXH64_hash_t;
 
@@ -180,8 +180,8 @@ address "input".
 */
 
 /* ****************************
-*  Streaming Hash Functions
-******************************/
+ *  Streaming Hash Functions
+ ******************************/
 typedef struct XXH32_state_s XXH32_state_t; /* incomplete type */
 typedef struct XXH64_state_s XXH64_state_t; /* incomplete type */
 
@@ -191,8 +191,12 @@ typedef struct XXH64_state_s XXH64_state_t; /* incomplete type */
             is static-allocation equivalent of :
         XXHnn_state_t* name = XXHnn_createState();
 */
-typedef struct { long long ll[6]; } XXH32_stateBody_t;
-typedef struct { long long ll[11]; } XXH64_stateBody_t;
+typedef struct {
+  long long ll[6];
+} XXH32_stateBody_t;
+typedef struct {
+  long long ll[11];
+} XXH64_stateBody_t;
 
 #define XXH32_CREATESTATE_STATIC(name)    \
   XXH32_stateBody_t name##xxhbody;        \
@@ -251,10 +255,14 @@ When done, free XXH state space if it was allocated dynamically.
 */
 
 /* **************************
-*  Canonical representation
-****************************/
-typedef struct { unsigned char digest[4]; } XXH32_canonical_t;
-typedef struct { unsigned char digest[8]; } XXH64_canonical_t;
+ *  Canonical representation
+ ****************************/
+typedef struct {
+  unsigned char digest[4];
+} XXH32_canonical_t;
+typedef struct {
+  unsigned char digest[8];
+} XXH64_canonical_t;
 
 XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst,
                                             XXH32_hash_t hash);
@@ -267,13 +275,13 @@ XXH_PUBLIC_API XXH64_hash_t
 XXH64_hashFromCanonical(const XXH64_canonical_t* src);
 
 /*! Default result type for XXH functions are primitive unsigned 32 and 64 bits.
-*   The canonical representation uses human-readable write convention, aka
-* big-endian (large digits first).
-*   These functions allow transformation of hash result into and from its
-* canonical format.
-*   This way, hash values can be written into a file / memory, and remain
-* comparable on different systems and programs.
-*/
+ *   The canonical representation uses human-readable write convention, aka
+ * big-endian (large digits first).
+ *   These functions allow transformation of hash result into and from its
+ * canonical format.
+ *   This way, hash values can be written into a file / memory, and remain
+ * comparable on different systems and programs.
+ */
 
 #if defined(__cplusplus)
 }

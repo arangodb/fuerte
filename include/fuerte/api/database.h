@@ -19,16 +19,32 @@
 ///
 /// @author Jan Christoph Uhde
 ////////////////////////////////////////////////////////////////////////////////
-#include <fuerte/collection.h>
-#include <fuerte/database.h>
+#pragma once
+#ifndef ARANGO_CXX_DRIVER_DATABASE
+#define ARANGO_CXX_DRIVER_DATABASE
+
+#include <functional>
+#include <string>
+#include <fuerte/types.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
+class Connection;
+class Collection;
 
-  using namespace arangodb::fuerte::detail;
+class Database : public std::enable_shared_from_this<Database> {
+  friend class Connection;
+  
+  Database(std::shared_ptr<Connection>, std::string const& name);
+  
+ public:
+  
+  std::shared_ptr<Collection> getCollection(std::string const& name);
+  std::shared_ptr<Collection> createCollection(std::string const& name);
+  bool deleteCollection(std::string const& name);
 
-  Collection::Collection(std::shared_ptr<Database> db, std::string name)
-    : _db(db)
-    , _name(name)
-    {}
-
-}}}
+ private:
+  std::shared_ptr<Connection> _conn;
+  std::string _name;
+};
+}}}  // namespace arangodb::fuerte::v1
+#endif

@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2016 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2018-2019 ArangoDB GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
@@ -19,199 +19,220 @@
 ///
 /// @author Jan Christoph Uhde
 /// @author Ewout Prangsma
+/// @author Simon Grätzer
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #ifndef ARANGO_CXX_DRIVER_MESSAGE
 #define ARANGO_CXX_DRIVER_MESSAGE
 
-#include <chrono>
-#include <map>
 #include <string>
 #include <vector>
 
-#include "types.h"
+#include <fuerte/asio_ns.h>
+#include <fuerte/types.h>
 
-#include <boost/optional.hpp>
-#include <boost/asio/buffer.hpp>
+#include <velocypack/Buffer.h>
+#include <velocypack/Builder.h>
+#include <velocypack/Slice.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
-
 const std::string fu_content_type_key("content-type");
 const std::string fu_accept_key("accept");
-
-// mabye get rid of optional
+  
 struct MessageHeader {
-  MessageHeader(MessageHeader const&) = default;
-  MessageHeader() = default;
-  MessageHeader(MessageHeader&&) = default;
-
-  ::boost::optional<int> version;
-  ::boost::optional<MessageType> type;        // Type of message
-  ::boost::optional<StatusCode> responseCode; // Response code (response only)
-  ::boost::optional<std::string> database;    // Database that is the target of the request
-  ::boost::optional<RestVerb> restVerb;       // HTTP method
-  ::boost::optional<std::string> path;        // Local path of the request
-  ::boost::optional<StringMap> parameters;    // Query parameters
-  ::boost::optional<StringMap> meta;          // Header meta data
-  ::boost::optional<std::string> encryption;  // Authentication: encryption field
-  ::boost::optional<std::string> user;        // Authentication: username
-  ::boost::optional<std::string> password;    // Authentication: password
-  ::boost::optional<std::string> token;       // Authentication: JWT token
-  ::boost::optional<std::size_t> byteSize;    // for debugging
-
+  /// arangodb message format version
+  short version() const { return _version; }
+  void setVersion(short v) { _version = v; }
+  
+  /// Header meta data (equivalent to HTTP headers)
+  StringMap meta;
+  
+#ifndef NDEBUG
+  std::size_t byteSize;    // for debugging
+#endif
+  
+public:
+  
+  // Header metadata helpers
+  void addMeta(std::string const& key, std::string const& value);
+  void addMeta(StringMap const&);
+  
+  // Get value for header metadata key, returns empty string if not found.
+  std::string const& metaByKey(std::string const& key) const;
+  
   // content type accessors
-  std::string contentTypeString() const;
-  ContentType contentType() const;
+  inline std::string const& contentTypeString() const {
+    return metaByKey(fu_content_type_key);
+  }
+  
+  inline ContentType contentType() const {
+    return to_ContentType(contentTypeString());
+  }
+  
   void contentType(std::string const& type);
   void contentType(ContentType type);
-
+  
+protected:
+  short _version;
+};
+  
+struct RequestHeader final : public MessageHeader {
+  
+  /// HTTP method
+  RestVerb restVerb = RestVerb::Illegal;
+  
+  /// Database that is the target of the request
+  std::string database;
+  
+  /// Local path of the request (without "/_db/" prefix)
+  std::string path;
+  
+  /// Query parameters
+  StringMap parameters;
+  
+public:
+  
   // accept header accessors
   std::string acceptTypeString() const;
   ContentType acceptType() const;
   void acceptType(std::string const& type);
   void acceptType(ContentType type);
-
-  // query parameter helpers 
+  
+  // query parameter helpers
   void addParameter(std::string const& key, std::string const& value);
-  // Header metadata helpers 
-  void addMeta(std::string const& key, std::string const& value);
-  // Get value for header metadata key, returns empty string if not found.
-  std::string metaByKey(std::string const& key) const;
+  
+  /// @brief analyze path and split into components
+  /// strips /_db/<name> prefix, sets db name and fills parameters
+  void parseArangoPath(std::string const&);
 };
+  
+struct ResponseHeader final : public MessageHeader {
+  friend class Response;
 
-std::string to_string(MessageHeader const&);
-
-// create a map<string,string> from header object
-StringMap headerStrings(MessageHeader const& header);
+  /// Response code
+  StatusCode responseCode = StatusUndefined;
+  
+  MessageType responseType() const { return _responseType; }
+  
+private:
+  MessageType _responseType = MessageType::Response;
+};
 
 // Message is base class for message being send to (Request) or
 // from (Response) a server.
 class Message {
-protected:
-  Message(MessageHeader&& messageHeader = MessageHeader(), StringMap&& headerStrings = StringMap())
-    : header(std::move(messageHeader)),
-      messageID(123456789)
-         {
-           if (!headerStrings.empty()){
-            header.meta = std::move(headerStrings);
-           }
-         }
+ protected:
+  Message() = default;
+  virtual ~Message() = default;
 
-  Message(MessageHeader const& messageHeader, StringMap const& headerStrings)
-    : header(messageHeader),
-      messageID(123456789)
-         {
-           if (!headerStrings.empty()){
-            header.meta = std::move(headerStrings);
-           }
-         }
-
-public:
-  MessageHeader header;
-  MessageID messageID; //generate by some singleton
+ public:
+  /// Message type
+  virtual MessageType type() const = 0;
+  virtual MessageHeader const& messageHeader() const = 0;
 
   ///////////////////////////////////////////////
   // get payload
   ///////////////////////////////////////////////
-  virtual std::vector<VSlice>const & slices() = 0;
-  virtual boost::asio::const_buffer payload() const = 0; 
+  virtual std::vector<velocypack::Slice> slices() const = 0;
+  virtual asio_ns::const_buffer payload() const = 0;
+  virtual std::size_t payloadSize() const = 0;
   std::string payloadAsString() const {
     auto p = payload();
-    return std::string(boost::asio::buffer_cast<char const*>(p), boost::asio::buffer_size(p));
+    return std::string(asio_ns::buffer_cast<char const*>(p),
+                       asio_ns::buffer_size(p));
+  }
+  
+  /// get the content as a slice
+  velocypack::Slice slice() {
+    auto slices = this->slices();
+    if (!slices.empty()) {
+      return slices[0];
+    }
+    return velocypack::Slice::noneSlice();
   }
 
   // content-type header accessors
   std::string contentTypeString() const;
   ContentType contentType() const;
-
-  // accept header accessors
-  std::string acceptTypeString() const;
-  ContentType acceptType() const;
 };
 
 // Request contains the message send to a server in a request.
-class Request : public Message {
-  static std::chrono::milliseconds _defaultTimeout;
-public:
-  Request(MessageHeader&& messageHeader = MessageHeader(), StringMap&& headerStrings = StringMap())
-    : Message(std::move(messageHeader), std::move(headerStrings)),
-      _sealed(false),
-      _modified(true),
-      _isVpack(boost::none),
-      _builder(nullptr),
-      _payloadLength(0),
-      _timeout(std::chrono::duration_cast<std::chrono::milliseconds>(_defaultTimeout))
-         {
-           header.type = MessageType::Request;
-         }
-  Request(MessageHeader const& messageHeader, StringMap const& headerStrings)
-    : Message(messageHeader, headerStrings),
-      _sealed(false),
-      _modified(true),
-      _isVpack(boost::none),
-      _builder(nullptr),
-      _payloadLength(0),
-      _timeout(std::chrono::duration_cast<std::chrono::milliseconds>(_defaultTimeout))
-         {
-           header.type = MessageType::Request;
-         }
+class Request final : public Message {
+ public:
+  static constexpr std::chrono::milliseconds defaultTimeout = std::chrono::milliseconds(30 * 1000);
+
+  Request(RequestHeader&& messageHeader = RequestHeader())
+      : header(std::move(messageHeader)),
+        _isVPack(false),
+        _timeout(defaultTimeout) {}
+  
+  Request(RequestHeader const& messageHeader)
+      : header(messageHeader),
+        _isVPack(false),
+        _timeout(defaultTimeout) {}
+  
+  /// @brief request header
+  RequestHeader header;
+  
+  MessageType type() const override { return MessageType::Request; }
+  MessageHeader const& messageHeader() const override { return header; }
+  
+  ///////////////////////////////////////////////
+  // header accessors
+  ///////////////////////////////////////////////
+  
+  // accept header accessors
+  std::string acceptTypeString() const;
+  ContentType acceptType() const;
 
   ///////////////////////////////////////////////
   // add payload
   ///////////////////////////////////////////////
-  void addVPack(VSlice const& slice);
-  void addVPack(VBuffer const& buffer);
-  void addVPack(VBuffer&& buffer);
+  void addVPack(velocypack::Slice const& slice);
+  void addVPack(velocypack::Buffer<uint8_t> const& buffer);
+  void addVPack(velocypack::Buffer<uint8_t>&& buffer);
   void addBinary(uint8_t const* data, std::size_t length);
-  void addBinarySingle(VBuffer&& buffer);
 
-  // content-type header accessors
-  void contentType(std::string const& type);
-  void contentType(ContentType type);
-
-  // accept header accessors
-  void acceptType(std::string const& type);
-  void acceptType(ContentType type);
-  
   ///////////////////////////////////////////////
   // get payload
   ///////////////////////////////////////////////
-  virtual std::vector<VSlice>const & slices() override;
-  virtual boost::asio::const_buffer payload() const override; 
+  
+  /// @brief get velocypack slices contained in request
+  /// only valid iff the data was added via addVPack
+  std::vector<velocypack::Slice> slices() const override;
+  asio_ns::const_buffer payload() const override;
+  std::size_t payloadSize() const override;
 
-  // get timeout 
+  // get timeout, 0 means no timeout
   inline std::chrono::milliseconds timeout() const { return _timeout; }
-  // set timeout 
+  // set timeout
   void timeout(std::chrono::milliseconds timeout) { _timeout = timeout; }
 
-private:
-  VBuffer _payload;
-  bool _sealed;
-  bool _modified;
-  ::boost::optional<bool> _isVpack;
-  std::shared_ptr<VBuilder> _builder;
-  std::vector<VSlice> _slices;
-  std::size_t _payloadLength; // because VPackBuffer has quirks we need
-                              // to track the Length manually
+ private:
+  velocypack::Buffer<uint8_t> _payload;
+  bool _isVPack;
   std::chrono::milliseconds _timeout;
 };
 
 // Response contains the message resulting from a request to a server.
-class Response : public Message {
-public:
-  Response(MessageHeader&& messageHeader = MessageHeader(), StringMap&& headerStrings = StringMap())
-    : Message(std::move(messageHeader), std::move(headerStrings))
-          {
-            header.type = MessageType::Response;
-          }
-
+class Response final : public Message {
+ public:
+  Response(ResponseHeader&& reqHeader = ResponseHeader())
+      : header(std::move(reqHeader)), _payloadOffset(0) {}
+  
+  /// @brief request header
+  ResponseHeader header;
+  
+  MessageType type() const override { return header._responseType; }
+  MessageHeader const& messageHeader() const override { return header; }
   ///////////////////////////////////////////////
   // get / check status
   ///////////////////////////////////////////////
 
-  // statusCode returns the (HTTP) status code for the request (400==OK).
-  StatusCode statusCode() { return header.responseCode ? header.responseCode.get() : 0; }
-  // checkStatus returns true if the statusCode equals one of the given valid code, false otherwise.
+  // statusCode returns the (HTTP) status code for the request (200==OK).
+  StatusCode statusCode() { return header.responseCode; }
+  // checkStatus returns true if the statusCode equals one of the given valid
+  // code, false otherwise.
   bool checkStatus(std::initializer_list<StatusCode> validStatusCodes) {
     auto actual = statusCode();
     for (auto code : validStatusCodes) {
@@ -219,10 +240,12 @@ public:
     }
     return false;
   }
-  // assertStatus throw an exception if the statusCode does not equal one of the given valid codes.
+  // assertStatus throw an exception if the statusCode does not equal one of the
+  // given valid codes.
   void assertStatus(std::initializer_list<StatusCode> validStatusCodes) {
     if (!checkStatus(validStatusCodes)) {
-      throw std::runtime_error("invalid status " + std::to_string(statusCode()));
+      throw std::runtime_error("invalid status " +
+                               std::to_string(statusCode()));
     }
   }
 
@@ -233,16 +256,18 @@ public:
   bool isContentTypeVPack() const;
   bool isContentTypeHtml() const;
   bool isContentTypeText() const;
-  virtual std::vector<VSlice>const & slices() override;
-  virtual boost::asio::const_buffer payload() const override; 
-
-  void setPayload(VBuffer&& buffer, size_t payloadOffset);
-
-private:
-  VBuffer _payload;
-  size_t _payloadOffset;
-  std::vector<VSlice> _slices;
+  /// @brief validates and returns VPack response. Only valid for velocypack
+  std::vector<velocypack::Slice> slices() const override;
+  asio_ns::const_buffer payload() const override;
+  std::size_t payloadSize() const override;
+  std::shared_ptr<velocypack::Buffer<uint8_t>> copyPayload() const;
+  
+  /// @brief move in the payload
+  void setPayload(velocypack::Buffer<uint8_t> buffer, std::size_t payloadOffset);
+  
+ private:
+  velocypack::Buffer<uint8_t> _payload;
+  std::size_t _payloadOffset;
 };
-
-}}}
+}}}  // namespace arangodb::fuerte::v1
 #endif

@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2016 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2018 ArangoDB GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
@@ -17,151 +17,135 @@
 ///
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
-/// @author Frank Celler
-/// @author Jan Uhde
-/// @author John Bufton
-/// @author Ewout Prangsma
+/// @author Simon Grätzer
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
 #ifndef ARANGO_CXX_DRIVER_HTTP_CONNECTION_H
 #define ARANGO_CXX_DRIVER_HTTP_CONNECTION_H 1
 
-#include <chrono>
-#include <mutex>
 #include <atomic>
-#include <stdexcept>
+#include <chrono>
+
+#include <boost/lockfree/queue.hpp>
 
 #include <fuerte/connection.h>
-#include <fuerte/loop.h>
 #include <fuerte/helper.h>
+#include <fuerte/loop.h>
 #include <fuerte/message.h>
 #include <fuerte/types.h>
-#include <fuerte/FuerteLogger.h>
 
-#include <curl/curl.h>
-
-#include "CallOnceRequestCallback.h"
-#include "CurlMultiAsio.h"
+#include "AsioSockets.h"
+#include "http.h"
+#include "http_parser/http_parser.h"
 #include "MessageStore.h"
 
-namespace arangodb {
-namespace fuerte {
-inline namespace v1 {
-namespace http {
+namespace arangodb { namespace fuerte { inline namespace v1 { namespace http {
 
-typedef std::string Destination;
-
-// HttpConnection implements a client->server connection using the HTTP protocol.
-class HttpConnection : public Connection {
+// HttpConnection implements a client->server connection using
+// the node http-parser 
+template<SocketType ST>
+class HttpConnection final : public fuerte::Connection {
  public:
-  explicit HttpConnection(EventLoopService&, detail::ConnectionConfiguration const&);
-  virtual ~HttpConnection();
+  explicit HttpConnection(EventLoopService& loop,
+                          detail::ConnectionConfiguration const&);
+  ~HttpConnection();
 
  public:
-  // Start an asynchronous request.
+  
+  /// Start an asynchronous request.
   MessageID sendRequest(std::unique_ptr<Request>, RequestCallback) override;
-
-  // Return the number of unfinished requests.
-  std::size_t requestsLeft() override {
-    return _curlm->requestsLeft();
+  
+  /// @brief Return the number of bytes that still need to be transmitted
+  size_t requestsLeft() const override {
+    return _numQueued.load(std::memory_order_acquire);
   }
+  
+  /// @brief connection state
+  Connection::State state() const override final {
+    return _state.load(std::memory_order_acquire);
+  }
+
+  /// @brief cancel the connection, unusable afterwards
+  void cancel() override;
+  
+ protected:
+  
+  // Activate this connection
+  void startConnection() override;
+  
+ private:
+  
+  // Connect with a given number of retries
+  void tryConnect(unsigned retries);
+  
+  // shutdown connection, cancel async operations
+  void shutdownConnection(const ErrorCondition);
+  
+  // restart connection
+  void restartConnection(const ErrorCondition);
+  
+  // build request body for given request
+  std::string buildRequestBody(Request const& req);
+  
+  /// set the timer accordingly
+  void setTimeout(std::chrono::milliseconds);
+  
+  /// Thread-Safe: activate the writer if needed
+  void startWriting();
+  
+  ///  Call on IO-Thread: writes out one queued request
+  void asyncWriteNextRequest();
+  
+  // called by the async_write handler (called from IO thread)
+  void asyncWriteCallback(asio_ns::error_code const& error,
+                          size_t transferred,
+                          std::shared_ptr<RequestItem>);
+  
+  // Call on IO-Thread: read from socket
+  void asyncReadSome();
+
+  // called by the async_read handler (called from IO thread)
+  void asyncReadCallback(asio_ns::error_code const&,
+                         size_t transferred);
 
  private:
   class Options {
-  public:
+   public:
     double connectionTimeout = 2.0;
   };
-
-  uint64_t queueRequest(Destination, std::unique_ptr<Request>, RequestCallback);
-
+  
  private:
-  // RequestItem contains all data of a single request that is ongoing.
-  class RequestItem {
-   public:
-    RequestItem(const Destination& destination, std::unique_ptr<Request> request, RequestCallback callback)
-        : _destination(destination),
-          _request(std::move(request)),
-          _callback(callback),
-          _requestHeaders(nullptr),
-          _startTime(std::chrono::steady_clock::now()) {
-      _errorBuffer[0] = '\0';
-
-      _handle = curl_easy_init();
-      if (_handle == nullptr) {
-        throw std::bad_alloc();
-      }
-
-      curl_easy_setopt(_handle, CURLOPT_PRIVATE, this);
-#ifdef CURLOPT_PATH_AS_IS
-      curl_easy_setopt(_handle, CURLOPT_PATH_AS_IS, 1L);
-#endif
-    }
-
-    ~RequestItem() {
-      if (_requestHeaders != nullptr) {
-        curl_slist_free_all(_requestHeaders);
-      }
-      if (_handle != nullptr) {
-        curl_easy_cleanup(_handle);
-      }
-    }
-
-    // Prevent copying
-    RequestItem(RequestItem const& other) = delete;
-    RequestItem& operator=(RequestItem const& other) = delete;
-
-    // return the CURL EASY handle.
-    inline CURL* handle() const { return _handle; }
-
-    inline MessageID messageID() { return _request->messageID; }
-    inline void invokeOnError(Error e, std::unique_ptr<Request> req, std::unique_ptr<Response> res) { 
-      _callback.invoke(e, std::move(req), std::move(res));
-    }
-
-   public:
-    Destination _destination;
-    std::unique_ptr<Request> _request;
-    impl::CallOnceRequestCallback _callback;
-    Options _options;
-    std::string _requestBody;
-    struct curl_slist* _requestHeaders;
-
-    StringMap _responseHeaders;
-    std::chrono::steady_clock::time_point _startTime;
-    std::string _responseBody;
-
-    char _errorBuffer[CURL_ERROR_SIZE];
-   private:
-    CURL* _handle;
-  };
-
-  MessageStore<RequestItem> _messageStore;
-
- private:
-  static size_t readBody(void*, size_t, size_t, void*);
-  static size_t readHeaders(char* buffer, size_t size, size_t nitems,
-                            void* userdata);
-  static int curlDebug(CURL*, curl_infotype, char*, size_t, void*);
-  static void logHttpHeaders(std::string const&, std::string const&);
-  static void logHttpBody(std::string const&, std::string const&);
-
- private:
-  void createRequestItem(const Destination& destination, std::unique_ptr<Request> request, RequestCallback callback);
-  void handleResult(CURL*, CURLcode);
-  void transformResult(CURL*, StringMap&&, std::string const&, Response*);
-
-  /// @brief curl will strip standalone ".". ArangoDB allows using . as a key
-  /// so this thing will analyse the url and urlencode any unsafe .'s
-  std::string createSafeDottedCurlUrl(std::string const& originalUrl);
-
- private:
-  std::shared_ptr<CurlMultiAsio> _curlm;
-  //int _stillRunning;
+  
+  /// @brief io context to use
+  std::shared_ptr<asio_ns::io_context> _io_context;
+  Socket<ST> _protocol;
+  /// @brief timer to handle connection / request timeouts
+  asio_ns::steady_timer _timeout;
+  
+  /// @brief is the connection established
+  std::atomic<Connection::State> _state;
+  
+  /// is loop active
+  std::atomic<uint32_t> _numQueued;
+  std::atomic<bool> _active;
+  
+  /// elements to send out
+  boost::lockfree::queue<fuerte::v1::http::RequestItem*,
+    boost::lockfree::capacity<1024>> _queue;
+  
+  /// cached authentication header
+  std::string _authHeader;
+  
+  /// currently in-flight request
+  std::shared_ptr<RequestItem> _inFlight;
+  /// the node http-parser
+  http_parser _parser;
+  http_parser_settings _parserSettings;
+  
+  /// default max chunksize is 30kb in arangodb
+  static constexpr size_t READ_BLOCK_SIZE = 1024 * 32;
+  ::asio_ns::streambuf _receiveBuffer;
 };
-
-}
-}
-}
-}
+}}}}  // namespace arangodb::fuerte::v1::http
 
 #endif

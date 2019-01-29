@@ -1,18 +1,9 @@
 # Other Licenses
 
-# Low-Level-Driver FUERTE
+### boost
 
-### curl
-
-* Project Home: https://curl.haxx.se/
-* License: [MIT/X Derivate License](https://curl.haxx.se/legal/licmix.html)
-* Caveats: some SSL libraries use GPL, make sure to select one that suits your needs
-
-### curlpp
-
-* Project Home: http://www.curlpp.org/
-* GITHUB: https://github.com/jpbarrette/curlpp
-* License: [MIT License](http://www.curlpp.org/)
+* Project Home: https://www.boost.org/
+* License: [Boost Licence](https://www.boost.org/users/license.html)
 
 ### velocypack
 

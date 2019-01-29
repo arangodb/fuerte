@@ -32,39 +32,36 @@
 #include "authentication_test.h"
 #include "test_main.h"
 
-namespace f = ::arangodb::fuerte;
+namespace fu = ::arangodb::fuerte;
 
-typedef struct {
+struct ConnectionTestParams {
   const char *_url;       // Server URL
   const size_t _threads;  // #Threads to use for the EventLoopService 
   const size_t _repeat;   // Number of times to repeat repeatable tests.
-} ConnectionTestParams;
+};
 
-::std::ostream& operator<<(::std::ostream& os, const ConnectionTestParams& p) {
+/*::std::ostream& operator<<(::std::ostream& os, const ConnectionTestParams& p) {
   return os << "url=" << p._url << " threads=" << p._threads;
-}
+}*/
 
 // ConnectionTestF is a test fixture that can be used for all kinds of connection 
-// tests.
-// You can configure it using the ConnectionTestParams struct.
+// tests. You can configure it using the ConnectionTestParams struct.
 class ConnectionTestF : public ::testing::TestWithParam<ConnectionTestParams> {
  public:
   const char _major_arango_version = '3';
  protected:
-  ConnectionTestF() {
-    _eventLoopService = std::unique_ptr<f::EventLoopService>(new f::EventLoopService(GetParam()._threads));
-  }
+  ConnectionTestF() {}
   virtual ~ConnectionTestF() noexcept {}
 
   virtual void SetUp() override {
     try {
       // Set connection parameters
-      f::ConnectionBuilder cbuilder;
-      cbuilder.host(GetParam()._url);
+      fu::ConnectionBuilder cbuilder;
+      cbuilder.endpoint(GetParam()._url);
       setupAuthenticationFromEnv(cbuilder);
 
       // make connection
-      _connection = cbuilder.connect(*_eventLoopService);
+      _connection = cbuilder.connect(_eventLoopService);
     } catch(std::exception const& ex) {
       std::cout << "SETUP OF FIXTURE FAILED" << std::endl;
       throw ex;
@@ -75,14 +72,35 @@ class ConnectionTestF : public ::testing::TestWithParam<ConnectionTestParams> {
     _connection.reset();
   }
 
+  inline size_t threads() const {
+    return std::max(GetParam()._threads, size_t(1));
+  }
   // Number of times to repeat certain tests.
-  inline size_t repeat() {
+  inline size_t repeat() const {
     return std::max(GetParam()._repeat, size_t(1));
   }
+  
+  fu::StatusCode createCollection(std::string const& name) {
+    // create the collection
+    VPackBuilder builder;
+    builder.openObject();
+    builder.add("name", VPackValue(name));
+    builder.close();
+    auto request = fu::createRequest(fu::RestVerb::Post, "/_api/collection");
+    request->addVPack(builder.slice());
+    auto response = _connection->sendRequest(std::move(request));
+    return response->statusCode();
+  }
+  
+  fu::StatusCode dropCollection(std::string const& name) {
+    auto request = fu::createRequest(fu::RestVerb::Delete, "/_api/collection/" + name);
+    auto response = _connection->sendRequest(std::move(request));
+    return response->statusCode();
+  }
 
-  std::shared_ptr<f::Connection> _connection;
+  std::shared_ptr<fu::Connection> _connection;
 
  private:
-  std::unique_ptr<f::EventLoopService> _eventLoopService;
+  fu::EventLoopService _eventLoopService;
 };
 

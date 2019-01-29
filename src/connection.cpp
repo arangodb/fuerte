@@ -21,26 +21,29 @@
 /// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <fuerte/connection.h>
 #include <fuerte/FuerteLogger.h>
+#include <fuerte/connection.h>
 #include <fuerte/waitgroup.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
-
 // Deconstructor
-Connection::~Connection() { FUERTE_LOG_DEBUG << "Destroying Connection" << std::endl; }
+Connection::~Connection() {
+  FUERTE_LOG_DEBUG << "Destroying Connection" << std::endl;
+}
 
 // sendRequest and wait for it to finished.
-std::unique_ptr<Response> Connection::sendRequest(std::unique_ptr<Request> request){
-  FUERTE_LOG_TRACE << "start sync request" << std::endl;
+std::unique_ptr<Response> Connection::sendRequest(
+    std::unique_ptr<Request> request) {
+  FUERTE_LOG_TRACE << "sendRequest (sync): before send" << std::endl;
 
   WaitGroup wg;
   auto rv = std::unique_ptr<Response>(nullptr);
   ::arangodb::fuerte::v1::Error error = 0;
 
-  auto cb = [&](::arangodb::fuerte::v1::Error e, std::unique_ptr<Request> request, std::unique_ptr<Response> response){
+  auto cb = [&](::arangodb::fuerte::v1::Error e,
+                std::unique_ptr<Request> request,
+                std::unique_ptr<Response> response) {
     WaitGroupDone done(wg);
-    FUERTE_LOG_TRACE << "sendRequest (sync): onError" << std::endl;
     rv = std::move(response);
     error = e;
   };
@@ -61,7 +64,21 @@ std::unique_ptr<Response> Connection::sendRequest(std::unique_ptr<Request> reque
     throw intToError(error);
   }
 
-  return std::move(rv);
+  return rv;
 }
-
-}}}
+  
+std::string Connection::endpoint() const {
+  std::string endpoint;
+  endpoint.reserve(16);
+  endpoint.append(fuerte::to_string(_config._protocolType));
+  endpoint.push_back('+');
+  endpoint.append(fuerte::to_string(_config._socketType));
+  endpoint.append("://");
+  endpoint.append(_config._host);
+  if (_config._socketType != SocketType::Unix) {
+    endpoint.push_back(':');
+    endpoint.append(_config._port);
+  }
+  return endpoint;
+}
+}}}  // namespace arangodb::fuerte::v1

@@ -33,27 +33,34 @@ namespace arangodb { namespace fuerte { inline namespace v1 { namespace impl {
 // no more than one time.
 class CallOnceRequestCallback {
  public:
-  CallOnceRequestCallback() 
-    : _invoked(false), _cb(nullptr) {}
-  CallOnceRequestCallback(RequestCallback cb) 
-    : _invoked(false), _cb(cb) {}
-  CallOnceRequestCallback& operator=(RequestCallback cb) { _cb = cb; return *this; }
+  CallOnceRequestCallback() : _invoked(), _cb(nullptr) {
+    _invoked.clear();
+  }
+  explicit CallOnceRequestCallback(RequestCallback cb)
+      : _invoked(), _cb(std::move(cb)) {
+    _invoked.clear();
+  }
+  CallOnceRequestCallback& operator=(RequestCallback cb) {
+    _cb = cb;
+    return *this;
+  }
 
   // Invoke the callback.
   // If the callback was already invoked, the callback is not invoked.
-  inline void invoke(Error error, std::unique_ptr<Request> req, std::unique_ptr<Response> resp) {
-    auto invoked = _invoked.exchange(true);
-    if (!invoked) {
+  inline void invoke(Error error, std::unique_ptr<Request> req,
+                     std::unique_ptr<Response> resp) {
+    if (!_invoked.test_and_set()) {
       assert(_cb);
       _cb(error, std::move(req), std::move(resp));
       _cb = nullptr;
+    } else {
+      assert(false);
     }
   }
 
  private:
-  std::atomic<bool> _invoked;
+  std::atomic_flag _invoked;
   RequestCallback _cb;
 };
-
-}}}}
+}}}}  // namespace arangodb::fuerte::v1::impl
 #endif

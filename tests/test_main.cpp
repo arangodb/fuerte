@@ -3,6 +3,8 @@
 #include <signal.h>
 #include <stdlib.h>
 
+#include <fuerte/VpackInit.h>
+
 using namespace std;
 
 vector<string> arguments;  // as it is not const this var has external linkage
@@ -30,6 +32,8 @@ void handler(int sig) {
 }
 
 int main(int argc, char** argv) {
+  arangodb::fuerte::helper::VpackInit vpack;
+  
   while (true) {
     //signal(SIGSEGV, handler);                // install our handler
     ::testing::InitGoogleTest(&argc, argv);  // removes google test parameters

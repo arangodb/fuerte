@@ -26,12 +26,15 @@
 #define ENABLE_FUERTE_LOG_DEBUG 1
 #define ENABLE_FUERTE_LOG_TRACE 1
 
+#include <boost/algorithm/string.hpp>
+#include <chrono>
 #include <fuerte/connection.h>
-#include <iostream>
 #include <fuerte/message.h>
 #include <fuerte/loop.h>
 #include <fuerte/requests.h>
 #include <fuerte/helper.h>
+#include <iostream>
+#include <velocypack/velocypack-aliases.h>
 
 using ConnectionBuilder = arangodb::fuerte::ConnectionBuilder;
 using EventLoopService = arangodb::fuerte::EventLoopService;
@@ -44,7 +47,7 @@ namespace fu = ::arangodb::fuerte;
 
 static void usage(char const* name) {
   // clang-format off
-  std::cout << "Usage: " << name << " [OPTIONS] server-url" << "\n\n"
+  std::cout << "Usage: " << name << " [OPTIONS]" << "\n\n"
             << "OPTIONS:\n"
             << "  --host tcp://127.0.0.1:8529\n"
             << "  --path /_api/version\n"
@@ -72,14 +75,31 @@ static std::string parseString(int argc, char* argv[], int& i) {
 }
 
 static RestVerb parseMethod(int argc, char* argv[], int& i) {
-  return arangodb::fuerte::to_RestVerb(parseString(argc, argv, i));
+  std::string verb = parseString(argc, argv, i);
+  boost::algorithm::to_lower(verb); // in-place
+  if (verb == "delete") {
+    return RestVerb::Delete;
+  } else if (verb == "get") {
+    return RestVerb::Get;
+  } else if (verb == "post") {
+    return RestVerb::Post;
+  } else if (verb == "put") {
+    return RestVerb::Put;
+  } else if (verb == "head") {
+    return RestVerb::Head;
+  } else if (verb == "patch") {
+    return RestVerb::Patch;
+  } else if (verb == "options") {
+    return RestVerb::Options;
+  }
+  return RestVerb::Illegal;
 }
 
 int main(int argc, char* argv[]) {
   RestVerb method = RestVerb::Get;
   std::string host = "http://127.0.0.1:8529";
   std::string path = "/_api/version";
-  std::string user = "";
+  std::string user = "root";
   std::string password = "";
   arangodb::fuerte::StringMap meta;
   arangodb::fuerte::StringMap parameter;
@@ -130,7 +150,7 @@ int main(int argc, char* argv[]) {
   ConnectionBuilder builder;
 
   try {
-    builder.host(host);
+    builder.endpoint(host);
   } catch (std::exception const& ex) {
     std::cerr << "cannot understand server-url: " << ex.what() << std::endl;
     exit(EXIT_FAILURE);
@@ -139,15 +159,15 @@ int main(int argc, char* argv[]) {
   builder.user(user);
   builder.password(password);
 
-  EventLoopService eventLoopService;
+  EventLoopService eventLoopService(2);
   auto connection = builder.connect(eventLoopService);
 
   auto cb = [](uint32_t err, std::unique_ptr<Request> request, std::unique_ptr<Response> response) {
     if (err) {
       std::cout << "--------------------------------------------------------------------------" << std::endl;
       std::cout << "received error: " << err << std::endl
-                << to_string(request->header)
-                << "request payload:"
+                << to_string(*request)
+                << "response payload:"
                 << (response ? fu::to_string(*response) : "no response")
                 << std::endl;
     } else {
@@ -158,31 +178,22 @@ int main(int argc, char* argv[]) {
     }
   };
 
-  arangodb::fuerte::VBuilder vbuilder;
+  VPackBuilder vbuilder;
   vbuilder.openObject();
   vbuilder.add("name",arangodb::velocypack::Value("superdb"));
   vbuilder.close();
 
-  for (size_t i = 0; i < 1; ++i) {
-    try {
-      auto request = arangodb::fuerte::createRequest(method, path, parameter, vbuilder.slice());
-      std::cout << "Sending Request (messageid will be replaced)"
-                << fu::to_string(*request) << std::endl;
+  try {
+    auto request = arangodb::fuerte::createRequest(method, path, parameter, vbuilder.slice());
+    std::cout << "Sending Request (messageid will be replaced)"
+              << fu::to_string(*request) << std::endl;
 
-      auto id = connection->sendRequest(std::move(request), cb);
-      std::cout << "Request was assigned ID: " << id << std::endl;
-    } catch (std::exception const& ex) {
-      std::cerr << "exception: " << ex.what() << std::endl;
-      exit(EXIT_FAILURE);
-    }
-  }
-
-  /*try {
-    arangodb::fuerte::run();
+    auto id = connection->sendRequest(std::move(request), cb);
+    std::cout << "Request was assigned ID: " << id << std::endl;
   } catch (std::exception const& ex) {
     std::cerr << "exception: " << ex.what() << std::endl;
     exit(EXIT_FAILURE);
-  }*/
+  }
 
   return EXIT_SUCCESS;
 }

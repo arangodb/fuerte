@@ -27,10 +27,12 @@
 #include <memory>
 
 #include <fuerte/types.h>
+#include <velocypack/AttributeTranslator.h>
 
-namespace arangodb { namespace fuerte { inline namespace v1 { namespace impl {
+namespace arangodb { namespace fuerte { inline namespace v1 { namespace helper {
 
-// move to some other place
+// initializes an ArangoDB conformant attribute translator with the
+// default velocypack options. Only use once
 class VpackInit {
   std::unique_ptr<arangodb::velocypack::AttributeTranslator> _translator;
 
@@ -42,10 +44,11 @@ class VpackInit {
     _translator->add("_from", uint8_t(4));
     _translator->add("_to", uint8_t(5));
     _translator->seal();
-    arangodb::velocypack::Options::Defaults.attributeTranslator = _translator.get();
+    arangodb::velocypack::Options::Defaults.attributeTranslator =
+        _translator.get();
   }
 };
 
-}}}}
+}}}}  // namespace arangodb::fuerte::v1::impl
 
 #endif

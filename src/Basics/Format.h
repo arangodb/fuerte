@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2016 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2018 ArangoDB GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
@@ -17,39 +17,35 @@
 ///
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
-/// @author Jan Christoph Uhde
+/// @author Simon Grätzer
 ////////////////////////////////////////////////////////////////////////////////
-#pragma once
-#ifndef ARANGO_CXX_DRIVER_COLLECTION
-#define ARANGO_CXX_DRIVER_COLLECTION
 
-#include <memory>
-#include <string>
-#include "types.h"
+#ifndef ARANGO_CXX_DRIVER_FORMAT_H
+#define ARANGO_CXX_DRIVER_FORMAT_H 1
 
-namespace arangodb { namespace fuerte { inline namespace v1 {
+#include "Endian.h"
 
-class Database;
+namespace arangodb { namespace fuerte { namespace basics {
+  
+/*
+ * Alignment aware serialization and deserialization functions
+ */
 
-class Collection : public std::enable_shared_from_this<Collection> {
-    friend class Database;
-    typedef std::string Document; //FIXME
+template<typename T> 
+inline T uintFromPersistentLittleEndian(uint8_t const* p) {
+  static_assert(std::is_unsigned<T>::value, "type must be unsigned");
+  T value;
+  memcpy(&value, p, sizeof(T));
+  return basics::littleToHost<T>(value);
+}
 
-  public:
-    bool insert(Document){ return false; }
-    void drop(Document){}
-    void update(Document, Document){}
-    void replace(Document, Document){}
-    void dropAll(){}
-    void find(Document){}
+template<typename T>
+inline void uintToPersistentLittleEndian(uint8_t* p, T value) {
+  static_assert(std::is_unsigned<T>::value, "type must be unsigned");
+  value = basics::hostToLittle(value);
+  memcpy(p, &value, sizeof(T));
+}
 
-  private:
-    Collection(std::shared_ptr<Database>, std::string name);
-    std::shared_ptr<Database> _db;
-    std::string _name;
+}}} 
 
-};
-
-
-}}}
 #endif

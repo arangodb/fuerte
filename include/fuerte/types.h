@@ -21,54 +21,53 @@
 /// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
+#ifndef ARANGO_CXX_DRIVER_FUERTE_TYPES
+#define ARANGO_CXX_DRIVER_FUERTE_TYPES
 
-#ifndef ARANGO_CXX_DRIVER_TYPES
-#define ARANGO_CXX_DRIVER_TYPES
-
-#include <velocypack/Slice.h>
-#include <velocypack/Buffer.h>
-#include <velocypack/Builder.h>
-
+#include <chrono>
+#include <functional>
 #include <map>
-#include <vector>
+#include <memory>
 #include <string>
-#include <cassert>
-#include <algorithm>
+#include <vector>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
-
 class Request;
 class Response;
 
 using Error = std::uint32_t;
-using MessageID = uint64_t; // id that identifies a Request.
+using MessageID = uint64_t;  // id that identifies a Request.
 using StatusCode = uint32_t;
 
-StatusCode const StatusOK = 200;
-StatusCode const StatusCreated = 201;
-StatusCode const StatusAccepted = 202;
-StatusCode const StatusBadRequest = 400;
-StatusCode const StatusUnauthorized = 401;
-StatusCode const StatusForbidden = 403;
-StatusCode const StatusNotFound = 404;
-StatusCode const StatusMethodNotAllowed = 405;
-StatusCode const StatusConflict = 409;
+StatusCode constexpr StatusUndefined = 0;
+StatusCode constexpr StatusOK = 200;
+StatusCode constexpr StatusCreated = 201;
+StatusCode constexpr StatusAccepted = 202;
+StatusCode constexpr StatusPartial = 203;
+StatusCode constexpr StatusNoContent = 204;
+StatusCode constexpr StatusBadRequest = 400;
+StatusCode constexpr StatusUnauthorized = 401;
+StatusCode constexpr StatusForbidden = 403;
+StatusCode constexpr StatusNotFound = 404;
+StatusCode constexpr StatusMethodNotAllowed = 405;
+StatusCode constexpr StatusConflict = 409;
+StatusCode constexpr StatusPreconditionFailed = 412;
+StatusCode constexpr StatusInternalError = 500;
+StatusCode constexpr StatusUnavailable = 505;
 
 // RequestCallback is called for finished connection requests.
-// If the given Error is zero, the request succeeded, otherwise an error occurred.
-using RequestCallback = std::function<void(Error, std::unique_ptr<Request>, std::unique_ptr<Response>)>;
-// ConnectionFailureCallback is called when a connection encounters a failure 
+// If the given Error is zero, the request succeeded, otherwise an error
+// occurred.
+using RequestCallback = std::function<void(Error, std::unique_ptr<Request>,
+                                           std::unique_ptr<Response>)>;
+// ConnectionFailureCallback is called when a connection encounters a failure
 // that is not related to a specific request.
 // Examples are:
 // - Host cannot be resolved
 // - Cannot connect
 // - Connection lost
-using ConnectionFailureCallback = std::function<void(Error errorCode, const std::string& errorMessage)>;
-
-using VBuffer = arangodb::velocypack::Buffer<uint8_t>;
-using VSlice = arangodb::velocypack::Slice;
-using VBuilder = arangodb::velocypack::Builder;
-using VValue = arangodb::velocypack::Value;
+using ConnectionFailureCallback =
+    std::function<void(Error errorCode, const std::string& errorMessage)>;
 
 using StringMap = std::map<std::string, std::string>;
 
@@ -80,19 +79,21 @@ enum class ErrorCondition : Error {
   NoError = 0,
   ErrorCastError = 1,
 
-  ConnectionError = 1000,
-  CouldNotConnect = 1001,
-  Timeout = 1002,
-  VstReadError = 1102,
-  VstWriteError = 1103,
-  CanceledDuringReset = 1104,
-  MalformedURL = 1105,
+  CouldNotConnect = 1000,
+  CloseRequested = 1001,
+  ConnectionClosed = 1002,
+  Timeout = 1003,
+  QueueCapacityExceeded = 1004,
+  
+  ReadError = 1102,
+  WriteError = 1103,
+  
+  Canceled = 1104,
 
-  CurlError = 3000,
-
+  ProtocolError = 3000,
 };
 
-inline Error errorToInt(ErrorCondition cond){
+inline Error errorToInt(ErrorCondition cond) {
   return static_cast<Error>(cond);
 }
 ErrorCondition intToError(Error integral);
@@ -102,40 +103,47 @@ std::string to_string(ErrorCondition error);
 // --SECTION--                                               enum class RestVerb
 // -----------------------------------------------------------------------------
 
-enum class RestVerb
-{ Illegal = -1
-, Delete = 0
-, Get = 1
-, Post = 2
-, Put = 3
-, Head = 4
-, Patch = 5
-, Options = 6
+enum class RestVerb {
+  Illegal = -1,
+  Delete = 0,
+  Get = 1,
+  Post = 2,
+  Put = 3,
+  Head = 4,
+  Patch = 5,
+  Options = 6
 };
-
-RestVerb to_RestVerb(std::string const& val);
 std::string to_string(RestVerb type);
 
 // -----------------------------------------------------------------------------
 // --SECTION--                                                       MessageType
 // -----------------------------------------------------------------------------
 
-enum class MessageType
-{ Undefined = 0
-, Request = 1
-, Response = 2
-, ResponseUnfinished = 3
-, Authentication = 1000
+enum class MessageType : int {
+  Undefined = 0,
+  Request = 1,
+  Response = 2,
+  ResponseUnfinished = 3,
+  Authentication = 1000
 };
+MessageType intToMessageType(int integral);
 
 std::string to_string(MessageType type);
+  
+  
+// -----------------------------------------------------------------------------
+// --SECTION--                                                     SocketType
+// -----------------------------------------------------------------------------
+
+enum class SocketType { Undefined = 0, Tcp = 1, Ssl = 2, Unix = 3 };
+std::string to_string(SocketType type);
 
 // -----------------------------------------------------------------------------
-// --SECTION--                                                     TransportType
+// --SECTION--                                                     ProtocolType
 // -----------------------------------------------------------------------------
 
-enum class TransportType { Undefined = 0, Http = 1, Vst = 2 };
-std::string to_string(TransportType type);
+enum class ProtocolType { Undefined = 0, Http = 1, Vst = 2 };
+std::string to_string(ProtocolType type);
 
 // -----------------------------------------------------------------------------
 // --SECTION--                                                       ContentType
@@ -158,11 +166,7 @@ std::string to_string(AuthenticationType type);
 
 namespace vst {
 
-  enum VSTVersion {
-    VST1_0,
-    VST1_1
-  };
-
+enum VSTVersion : char { VST1_0 = 0, VST1_1 = 1 };
 }
 
 // -----------------------------------------------------------------------------
@@ -170,31 +174,38 @@ namespace vst {
 // -----------------------------------------------------------------------------
 
 namespace detail {
-  struct ConnectionConfiguration {
-    ConnectionConfiguration()
-      : _connType(TransportType::Vst)
-      , _ssl(true)
-      , _host("localhost")
-      , _authenticationType(AuthenticationType::None)
-      , _user("")
-      , _password("")
-      , _maxChunkSize(5000ul) // in bytes
-      , _vstVersion(vst::VST1_0)
-      {}
+struct ConnectionConfiguration {
+  ConnectionConfiguration()
+      : _socketType(SocketType::Tcp),
+        _protocolType(ProtocolType::Vst),
+        _vstVersion(vst::VST1_1),
+        _host("localhost"),
+        _port("8529"),
+        _verifyHost(false),
+        _connectionTimeout(60000),
+        _maxConnectRetries(3),
+        _authenticationType(AuthenticationType::None),
+        _user(""),
+        _password(""),
+        _jwtToken("") {}
 
-    TransportType _connType; // vst or http
-    bool _ssl;
-    std::string _host;
-    std::string _port;
-    AuthenticationType _authenticationType;
-    std::string _user;
-    std::string _password;
-    std::size_t _maxChunkSize;
-    vst::VSTVersion _vstVersion;
-    ConnectionFailureCallback _onFailure;
-  };
-
-}
-
-}}}
+  ConnectionFailureCallback _onFailure;
+  SocketType _socketType;  // tcp, ssl or unix
+  ProtocolType _protocolType;  // vst or http
+  vst::VSTVersion _vstVersion;
+  
+  std::string _host;
+  std::string _port;
+  bool _verifyHost;
+  
+  std::chrono::milliseconds _connectionTimeout;
+  unsigned _maxConnectRetries;
+  
+  AuthenticationType _authenticationType;
+  std::string _user;
+  std::string _password;
+  std::string _jwtToken;
+};
+}  // namespace detail
+}}}  // namespace arangodb::fuerte::v1
 #endif

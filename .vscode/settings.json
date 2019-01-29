@@ -74,6 +74,12 @@
         "__bit_reference": "cpp",
         "__functional_base": "cpp",
         "locale": "cpp",
-        "cmakeccompilerid.c": "cpp"
+        "cmakeccompilerid.c": "cpp",
+        "__nullptr": "cpp",
+        "__functional_base_03": "cpp",
+        "__tuple": "cpp",
+        "string_view": "cpp",
+        "__string": "cpp",
+        "optional": "cpp"
     }
 }

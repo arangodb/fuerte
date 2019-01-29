@@ -23,91 +23,93 @@
 #ifndef ARANGO_CXX_DRIVER_FUERTE_LOGGER
 #define ARANGO_CXX_DRIVER_FUERTE_LOGGER 1
 
-
 #ifndef ENABLE_FUERTE_LOG_ERROR
-  #define ENABLE_FUERTE_LOG_ERROR 1
+#define ENABLE_FUERTE_LOG_ERROR 1
 #endif
 
 #ifndef ENABLE_FUERTE_LOG_DEBUG
-  #define ENABLE_FUERTE_LOG_DEBUG 0
+#define ENABLE_FUERTE_LOG_DEBUG 0
 #endif
 
 #ifndef ENABLE_FUERTE_LOG_TRACE
-  #define ENABLE_FUERTE_LOG_TRACE 0
+#define ENABLE_FUERTE_LOG_TRACE 0
 #endif
 
 #ifndef ENABLE_FUERTE_LOG_VSTTRACE
-  #define ENABLE_FUERTE_LOG_VSTTRACE 0
+#define ENABLE_FUERTE_LOG_VSTTRACE 0
 #endif
 
 #ifndef ENABLE_FUERTE_LOG_VST_CHUNK_TRACE
-  #define ENABLE_FUERTE_LOG_VST_CHUNK_TRACE 0
+#define ENABLE_FUERTE_LOG_VST_CHUNK_TRACE 0
 #endif
 
 #ifndef ENABLE_FUERTE_LOG_HTTPTRACE
-  #define ENABLE_FUERTE_LOG_HTTPTRACE 0
+#define ENABLE_FUERTE_LOG_HTTPTRACE 0
 #endif
 
 #ifndef ENABLE_FUERTE_LOG_CALLBACKS
-  #define ENABLE_FUERTE_LOG_CALLBACKS 0
+#define ENABLE_FUERTE_LOG_CALLBACKS 0
 #endif
 
-#ifndef ENABLE_FUERTE_LOG_NODE
-  #define ENABLE_FUERTE_LOG_NODE 0
-#endif
-
-#if defined(ENABLE_FUERTE_LOG_TRACE) || defined(ENABLE_FUERTE_LOG_DEBUG) || defined(ENABLE_FUERTE_LOG_ERROR)
+#if defined(ENABLE_FUERTE_LOG_TRACE) || defined(ENABLE_FUERTE_LOG_DEBUG) || \
+    defined(ENABLE_FUERTE_LOG_ERROR)
 #include <iostream>
 #endif
 
 #if ENABLE_FUERTE_LOG_ERROR > 0
-  #define FUERTE_LOG_ERROR std::cout
+#define FUERTE_LOG_ERROR std::cout
 #else
-  #define FUERTE_LOG_ERROR if (0) std::cout
+#define FUERTE_LOG_ERROR \
+  if (0) std::cout
 #endif
 
 #if ENABLE_FUERTE_LOG_DEBUG > 0
-  #define FUERTE_LOG_DEBUG std::cout
+#define FUERTE_LOG_DEBUG std::cout
 #else
-  #define FUERTE_LOG_DEBUG if (0) std::cout
+#define FUERTE_LOG_DEBUG \
+  if (0) std::cout
 #endif
 
 #if ENABLE_FUERTE_LOG_TRACE > 0
-  #define FUERTE_LOG_TRACE std::cout
+#define FUERTE_LOG_TRACE std::cout
 #else
-  #define FUERTE_LOG_TRACE if (0) std::cout
+#define FUERTE_LOG_TRACE \
+  if (0) std::cout
 #endif
 
 #if ENABLE_FUERTE_LOG_VSTTRACE > 0
-  #define FUERTE_LOG_VSTTRACE std::cout
+#define FUERTE_LOG_VSTTRACE std::cout << "[vst] "
 #else
-  #define FUERTE_LOG_VSTTRACE if (0) std::cout
+#define FUERTE_LOG_VSTTRACE \
+  if (0) std::cout
 #endif
 
 #if ENABLE_FUERTE_LOG_VSTCHUNKTRACE > 0
-  #define FUERTE_LOG_VSTCHUNKTRACE std::cout
+#define FUERTE_LOG_VSTCHUNKTRACE std::cout << "[vst] "
 #else
-  #define FUERTE_LOG_VSTCHUNKTRACE if (0) std::cout
+#define FUERTE_LOG_VSTCHUNKTRACE \
+  if (0) std::cout
 #endif
 
 #if ENABLE_FUERTE_LOG_HTTPTRACE > 0
-  #define FUERTE_LOG_HTTPTRACE std::cout
+#define FUERTE_LOG_HTTPTRACE std::cout << "[http] "
 #else
-  #define FUERTE_LOG_HTTPTRACE if (0) std::cout
+#define FUERTE_LOG_HTTPTRACE \
+  if (0) std::cout
 #endif
 
 #if ENABLE_FUERTE_LOG_CALLBACKS > 0
-  #define FUERTE_LOG_CALLBACKS std::cout
+#define FUERTE_LOG_CALLBACKS std::cout
 #else
-  #define FUERTE_LOG_CALLBACKS if (0) std::cout
+#define FUERTE_LOG_CALLBACKS \
+  if (0) std::cout
 #endif
 
 #if ENABLE_FUERTE_LOG_NODE > 0
-  #define FUERTE_LOG_NODE std::cout
+#define FUERTE_LOG_NODE std::cout
 #else
-  #define FUERTE_LOG_NODE if (0) std::cout
+#define FUERTE_LOG_NODE \
+  if (0) std::cout
 #endif
 
-
 #endif
-

@@ -19,65 +19,37 @@
 ///
 /// @author Jan Christoph Uhde
 /// @author Ewout Prangsma
+/// @author Simon Grätzer
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
-
 #ifndef ARANGO_CXX_DRIVER_VST_CONNECTION_H
 #define ARANGO_CXX_DRIVER_VST_CONNECTION_H 1
 
-#include <atomic>
-#include <mutex>
-#include <map>
-#include <deque>
-#include <condition_variable>
-
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/ssl.hpp>
-#include <boost/asio/streambuf.hpp>
-#include <boost/asio/deadline_timer.hpp>
-
+#include <boost/lockfree/queue.hpp>
 #include <fuerte/connection.h>
-#include <fuerte/helper.h>
-#include <fuerte/loop.h>
 
-#include "vst.h"
+#include "AsioSockets.h"
 #include "MessageStore.h"
+#include "vst.h"
 
 // naming in this file will be closer to asio for internal functions and types
-// functions that are exposed to other classes follow ArangoDB conding conventions
+// functions that are exposed to other classes follow ArangoDB conding
+// conventions
 
-namespace arangodb { namespace fuerte { inline namespace v1 {
+namespace arangodb { namespace fuerte { inline namespace v1 { namespace vst {
 
-class Loop;
-
-namespace vst {
-
-class VstConnection : public Connection {
-
+  
 // Connection object that handles sending and receiving of Velocystream
 // Messages.
-//
-// A VstConnection tries to create a connection to one of the given peers on a
-// a socket. Then it tries to do an asyncronous ssl handshake. When the
-// handshake is done it starts the async read loop on the socket. And tries a
-// first write.
-//
-// The startRead function uses the function asyncReadCallback as handler for the
-// async_read on the socket. This handler calls start Read as soon it has taken
-// all relevant data from the socket. so The loop runs until the vstConnection
-// is stopped.
-//
-// startWrite will be Triggered after establishing a connection or when new
-// data has been queued for sending. Then startWrite and handleWrite call each
-// other in the same way as startRead / asyncReadCallback but stop doing so as soon as
-// the writeQueue is empty.
-//
+template<SocketType ST>
+class VstConnection final : public Connection {
+ public:
+  explicit VstConnection(EventLoopService& loop,
+                         detail::ConnectionConfiguration const&);
 
-public:
-  explicit VstConnection(EventLoopService& eventLoopService, detail::ConnectionConfiguration const&);
-  virtual ~VstConnection();
+  ~VstConnection();
 
-public:
+ public:
   // this function prepares the request for sending
   // by creating a RequestItem and setting:
   //  - a messageid
@@ -86,212 +58,110 @@ public:
   // and a write action is triggerd when there is
   // no other write in progress
   MessageID sendRequest(std::unique_ptr<Request>, RequestCallback) override;
-
- private: 
-  // Activate the connection.
-  virtual void start() override;
+  
   // Return the number of unfinished requests.
-  virtual size_t requestsLeft() override;
+  size_t requestsLeft() const override {
+    return (_loopState.load(std::memory_order_acquire) & WRITE_LOOP_QUEUE_MASK) + _messageStore.size();
+  }
+  
+  /// @brief connection state
+  Connection::State state() const override final {
+    return _state.load(std::memory_order_acquire);
+  }
+  
+  /// @brief cancel the connection, unusable afterwards
+  void cancel() override final;
+  
+ protected:
+ 
+  /// Activate the connection.
+  void startConnection() override final;
 
-private:
-  // SOCKET HANDLING /////////////////////////////////////////////////////////
-  void initSocket();
-  void shutdownSocket();
-  void shutdownConnection(const ErrorCondition = ErrorCondition::CanceledDuringReset);
-  void restartConnection(const ErrorCondition = ErrorCondition::CanceledDuringReset);
-
-  // resolve the host into a series of endpoints 
-  void startResolveHost();
-
-  // establishes connection and initiates handshake
-  void startConnect(boost::asio::ip::tcp::resolver::iterator);
-  void asyncConnectCallback(boost::system::error_code const& ec, boost::asio::ip::tcp::resolver::iterator);
-
-  // start intiating an SSL connection (on top of an established TCP socket)
-  void startSSLHandshake();
-
-  // socket connection is up (with optional SSL), now initiate the VST protocol.
+ private:
+  
+  // Connect with a given number of retries
+  void tryConnect(unsigned retries);
+  
+  /// shutdown connection, cancel async operations
+  void shutdownConnection(const ErrorCondition);
+  
+  void restartConnection(const ErrorCondition);
+  
   void finishInitialization();
-  // Insert all requests needed for authenticating a new connection at the front of the send queue.
-  void insertAuthenticationRequests();
-
-  // createRequestItem prepares a RequestItem for the given parameters.
-  std::shared_ptr<RequestItem> createRequestItem(std::unique_ptr<Request> request, RequestCallback cb);
-
-  class ReadLoop;
-
-  // activate the receiver loop (if needed)
+  
+  // Thread-Safe: reset io loop flags
+  void stopIOLoops();
+  
+  // Thread-Safe: activate the writer loop (if off and items are queud)
+  void startWriting();
+  
+  ///  Call on IO-Thread: writes out one queued request
+  void asyncWriteNextRequest();
+  
+  // called by the async_write handler (called from IO thread)
+  void asyncWriteCallback(asio_ns::error_code const& ec, size_t transferred,
+                          std::shared_ptr<RequestItem>);
+  
+  // Thread-Safe: activate the read loop (if needed)
   void startReading();
-  // release the ReadLoop so it will terminate.
+  
+  // Thread-Safe: stops read loop
   void stopReading();
-  // called by a ReadLoop to decide if it must stop.
-  // returns true when the given loop should stop.
-  bool shouldStopReading(const ReadLoop*, std::chrono::milliseconds& timeout);
-  // Restart the connection if the given ReadLoop is still the current read loop.
-  void restartConnection(const ReadLoop*, const ErrorCondition);
+  
+  // Call on IO-Thread: read from socket
+  void asyncReadSome();
+  
+  // called by the async_read handler (called from IO thread)
+  void asyncReadCallback(asio_ns::error_code const&, size_t transferred);
+
+ private:
+  // Send out the authentication message on this connection
+  void sendAuthenticationRequest();
 
   // Process the given incoming chunk.
-  void processChunk(ChunkHeader &chunk);
+  void processChunk(ChunkHeader&& chunk, asio_ns::const_buffer const&);
   // Create a response object for given RequestItem & received response buffer.
-  std::unique_ptr<Response> createResponse(RequestItem& item, std::unique_ptr<VBuffer>& responseBuffer);
+  std::unique_ptr<Response> createResponse(RequestItem& item,
+                                           std::unique_ptr<velocypack::Buffer<uint8_t>>&);
+      
+  // adjust the timeouts (only call from IO-Thread)
+  void setTimeout();
 
-  class WriteLoop;
-
-  // activate the sending loop (if needed)
-  void startWriting();
-  // release the WriteLoop so it will terminate.
-  void stopWriting();
-  // called by a WriteLoop to request for the next request that will be written.
-  // If there is no more work, nullptr is returned and the given loop must stop.
-  std::shared_ptr<RequestItem> getNextRequestToSend(const WriteLoop*);
-  // Restart the connection if the given WriteLoop is still the current read loop.
-  void restartConnection(const WriteLoop*, const ErrorCondition);
-
-private:
+ private:
   const VSTVersion _vstVersion;
-  // TODO FIXME -- fix alignment when done so mutexes are not on the same cacheline etc
-  std::atomic_uint_least64_t _messageID;
-  // host resolving 
-  std::shared_ptr<boost::asio::ip::tcp::resolver> _resolver;
-  // socket
-  const std::shared_ptr<::boost::asio::io_service> _ioService;
-  std::mutex _socket_mutex;
-  std::shared_ptr<::boost::asio::ip::tcp::socket> _socket;
-  boost::asio::ssl::context _context;
-  std::shared_ptr<::boost::asio::ssl::stream<::boost::asio::ip::tcp::socket&>> _sslSocket;
-  boost::asio::ip::tcp::resolver::iterator _endpoints;
-  boost::asio::ip::tcp::endpoint _peer;
-  std::atomic<bool> _permanent_failure;
-  std::atomic<uint64_t> _async_calls;
-  // reset
-  std::atomic_bool _connected;
-  struct {
-    std::mutex _mutex;
-    std::shared_ptr<ReadLoop> _current;
-  } _readLoop;
-  struct {
-    std::mutex _mutex;
-    std::shared_ptr<WriteLoop> _current;
-  } _writeLoop;
-  //queues
-
-  // SendQueue encapsulates a thread safe queue containing RequestItem's that 
-  // need sending to the server.
-  class SendQueue {
-   public:
-     // add the given item to the end of the queue.
-    void add(std::shared_ptr<RequestItem>& item) {
-      std::lock_guard<std::mutex> lockQueue(_mutex);
-      _queue.push_back(item);
-    }
-
-     // insert the given item to the front of the queue.
-    void insert(std::shared_ptr<RequestItem>& item) {
-      std::lock_guard<std::mutex> lockQueue(_mutex);
-      _queue.insert(_queue.begin(), item);
-    }
-
-    // front returns the first item in the queue.
-    // If the queue is empty, NULL is returned.
-    std::shared_ptr<RequestItem> front() {
-      std::lock_guard<std::mutex> sendQueueLock(_mutex);
-      if (_queue.empty()) {
-        return std::shared_ptr<RequestItem>();
-      }
-      return _queue.front();
-    }
-
-    // removeFirst removes the first entry of the queue.
-    void removeFirst() {
-      std::lock_guard<std::mutex> sendQueueLock(_mutex);
-      _queue.pop_front();
-    }
-
-    // size returns the number of elements in the queue.
-    size_t size() {
-      std::lock_guard<std::mutex> lockQueue(_mutex);
-      return _queue.size();
-    }
-
-    // empty returns true when there are no elements in the queue, false otherwise.
-    bool empty(bool unlocked = false) {
-      if (unlocked) {
-        return _queue.empty();
-      } else {
-        std::lock_guard<std::mutex> lockQueue(_mutex);
-        return _queue.empty();
-      }
-    }
-
-    // mutex provides low level access to the mutex, used for shared locking.
-    std::mutex& mutex() { return _mutex; }
-
-   private:
-    std::mutex _mutex;
-    std::deque<std::shared_ptr<RequestItem>> _queue;
-  };
-  SendQueue _sendQueue;
+      
+  /// io context to use
+  std::shared_ptr<asio_ns::io_context> _io_context;
+  Socket<ST> _protocol;
   
-  MessageStore<RequestItem> _messageStore;
-
-  // Encapsulate a single read loop on a given socket for a given connection.
-  class ReadLoop : public std::enable_shared_from_this<ReadLoop> {
-   public:
-    ReadLoop(const std::shared_ptr<VstConnection>& connection, const std::shared_ptr<::boost::asio::ip::tcp::socket>& socket) 
-      : _connection(connection), _socket(socket), _started(false), _deadline(*(connection->_ioService)) {}
-    ~ReadLoop() {
-      _deadline.cancel();
-    }
-
-    // Start the read loop.
-    void start();
-
-   private:
-    // reads data from socket with boost::asio::async_read
-    void readNextBytes();
-    // handler for boost::asio::async_read that extracs chunks form the network
-    // takes complete chunks form the socket and starts a new read action. After
-    // triggering the next read it processes the received data.
-    void asyncReadCallback(boost::system::error_code const&, std::size_t transferred);
-    // handler for deadline timer
-    void deadlineHandler(const boost::system::error_code& error);
-
-   private:
-    std::shared_ptr<VstConnection> _connection;
-    std::shared_ptr<::boost::asio::ip::tcp::socket> _socket;
-    ::boost::asio::streambuf _receiveBuffer; // async read can not run concurrent
-    std::atomic_bool _started;
-    ::boost::asio::deadline_timer _deadline;
-  };
-
-  // Encapsulate a single write loop on a given socket for a given connection.
-  class WriteLoop : public std::enable_shared_from_this<WriteLoop> {
-   public:
-    WriteLoop(const std::shared_ptr<VstConnection>& connection, const std::shared_ptr<::boost::asio::ip::tcp::socket>& socket) 
-      : _connection(connection), _socket(socket), _started(false), _deadline(*(connection->_ioService)) {}
-    ~WriteLoop() {
-      _deadline.cancel();
-    }
-
-    // Start the write loop.
-    void start();
-
-   private:
-    // writes data from task queue to network using boost::asio::async_write
-    void sendNextRequest();
-    // handler for boost::asio::async_wirte that calls startWrite as long as there is new data
-    void asyncWriteCallback(boost::system::error_code const&, std::size_t transferred, std::shared_ptr<RequestItem>);
-    // handler for deadline timer
-    void deadlineHandler(const boost::system::error_code& error);
-
-   private:
-    std::shared_ptr<VstConnection> _connection;
-    std::shared_ptr<::boost::asio::ip::tcp::socket> _socket;
-    std::atomic_bool _started;
-    ::boost::asio::deadline_timer _deadline;
-  };
-
+  /// @brief timer to handle connection / request timeouts
+  asio_ns::steady_timer _timeout;
+  
+  /// @brief is the connection established
+  std::atomic<Connection::State> _state;
+  
+  /// stores in-flight messages (thread-safe)
+  MessageStore<vst::RequestItem> _messageStore;
+  
+  /// default max chunksize is 30kb in arangodb
+  static constexpr size_t READ_BLOCK_SIZE = 1024 * 32;
+  ::asio_ns::streambuf _receiveBuffer;
+  
+  /// highest two bits mean read or write loops are active
+  /// low 30 bit contain number of queued request items
+  std::atomic<uint32_t> _loopState;
+  static constexpr uint32_t READ_LOOP_ACTIVE = 1 << 31;
+  static constexpr uint32_t WRITE_LOOP_ACTIVE = 1 << 30;
+  static constexpr uint32_t LOOP_FLAGS = READ_LOOP_ACTIVE | WRITE_LOOP_ACTIVE;
+  static constexpr uint32_t WRITE_LOOP_QUEUE_INC = 1;
+  static constexpr uint32_t WRITE_LOOP_QUEUE_MASK = WRITE_LOOP_ACTIVE - 1;
+  static_assert((WRITE_LOOP_ACTIVE & WRITE_LOOP_QUEUE_MASK) == 0, "");
+  static_assert((WRITE_LOOP_ACTIVE & READ_LOOP_ACTIVE) == 0, "");
+  
+  /// elements to send out
+  boost::lockfree::queue<vst::RequestItem*,
+    boost::lockfree::capacity<1024>> _writeQueue;
 };
-}
-}}}
+
+}}}}  // namespace arangodb::fuerte::v1::vst
 #endif

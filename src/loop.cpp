@@ -22,41 +22,44 @@
 
 #include <memory>
 
-#include <boost/asio/io_service.hpp>
-#include <curl/curl.h>
-
 #include <fuerte/FuerteLogger.h>
 #include <fuerte/loop.h>
 #include <fuerte/types.h>
 
-#include "VpackInit.h"
-
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
-class VstConnection;
-
-GlobalService::GlobalService() :
-  _vpack_init(new impl::VpackInit()) { 
-  FUERTE_LOG_DEBUG << "GlobalService init" << std::endl;
-  ::curl_global_init(CURL_GLOBAL_ALL); 
-}
-GlobalService::~GlobalService() { 
-  FUERTE_LOG_DEBUG << "GlobalService cleanup" << std::endl;
-  ::curl_global_cleanup(); 
-}
-
 EventLoopService::EventLoopService(unsigned int threadCount)
-    : EventLoopService(threadCount, std::make_shared<asio_io_service>()) {}
-
-// run is called for each thread. It calls io_service.run() and
-// invokes the curl handlers.
-// You only need to invoke this if you want a custom event loop service.
-void EventLoopService::run() {
-  try {
-    io_service_->run();
-  } catch (std::exception const& ex) {
-    handleRunException(ex);
+  : _lastUsed(0), _sslContext(nullptr) {
+  for (unsigned i = 0; i < threadCount; i++) {
+    _ioContexts.emplace_back(new asio_ns::io_context(1));
+    _guards.emplace_back(asio_ns::make_work_guard(*_ioContexts.back()));
+    asio_ns::io_context* ctx = _ioContexts.back().get();
+    _threads.emplace_back([ctx]() { ctx->run(); });
   }
 }
 
-}}}
+EventLoopService::~EventLoopService() {
+  for (auto& guard : _guards) {
+    guard.reset();  // allow run() to exit
+  }
+  for (std::thread& thread : _threads) {
+    thread.join();
+  }
+  for (auto& ctx : _ioContexts) {
+    ctx->stop();
+  }
+}
+  
+asio_ns::ssl::context& EventLoopService::sslContext() {
+  std::lock_guard<std::mutex> guard(_sslContextMutex);
+  if (!_sslContext) {
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
+    _sslContext.reset(new asio_ns::ssl::context(asio_ns::ssl::context::tls));
+#else
+    _sslContext.reset(new asio_ns::ssl::context(asio_ns::ssl::context::sslv23));
+#endif
+    _sslContext->set_default_verify_paths();
+  }
+  return *_sslContext; }
+  
+}}}  // namespace arangodb::fuerte::v1

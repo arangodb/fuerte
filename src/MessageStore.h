@@ -26,19 +26,18 @@
 
 #include <atomic>
 #include <chrono>
-#include <mutex>
-#include <map>
-#include <deque>
 #include <condition_variable>
+#include <deque>
+#include <map>
+#include <mutex>
 
 #include <fuerte/helper.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
-
 // MessageStore keeps a thread safe list of all requests that are "in-flight".
 template <class RequestItemT>
 class MessageStore {
-  public:
+ public:
   // add a given item to the store (indexed by its ID).
   void add(std::shared_ptr<RequestItemT> item) {
     std::lock_guard<std::mutex> lockMap(_mutex);
@@ -65,23 +64,23 @@ class MessageStore {
 
   // Notify all items that their being cancelled (by calling their onError)
   // and remove all items from the store.
-  void cancelAll(const ErrorCondition error = ErrorCondition::CanceledDuringReset) {
+  void cancelAll(const ErrorCondition error = ErrorCondition::Canceled) {
     std::lock_guard<std::mutex> lockMap(_mutex);
     for (auto& item : _map) {
-      item.second->invokeOnError(errorToInt(error), std::move(item.second->_request), nullptr);
+      item.second->invokeOnError(errorToInt(error));
     }
     _map.clear();
   }
 
   // size returns the number of elements in the store.
-  size_t size() {
+  size_t size() const {
     std::lock_guard<std::mutex> lockMap(_mutex);
     return _map.size();
   }
 
   // empty returns true when there are no elements in the store, false
   // otherwise.
-  bool empty(bool unlocked = false) {
+  bool empty(bool unlocked = false) const {
     if (unlocked) {
       return _map.empty();
     } else {
@@ -89,13 +88,35 @@ class MessageStore {
       return _map.empty();
     }
   }
-
-  // minimumTimeout returns the lowest timeout value of all messages in this store.
-  std::chrono::milliseconds minimumTimeout(bool unlocked = false) {
+  
+  /// invoke functor on all entries
+  template<typename F>
+  inline size_t invokeOnAll(F func, bool unlocked = false) {
     if (unlocked) {
-      std::chrono::milliseconds min(2*60*1000); // If there is no message, use a timeout of 2 minutes.
+      auto it = _map.begin();
+      while (it != _map.end()) {
+        if (!func(it->second.get())) {
+          it = _map.erase(it);
+        } else {
+          it++;
+        }
+      }
+      return _map.size();
+    } else {
+      std::lock_guard<std::mutex> lockMap(_mutex);
+      return invokeOnAll(func, true);
+    }
+  }
+
+  // minimumTimeout returns the lowest timeout value of all messages in this
+  // store.
+  /*std::chrono::milliseconds minimumTimeout(bool unlocked = false) {
+    if (unlocked) {
+      // If there is no message, use a timeout of 2 minutes.
+      std::chrono::milliseconds min(2 * 60 * 1000);
       for (auto& item : _map) {
-        auto reqTimeout = std::chrono::duration_cast<std::chrono::milliseconds>(item.second->_request->timeout());
+        auto reqTimeout = std::chrono::duration_cast<std::chrono::milliseconds>(
+            item.second->_request->timeout());
         if (reqTimeout.count() < min.count()) {
           min = reqTimeout;
         }
@@ -105,21 +126,21 @@ class MessageStore {
       std::lock_guard<std::mutex> lockMap(_mutex);
       return minimumTimeout(true);
     }
-  }
+  }*/
 
   // mutex provides low level access to the mutex, used for shared locking.
-  std::mutex& mutex() { return _mutex; }
+  //std::mutex& mutex() { return _mutex; }
 
   // keys returns a string representation of all MessageID's in the store.
-  std::string keys() {
+  std::string keys() const {
     std::lock_guard<std::mutex> lockMap(_mutex);
     return mapToKeys(_map);
   }
 
-  private:
-  std::mutex _mutex;
+ private:
+  mutable std::mutex _mutex;
   std::map<MessageID, std::shared_ptr<RequestItemT>> _map;
 };
 
-}}}
+}}}  // namespace arangodb::fuerte::v1
 #endif

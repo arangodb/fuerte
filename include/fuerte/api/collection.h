@@ -20,13 +20,32 @@
 /// @author Jan Christoph Uhde
 ////////////////////////////////////////////////////////////////////////////////
 #pragma once
-#ifndef ARANGO_CXX_DRIVER_ARANGOC
-#define ARANGO_CXX_DRIVER_ARANGOC
+#ifndef ARANGO_CXX_DRIVER_COLLECTION
+#define ARANGO_CXX_DRIVER_COLLECTION
 
-#include "connection.h"
-#include "helper.h"
-#include "loop.h"
-#include "requests.h"
-#include "waitgroup.h"
+#include <memory>
+#include <string>
+#include <fuerte/types.h>
 
+namespace arangodb { namespace fuerte { inline namespace v1 {
+class Database;
+
+class Collection : public std::enable_shared_from_this<Collection> {
+  friend class Database;
+  typedef std::string Document;  // FIXME
+
+ public:
+  bool insert(Document) { return false; }
+  void drop(Document) {}
+  void update(Document, Document) {}
+  void replace(Document, Document) {}
+  void dropAll() {}
+  void find(Document) {}
+
+ private:
+  Collection(std::shared_ptr<Database> const&, std::string const& name);
+  std::shared_ptr<Database> _db;
+  std::string _name;
+};
+}}}  // namespace arangodb::fuerte::v1
 #endif

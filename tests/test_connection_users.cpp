@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2016 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2017 ArangoDB GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
@@ -17,16 +17,15 @@
 ///
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
-/// @author Jan Christoph Uhde
+/// @author Ewout Prangsma
 ////////////////////////////////////////////////////////////////////////////////
-#pragma once
-#ifndef ARANGO_CXX_DRIVER_ARANGOC
-#define ARANGO_CXX_DRIVER_ARANGOC
 
-#include "connection.h"
-#include "helper.h"
-#include "loop.h"
-#include "requests.h"
-#include "waitgroup.h"
+#include <fuerte/fuerte.h>
+#include <fuerte/loop.h>
+#include <fuerte/helper.h>
 
-#endif
+#include "test_main.h"
+
+namespace f = ::arangodb::fuerte;
+
+// TODO
