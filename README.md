@@ -68,29 +68,11 @@ int main(){
 }
 ```
 
-## nodejs: a low-level node.js driver
-
-Install node and npm and execute
-
-```
-> cd cmake-node-driver
-> npm install
-```
-
 ## Project status
 
-Basic functionality of the c++ and node driver are implemented:
+Basic functionality of the c++ driver is implemented and used in ArangoDB >= 3.4
 
-Things that are missing:
-
-- agenda - the task is to get the nosql-tests working - what do those tests require?
-- tests - without tests we never know the exact status (below is a list of missing featues)
-- hanging with 100k requests (needs to be found)
-- http/vst: content type handling needs testing
-- vst: no compression
-- node: no good node integration (libuv)
-- node: no real asynchronous work because of the above
-- node: not building on different systems (locating of headers)
+At the moment the [node driver](https://github.com/arangodb/node-arangodb-cxx) is not maintained.
 
 ## License
 
