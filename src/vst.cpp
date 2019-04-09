@@ -262,8 +262,8 @@ void RequestItem::prepareForNetwork(VSTVersion vstVersion,
   // The resulting set of chunks are added to the given result vector.
   
   // calculate intended number of chunks
-  const size_t numChunks =  (msgLength + defaultMaxChunkSize - 1) / defaultMaxChunkSize;
   const size_t maxDataLength = defaultMaxChunkSize - maxChunkHeaderSize;
+  const size_t numChunks =  (msgLength + maxDataLength - 1) / maxDataLength;
   assert(maxDataLength > 0);
   assert(header.size() < maxDataLength);
   
