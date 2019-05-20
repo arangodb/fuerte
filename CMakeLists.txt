@@ -75,6 +75,7 @@ target_include_directories(fuerte PUBLIC
 
 target_compile_definitions(fuerte PUBLIC
     $<$<CONFIG:Debug>:FUERTE_CHECKED_MODE>
+    $<$<CONFIG:Debug>:FUERTE_DEBUG>
     $<$<BOOL:${FUERTE_STANDALONE_ASIO}>:FUERTE_STANDALONE_ASIO=1>
 )
 

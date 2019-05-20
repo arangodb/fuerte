@@ -49,13 +49,13 @@ static size_t const defaultMaxChunkSize = 30000;
 
 // Velocystream Chunk Header
 struct ChunkHeader {
-  
+
   // data used in the specification
   uint32_t _chunkLength;    // length of this chunk includig chunkHeader
   uint32_t _chunkX;         // number of chunks or chunk number
   uint64_t _messageID;      // messageid
   uint64_t _messageLength;  // length of total payload
-  
+
   // Used when receiving the response:
   // Offset of start of content of this chunk in
   // RequestItem._responseChunkContent.
@@ -92,7 +92,7 @@ struct ChunkHeader {
   // The length of the buffer is returned.
   size_t writeHeaderToVST1_1(size_t chunkDataLen, velocypack::Buffer<uint8_t>& buffer) const;
 };
-  
+
 
 // chunkHeaderLength returns the length of a VST chunk header for given
 // arguments.
@@ -121,17 +121,17 @@ struct RequestItem {
   impl::CallOnceRequestCallback _callback;
   /// point in time when the message expires
   std::chrono::steady_clock::time_point _expires;
-  
+
   // ======= Request variables =======
-  
+
   /// Buffer used to hold chunk headers and message header
   velocypack::Buffer<uint8_t> _requestMetadata;
-  
+
   /// Temporary list of buffers goin to be send by the socket.
   std::vector<asio_ns::const_buffer> _requestBuffers;
-  
+
   // ======= Response variables =======
-  
+
   /// @brief List of chunks that have been received.
   std::vector<ChunkHeader> _responseChunks;
   /// Buffer containing content of received chunks.
@@ -139,7 +139,7 @@ struct RequestItem {
   velocypack::Buffer<uint8_t> _responseChunkContent;
   /// The number of chunks we're expecting (0==not know yet).
   size_t _responseNumberOfChunks;
-  
+
   inline MessageID messageID() { return _messageID; }
   inline void invokeOnError(Error e) {
     _callback.invoke(e, std::move(_request), nullptr);
@@ -148,7 +148,7 @@ struct RequestItem {
   /// prepareForNetwork prepares the internal structures for
   /// writing the request to the network.
   void prepareForNetwork(VSTVersion);
-  
+
   // prepare structures with a given message header and payload
   void prepareForNetwork(VSTVersion,
                          asio_ns::const_buffer header,
@@ -167,9 +167,9 @@ struct RequestItem {
     _requestBuffers.clear();
   }
 };
-  
+
 namespace message {
-  
+
 /// @brief creates a slice containing a VST request header.
 velocypack::Buffer<uint8_t> requestHeader(RequestHeader const&);
 /// @brief creates a slice containing a VST request header.
@@ -199,7 +199,7 @@ std::pair<ChunkHeader, asio_ns::const_buffer> readChunkHeaderVST1_0(uint8_t cons
 
 // readChunkHeaderVST1_1 reads a chunk header in VST1.1 format.
 std::pair<ChunkHeader, asio_ns::const_buffer> readChunkHeaderVST1_1(uint8_t const*);
-  
+
 /// @brief verifies header input and checks correct length
 /// @return message type or MessageType::Undefined on an error
 MessageType validateAndExtractMessageType(uint8_t const* const vpStart,
