@@ -10,14 +10,30 @@
 #   VELOCYPACK_FOUND          - True if velocypack found.
 #   VELOCYPACK_VERSION_STRING - the version of velocypack found (since CMake 2.8.8)
 
+message(STATUS "HINTS: ${VPACK_PATH}")
+
 # Look for the header file.
-find_path(VELOCYPACK_INCLUDE_DIR NAMES velocypack/vpack.h)
+find_path(VELOCYPACK_INCLUDE_DIR
+    NAMES
+        velocypack/vpack.h
+    HINTS
+        ${VPACK_PATH}
+    PATH_SUFFIXES
+        include
+)
 mark_as_advanced(VELOCYPACK_INCLUDE_DIR)
+message(STATUS "HINTS: ${VELOCYPACK_INCLUDE_DIR}")
+
 
 # Look for the library (sorted from most current/relevant entry to least).
-find_library(VELOCYPACK_LIBRARY NAMES
-    libvelocypack
-    libvelocypack.a
+find_library(VELOCYPACK_LIBRARY
+    NAMES
+        libvelocypack
+        libvelocypack.a
+    HINTS
+        ${VPACK_PATH}
+    PATH_SUFFIXES
+        lib
 )
 mark_as_advanced(VELOCYPACK_LIBRARY)
 
