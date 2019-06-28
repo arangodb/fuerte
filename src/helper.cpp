@@ -20,7 +20,10 @@
 /// @author Jan Christoph Uhde
 /// @author Dr. Frank Celler
 ////////////////////////////////////////////////////////////////////////////////
+
 #include <fuerte/helper.h>
+#include <fuerte/types.h>
+
 #include <string.h>
 #include <sstream>
 #include <stdexcept>
@@ -229,4 +232,9 @@ std::string encodeBase64U(std::string const& in) {
   std::replace(encoded.begin(), encoded.end(), '/', '_');
   return encoded;
 }
+
+fuerte::ErrorCondition checkEOFError(asio_ns::error_code e, fuerte::ErrorCondition c) {
+  return e == asio_ns::error::misc_errors::eof ? fuerte::ErrorCondition::ConnectionClosed : c;
+}
+
 }}}  // namespace arangodb::fuerte::v1
