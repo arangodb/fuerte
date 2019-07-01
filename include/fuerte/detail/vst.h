@@ -78,7 +78,7 @@ struct ChunkHeader {
   // The length of the buffer is returned.
   size_t writeHeaderToVST1_0(size_t chunkDataLen, velocypack::Buffer<uint8_t>&) const;
 
-  // writeHeaderToVST1_1 write the chunk to the given buffer in VST 1.1 format.
+  // writeHeaderToVST1_1 writes the chunk to the given buffer in VST 1.1 format.
   // The length of the buffer is returned.
   size_t writeHeaderToVST1_1(size_t chunkDataLen, velocypack::Buffer<uint8_t>& buffer) const;
 };
