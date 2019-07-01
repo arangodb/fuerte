@@ -239,7 +239,7 @@ void message::prepareForNetwork(VSTVersion vstVersion,
   size_t msgLength = buffer.size() + payload.size();
   assert(msgLength > 0);
 
-  // builds a list of chunks that are ready to beheader send to the server.
+  // builds a list of chunks that are ready to be sent to the server.
   // The resulting set of chunks are added to the given result vector.
 
   // calculate intended number of chunks
