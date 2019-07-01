@@ -96,7 +96,7 @@ void requestHeader(RequestHeader const&, velocypack::Buffer<uint8_t>&);
 void responseHeader(ResponseHeader const&, velocypack::Buffer<uint8_t>&);
 /// @brief creates a slice containing a VST auth message with JWT encryption
 void authJWT(std::string const& token, velocypack::Buffer<uint8_t>&);
-/// @brief creates a slice containing a VST auth message with plain enctyption
+/// @brief creates a slice containing a VST auth message with plain encryption
 void authBasic(std::string const& username,
                std::string const& password,
                velocypack::Buffer<uint8_t>&);
