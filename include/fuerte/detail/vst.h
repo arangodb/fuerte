@@ -101,7 +101,7 @@ void authBasic(std::string const& username,
                std::string const& password,
                velocypack::Buffer<uint8_t>&);
 
-/// @brief take existing buffers and partitions into chunks
+/// @brief take existing buffer and partition it into chunks
 /// @param buffer is containing the metadata. If non empty this is going to be
 ///        used as message header
 /// @param payload the payload that is going to be partitioned
