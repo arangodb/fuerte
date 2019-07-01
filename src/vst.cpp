@@ -166,7 +166,6 @@ void message::requestHeader(RequestHeader const& header,
 /// @brief creates a slice containing a VST response-message header.
 void message::responseHeader(ResponseHeader const& header,
                              VPackBuffer<uint8_t>& buffer) {
-  static std::string const message = " for message not set";
   VPackBuilder builder(buffer);
 
   assert(builder.isClosed());
@@ -185,7 +184,7 @@ void message::responseHeader(ResponseHeader const& header,
   // 2 - responseCode
 
   if (!header.responseCode) {
-    throw std::runtime_error("response code" + message);
+    throw std::runtime_error("response code for message not set");
   }
   builder.add(VPackValue(header.responseCode));
 
