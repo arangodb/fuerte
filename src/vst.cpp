@@ -224,8 +224,8 @@ void message::authBasic(std::string const& username,
 }
 
 /// @brief take existing buffers and partitions into chunks
-/// @param buffer is containing the metadata. If non empty this is going to be
-///        used as message header
+/// @param buffer is containing the metadata. If non-empty this will be used
+///        as a prefix to the payload.
 /// @param payload the payload that is going to be partitioned
 void message::prepareForNetwork(VSTVersion vstVersion,
                               MessageID messageId,
@@ -251,8 +251,8 @@ void message::prepareForNetwork(VSTVersion vstVersion,
   const size_t spaceNeeded = numChunks * maxChunkHeaderSize;
   buffer.reserve(spaceNeeded);
   
-  asio_ns::const_buffer header(buffer.data(), buffer.size());
-  result.reserve(numChunks * maxChunkHeaderSize + 1);
+  asio_ns::const_buffer prefix(buffer.data(), buffer.size());
+  result.reserve((2 * numChunks) + 1);
 
   uint32_t chunkIndex = 0;
   uint8_t const* begin = reinterpret_cast<uint8_t const*>(payload.data());
@@ -290,15 +290,17 @@ void message::prepareForNetwork(VSTVersion vstVersion,
 
     // Add chunk buffer
     result.emplace_back(buffer.data() + chunkOffset, chunkHdrLen);
-    if (chunkIndex == 0) { // stuff in message header
-      assert(header.size() <= chunkDataLen);
-      result.emplace_back(header);
-      chunkDataLen -= header.size();
+    if (chunkIndex == 0) { // stuff in payload prefix
+      assert(prefix.size() <= chunkDataLen);
+      result.emplace_back(prefix);
+      chunkDataLen -= prefix.size(); // takes up some of the payload space
     }
-    assert(begin < end);
-    // Add chunk data buffer
-    result.emplace_back(begin, chunkDataLen);
-    begin += chunkDataLen;
+    if (chunkDataLen > 0) {
+      assert(begin < end);
+      // Add chunk data buffer
+      result.emplace_back(begin, chunkDataLen);
+      begin += chunkDataLen;      
+    }
     
     chunkIndex++;
     assert(chunkIndex <= numChunks);
