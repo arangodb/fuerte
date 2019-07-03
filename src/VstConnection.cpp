@@ -400,7 +400,7 @@ void VstConnection<ST>::asyncWriteCallback(asio_ns::error_code const& ec,
   FUERTE_LOG_CALLBACKS << "asyncWriteCallback (vst): send succeeded, "
                        << transferred << " bytes transferred\n";
 
-  // request is written we no longer headerneed data for that
+  // request is written we no longer need data for that
   item->resetSendData();
 
   // check the queue length, stop write loop if necessary
