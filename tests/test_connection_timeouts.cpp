@@ -58,6 +58,7 @@ static void performRequests(std::string const& host) {
   });
   ASSERT_TRUE(wg.wait_for(std::chrono::milliseconds(1100)));
   
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
   // connection must now reconnect and work again
   req = fu::createRequest(fu::RestVerb::Post, "/_api/version");
   wg.add();
