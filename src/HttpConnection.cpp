@@ -83,6 +83,7 @@ static int on_header_complete(http_parser* parser) {
   // head has no body, but may have a Content-Length
   if (data->_request->header.restVerb == RestVerb::Head) {
     data->message_complete = true;
+    return 1; // tells the parser it should not expect a body
   } else if (parser->content_length > 0 && parser->content_length < ULLONG_MAX) {
     uint64_t maxReserve = std::min<uint64_t>(2 << 24, parser->content_length);
     data->_responseBuffer.reserve(maxReserve);
@@ -117,6 +118,7 @@ HttpConnection<ST>::HttpConnection(EventLoopService& loop,
   _active(false),
   _queue() {
   // initialize http parsing code
+  http_parser_settings_init(&_parserSettings);
   _parserSettings.on_message_begin = ::on_message_began;
   _parserSettings.on_status = ::on_status;
   _parserSettings.on_header_field = ::on_header_field;
@@ -388,7 +390,8 @@ void HttpConnection<ST>::asyncWriteNextRequest() {
   
   std::shared_ptr<http::RequestItem> item(ptr);
   setTimeout(item->_request->timeout());
-  std::vector<asio_ns::const_buffer> buffers(2);
+  std::vector<asio_ns::const_buffer> buffers;
+  buffers.reserve(2);
   buffers.emplace_back(item->_requestHeader.data(),
                        item->_requestHeader.size());
   // GET and HEAD have no payload
@@ -398,7 +401,7 @@ void HttpConnection<ST>::asyncWriteNextRequest() {
   }
   
   auto self = shared_from_this();
-  asio_ns::async_write(_protocol.socket, buffers,
+  asio_ns::async_write(_protocol.socket, std::move(buffers),
                        [this, self, item](asio_ns::error_code const& ec,
                                           std::size_t transferred) {
     _bytesToSend.fetch_sub(item->_request->payloadSize(), std::memory_order_release);
@@ -511,7 +514,8 @@ void HttpConnection<ST>::asyncReadCallback(asio_ns::error_code const& ec,
       return;
     } else if (nparsed != buffer.size()) {
       /* Handle error. Usually just close the connection. */
-      FUERTE_LOG_ERROR << "Invalid HTTP response in parser\n";
+      FUERTE_LOG_ERROR << "Invalid HTTP response in parser: '"
+          << http_errno_description(HTTP_PARSER_ERRNO(&_parser)) << "'\n";
       shutdownConnection(ErrorCondition::ProtocolError);  // will cleanup _inFlight
       return;
     } else if (_inFlight->message_complete) {
