@@ -44,7 +44,7 @@ static void performRequests(std::string const& host) {
   {
     VPackBuilder builder;
     builder.openObject();
-    builder.add("query", VPackValue("RETURN SLEEP(2)"));
+    builder.add("query", VPackValue("RETURN SLEEP(3)"));
     builder.close();
     req->addVPack(builder.slice());
   }

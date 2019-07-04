@@ -246,6 +246,7 @@ void message::prepareForNetwork(VSTVersion vstVersion,
   const size_t maxDataLength = defaultMaxChunkSize - maxChunkHeaderSize;
   const size_t numChunks =  (msgLength + maxDataLength - 1) / maxDataLength;
   assert(maxDataLength > 0);
+  assert(numChunks > 0);
   
   // we allocate enough space so that pointers into it stay valid
   const size_t spaceNeeded = numChunks * maxChunkHeaderSize;
@@ -295,10 +296,13 @@ void message::prepareForNetwork(VSTVersion vstVersion,
       result.emplace_back(header);
       chunkDataLen -= header.size();
     }
-    assert(begin < end);
-    // Add chunk data buffer
-    result.emplace_back(begin, chunkDataLen);
-    begin += chunkDataLen;
+    if (chunkDataLen > 0) {
+      assert(payload.size() > 0);
+      assert(begin < end);
+      // Add chunk data buffer
+      result.emplace_back(begin, chunkDataLen);
+      begin += chunkDataLen;
+    }
     
     chunkIndex++;
     assert(chunkIndex <= numChunks);
