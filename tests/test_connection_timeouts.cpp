@@ -54,7 +54,7 @@ static void performRequests(std::string const& host) {
   connection->sendRequest(std::move(req), [&](fu::Error e, std::unique_ptr<fu::Request> req,
                                               std::unique_ptr<fu::Response>) {
     fu::WaitGroupDone done(wg);
-    ASSERT_EQ(fu::intToError(e), fu::ErrorCondition::Timeout);
+    ASSERT_EQ(e, fu::Error::Timeout);
   });
   ASSERT_TRUE(wg.wait_for(std::chrono::milliseconds(1100)));
   
@@ -65,8 +65,8 @@ static void performRequests(std::string const& host) {
   connection->sendRequest(std::move(req), [&](fu::Error e, std::unique_ptr<fu::Request> req,
                                               std::unique_ptr<fu::Response> res) {
     fu::WaitGroupDone done(wg);
-    if (e) {
-      ASSERT_TRUE(false) << fu::to_string(fu::intToError(e));
+    if (e != fu::Error::NoError) {
+      ASSERT_TRUE(false) << fu::to_string(e);
     } else {
       ASSERT_EQ(res->statusCode(), fu::StatusOK);
       auto slice = res->slices().front();

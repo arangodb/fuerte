@@ -56,8 +56,8 @@ TEST_P(ConcurrentConnectionF, ApiVersionParallel) {
   std::atomic<size_t> counter(0);
   auto cb = [&](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res) {
     fu::WaitGroupDone done(wg);
-    if (error) {
-      ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
+    if (error != fu::Error::NoError) {
+      ASSERT_TRUE(false) << fu::to_string(error);
     } else {
       ASSERT_EQ(res->statusCode(), fu::StatusOK);
       auto slice = res->slices().front();
@@ -100,8 +100,8 @@ TEST_P(ConcurrentConnectionF, CreateDocumentsParallel){
                 std::unique_ptr<fu::Response> res) {
     counter.fetch_add(1, std::memory_order_relaxed);
     fu::WaitGroupDone done(wg);
-    if (error) {
-      ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
+    if (error != fu::Error::NoError) {
+      ASSERT_TRUE(false) << fu::to_string(error);
     } else {
       ASSERT_EQ(res->statusCode(), fu::StatusAccepted);
       auto slice = res->slices().front();

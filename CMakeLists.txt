@@ -10,7 +10,7 @@ message(STATUS "FUERTE_STANDALONE_ASIO ${FUERTE_STANDALONE_ASIO}")
 
 enable_testing()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 #########################################################################################

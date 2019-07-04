@@ -162,10 +162,10 @@ int main(int argc, char* argv[]) {
   EventLoopService eventLoopService(2);
   auto connection = builder.connect(eventLoopService);
 
-  auto cb = [](uint32_t err, std::unique_ptr<Request> request, std::unique_ptr<Response> response) {
-    if (err) {
+  auto cb = [](fu::Error err, std::unique_ptr<Request> request, std::unique_ptr<Response> response) {
+    if (err == fu::Error::NoError) {
       std::cout << "--------------------------------------------------------------------------" << std::endl;
-      std::cout << "received error: " << err << std::endl
+      std::cout << "received error: " << static_cast<uint16_t>(err) << "\n"
                 << to_string(*request)
                 << "response payload:"
                 << (response ? fu::to_string(*response) : "no response")
