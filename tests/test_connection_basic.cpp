@@ -50,8 +50,8 @@ TEST_P(ConnectionTestF, ApiVersionASync) {
     auto request = fu::createRequest(fu::RestVerb::Get, "/_api/version");
     auto cb = [&](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res) {
       fu::WaitGroupDone done(wg);
-      if (error) {
-        ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
+      if (error != fu::Error::NoError) {
+        ASSERT_TRUE(false) << fu::to_string(error);
       } else {
         ASSERT_EQ(res->statusCode(), fu::StatusOK);
         auto slice = res->slices().front();
@@ -89,8 +89,8 @@ TEST_P(ConnectionTestF, ApiVersionASync20) {
     fu::WaitGroup wg;
     fu::RequestCallback cb = [&](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res) {
       fu::WaitGroupDone done(wg);
-      if (error) {
-        ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
+      if (error != fu::Error::NoError) {
+        ASSERT_TRUE(false) << fu::to_string(error);
       } else {
         ASSERT_EQ(res->statusCode(), fu::StatusOK);
         auto slice = res->slices().front();
@@ -147,8 +147,8 @@ TEST_P(ConnectionTestF, ShortAndLongASync){
   fu::WaitGroup wg;
   fu::RequestCallback cb = [&](fu::Error error, std::unique_ptr<fu::Request> req, std::unique_ptr<fu::Response> res) {
     fu::WaitGroupDone done(wg);
-    if (error) {
-      ASSERT_TRUE(false) << fu::to_string(fu::intToError(error));
+    if (error != fu::Error::NoError) {
+      ASSERT_TRUE(false) << fu::to_string(error);
     } else {
       ASSERT_EQ(res->statusCode(), fu::StatusCreated);
       auto slice = res->slices().front();
