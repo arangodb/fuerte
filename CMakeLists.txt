@@ -45,6 +45,7 @@ endif()
 add_library(fuerte STATIC
     src/connection.cpp
     src/ConnectionBuilder.cpp
+    src/GeneralConnection.cpp
     src/helper.cpp
     src/http.cpp
     src/HttpConnection.cpp

@@ -39,6 +39,7 @@ namespace arangodb { namespace fuerte { inline namespace v1 {
 const std::string fu_content_length_key("content-length");
 const std::string fu_content_type_key("content-type");
 const std::string fu_accept_key("accept");
+const std::string fu_keep_alive_key("keep-alive");
   
 struct MessageHeader {
   /// arangodb message format version
@@ -266,7 +267,7 @@ class Response final : public Message {
   
   /// @brief move in the payload
   void setPayload(velocypack::Buffer<uint8_t> buffer, std::size_t payloadOffset);
-  
+    
  private:
   velocypack::Buffer<uint8_t> _payload;
   std::size_t _payloadOffset;
