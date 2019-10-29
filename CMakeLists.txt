@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.4)
+cmake_minimum_required(VERSION 3.9)
 project(fuerte CXX C)
 
 # Configuration
@@ -10,7 +10,7 @@ message(STATUS "FUERTE_STANDALONE_ASIO ${FUERTE_STANDALONE_ASIO}")
 
 enable_testing()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 #########################################################################################
@@ -45,6 +45,7 @@ endif()
 add_library(fuerte STATIC
     src/connection.cpp
     src/ConnectionBuilder.cpp
+    src/GeneralConnection.cpp
     src/helper.cpp
     src/http.cpp
     src/HttpConnection.cpp
