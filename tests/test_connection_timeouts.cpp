@@ -44,7 +44,7 @@ static void performRequests(std::string const& host) {
   {
     VPackBuilder builder;
     builder.openObject();
-    builder.add("query", VPackValue("RETURN SLEEP(3)"));
+    builder.add("query", VPackValue("RETURN SLEEP(10)"));
     builder.close();
     req->addVPack(builder.slice());
   }
@@ -52,11 +52,11 @@ static void performRequests(std::string const& host) {
   fu::WaitGroup wg;
   wg.add();
   connection->sendRequest(std::move(req), [&](fu::Error e, std::unique_ptr<fu::Request> req,
-                                              std::unique_ptr<fu::Response>) {
+                                              std::unique_ptr<fu::Response> res) {
     fu::WaitGroupDone done(wg);
     ASSERT_EQ(e, fu::Error::Timeout);
   });
-  ASSERT_TRUE(wg.wait_for(std::chrono::milliseconds(1100)));
+  ASSERT_TRUE(wg.wait_for(std::chrono::seconds(3)));
   
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
   // connection must now reconnect and work again
