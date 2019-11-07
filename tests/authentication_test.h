@@ -33,11 +33,15 @@ namespace f = ::arangodb::fuerte;
 // setupAuthenticationFromEnv configures the given connection builder 
 // with authentication settings specified in the environment.
 inline void setupAuthenticationFromEnv(f::ConnectionBuilder& cbuilder) {
-  auto auth = getenv("TEST_AUTHENTICATION");
-  if (!auth) {
-    // No authentication settings in environment, we're done.
-    return;
+  char const* tmp = getenv("TEST_AUTHENTICATION");
+  std::string auth;
+  if (!tmp) {
+    // No authentication settings in environment, set a default
+    auth.assign("basic:root:");
+  } else {
+    auth.assign(tmp);
   }
+  
   std::vector<std::string> parts;
   boost::split(parts, auth, boost::is_any_of(":"));
   if (parts[0] == "basic") {

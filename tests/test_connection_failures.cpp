@@ -38,6 +38,7 @@ static void tryToConnectExpectFailure(f::EventLoopService& eventLoopService,
   f::ConnectionBuilder cbuilder;
   cbuilder.endpoint(url);
   cbuilder.onFailure([&](f::Error errorCode, const std::string& errorMessage){
+    ASSERT_EQ(errorCode, f::Error::CouldNotConnect);
     wg.done();
   });
   auto connection = cbuilder.connect(eventLoopService);

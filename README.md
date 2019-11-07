@@ -25,10 +25,10 @@ communication.
 
 The following development packages need to be installed
 
-- C++ 11 compiler
+- C++ 17 compiler
 - VelocyPack
 - cmake 3.4
-- Boost Libraries 1.67
+- Boost Libraries 1.71 (older might work too)
 
 VelocyPack source can be obtained from GitHub using the following git command into your chosen directory 
 git clone https://github.com/arangodb/velocypack
