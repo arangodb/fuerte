@@ -23,7 +23,7 @@ include_directories(${OPENSSL_INCLUDE_DIR})
 
 find_package(Threads REQUIRED)
 
-find_package(Boost REQUIRED COMPONENTS "system" "thread")
+find_package(Boost 1.71.0 REQUIRED COMPONENTS "system" "thread")
 
 if(VELOCYPACK_SOURCE_DIR)
     option(BuildVelocyPackExamples "Build examples" OFF)

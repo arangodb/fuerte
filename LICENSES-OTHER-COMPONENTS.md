@@ -5,6 +5,11 @@
 * Project Home: https://www.boost.org/
 * License: [Boost Licence](https://www.boost.org/users/license.html)
 
+### nghttp2
+
+* Project Home: https://nghttp2.org/
+* License: [MT License](https://github.com/nghttp2/nghttp2/blob/master/COPYING)
+
 ### velocypack
 
 * Project Home: https://github.com/arangodb/velocypack
