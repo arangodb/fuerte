@@ -188,8 +188,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Sending Request (messageid will be replaced)"
               << fu::to_string(*request) << std::endl;
 
-    auto id = connection->sendRequest(std::move(request), cb);
-    std::cout << "Request was assigned ID: " << id << std::endl;
+    connection->sendRequest(std::move(request), cb);
   } catch (std::exception const& ex) {
     std::cerr << "exception: " << ex.what() << std::endl;
     exit(EXIT_FAILURE);
