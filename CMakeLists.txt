@@ -23,7 +23,7 @@ include_directories(${OPENSSL_INCLUDE_DIR})
 
 find_package(Threads REQUIRED)
 
-find_package(Boost REQUIRED COMPONENTS "system" "thread")
+find_package(Boost 1.71.0 REQUIRED COMPONENTS "system" "thread")
 
 if(VELOCYPACK_SOURCE_DIR)
     option(BuildVelocyPackExamples "Build examples" OFF)
@@ -48,7 +48,8 @@ add_library(fuerte STATIC
     src/GeneralConnection.cpp
     src/helper.cpp
     src/http.cpp
-    src/HttpConnection.cpp
+    src/H1Connection.cpp
+    src/H2Connection.cpp
     src/jwt.cpp
     src/loop.cpp
     src/message.cpp
@@ -66,6 +67,7 @@ target_link_libraries(fuerte PUBLIC
     Boost::thread
     ${OPENSSL_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
+    nghttp2
 )
 target_include_directories(fuerte PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -83,8 +85,11 @@ target_compile_definitions(fuerte PUBLIC
 add_executable(fuerte-get tools/fuerte-get.cpp)
 target_link_libraries(fuerte-get PUBLIC fuerte)
 
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/nghttp2/)
+
 #########################################################################################
 # Tests
+
 if(FUERTE_TESTS)
     add_subdirectory(3rdParty/googletest)
     add_subdirectory(tests)
@@ -92,12 +97,14 @@ endif()
 
 #########################################################################################
 # Examples
+
 if(FUERTE_EXAMPLES)
     add_subdirectory(examples)
 endif()
 
 #########################################################################################
 # Install
+
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     if(UNIX)
         set(CMAKE_INSTALL_PREFIX  "$ENV{HOME}/.local")
